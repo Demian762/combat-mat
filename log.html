@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Dice Log — OBS Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background:transparent;
+  overflow:hidden;
+  width:100vw; height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  padding:18px 22px;
+  gap:0;
+}
+
+.roll-entry {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:10px 16px;
+  margin-bottom:10px;
+  background:rgba(8,5,2,0.82);
+  border:1px solid rgba(200,146,42,0.35);
+  border-left:4px solid #c8922a;
+  border-radius:5px;
+  backdrop-filter:blur(4px);
+  animation:slide-in 0.35s cubic-bezier(0.22,1,0.36,1) both;
+  max-width:480px;
+}
+
+.roll-entry.fading {
+  animation:fade-out 0.6s ease forwards;
+}
+
+@keyframes slide-in {
+  from { opacity:0; transform:translateX(-28px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+
+@keyframes fade-out {
+  from { opacity:1; transform:translateX(0); }
+  to   { opacity:0; transform:translateX(-12px); }
+}
+
+.roll-total {
+  font-family:'Cinzel',serif;
+  font-size:46px;
+  font-weight:700;
+  color:#f0c060;
+  line-height:1;
+  min-width:60px;
+  text-align:center;
+  text-shadow:0 0 18px rgba(200,146,42,0.9), 0 2px 4px rgba(0,0,0,0.9);
+  flex-shrink:0;
+}
+
+.roll-info {
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  min-width:0;
+}
+
+.roll-player {
+  font-family:'Cinzel',serif;
+  font-size:16px;
+  color:#f0c060;
+  letter-spacing:1px;
+  text-shadow:0 1px 6px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.roll-dice {
+  font-family:'Cinzel',serif;
+  font-size:13px;
+  color:#c8922a;
+  letter-spacing:.5px;
+  text-shadow:0 1px 4px rgba(0,0,0,0.95);
+}
+
+.roll-detail {
+  font-family:'EB Garamond',serif;
+  font-size:13px;
+  color:rgba(220,170,80,0.7);
+  text-shadow:0 1px 4px rgba(0,0,0,0.95);
+}
+</style>
+</head>
+<body>
+<div id="log-wrap"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey:            "AIzaSyDEYQFhozdmZklBT1K_BHelZZxDjJLFSyU",
+  authDomain:        "combat-mat.firebaseapp.com",
+  projectId:         "combat-mat",
+  storageBucket:     "combat-mat.firebasestorage.app",
+  messagingSenderId: "299947800344",
+  appId:             "1:299947800344:web:bb7a2d221a9987d8d1d06d",
+  databaseURL:       "https://combat-mat-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const MAX_VISIBLE = 5;
+const VISIBLE_MS  = 9000;
+const wrap = document.getElementById('log-wrap');
+
+// entries = [{el, timer}]  newest at bottom
+const entries = [];
+
+db.ref('sala/rolls').limitToLast(1).on('child_added', snap => {
+  const r = snap.val();
+  if (!r) return;
+
+  const el = document.createElement('div');
+  el.className = 'roll-entry';
+
+  const det = Object.entries(r.rolls || {})
+    .map(([dt, arr]) => `${dt}:[${arr.join(',')}]`).join('  ');
+  const modStr = r.modifier ? ` mod:${r.modifier > 0 ? '+' : ''}${r.modifier}` : '';
+
+  el.innerHTML = `
+    <div class="roll-total">${r.total}</div>
+    <div class="roll-info">
+      <div class="roll-player">${r.player || '?'}</div>
+      <div class="roll-dice">${r.dice}</div>
+      <div class="roll-detail">${det}${modStr}</div>
+    </div>`;
+
+  wrap.appendChild(el);
+
+  const timer = setTimeout(() => removeEntry(entry), VISIBLE_MS);
+  const entry = { el, timer };
+  entries.push(entry);
+
+  // If over max, remove oldest immediately
+  if (entries.length > MAX_VISIBLE) {
+    removeEntry(entries[0]);
+  }
+});
+
+function removeEntry(entry) {
+  const idx = entries.indexOf(entry);
+  if (idx === -1) return;
+  clearTimeout(entry.timer);
+  entries.splice(idx, 1);
+  entry.el.classList.add('fading');
+  setTimeout(() => entry.el.remove(), 600);
+}
+</script>
+</body>
+</html>
