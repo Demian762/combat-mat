@@ -604,7 +604,7 @@ function renderLeftPanel(){
   container.innerHTML=ordered.map((t,i)=>{
     const ip=t.type==='player';
     const pct=ip?t.hp/t.maxHp*100:0;
-    const hc=pct>50?'#4ae27a':pct>25?'#e2c84a':'#e24a4a';
+    const hc=pct>50?'#f0c060':pct>25?'#c8922a':'#e24a4a';
     const isTurn=S.turn===t.id;
     return `<div class="litem ${isTurn?'litem-turn':''}" data-id="${t.id}">
       <div class="litem-left">
