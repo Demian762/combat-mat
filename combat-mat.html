@@ -419,13 +419,12 @@ function paintCell(e){
   if(sc<0||sc>=COLS||sr<0||sr>=ROWS)return;
   const col=sc+S.ox, row=sr+S.oy;
   const key=`${col},${row}`;
-  const fbKey=`${col},${row}`;
   if(S.activeTerrain==='eraser'){
     delete S.terrain[key];
-    db.ref('sala/scenes/'+activeScene+'/terrain/'+fbKey).remove();
+    db.ref('sala/scenes/'+activeScene+'/terrain/'+key).remove();
   }else{
     S.terrain[key]=S.activeTerrain;
-    db.ref('sala/scenes/'+activeScene+'/terrain/'+fbKey).set(S.activeTerrain);
+    db.ref('sala/scenes/'+activeScene+'/terrain/'+key).set(S.activeTerrain);
   }
   renderTerrain();
 }
@@ -525,7 +524,6 @@ function renderAllToks(){S.tokens.forEach(renderTok);}
 // Toggle selección. Al seleccionar activa cursor:none (modo medición de distancia).
 function sel(id){
   S.selId=S.selId===id?null:id;
-  if(S.selId) S.turn=S.selId;
   grid.classList.toggle('measuring', !!S.selId);
   renderAllToks();renderList();
 }
@@ -555,12 +553,13 @@ function renameTok(id){
   const n=prompt('Nuevo nombre:',t.name);if(!n||!n.trim())return;
   t.name=n.trim().slice(0,18);
   renderTok(t);renderList();
-  if(t.type==='player')db.ref('sala/players/'+id).update({name:t.name});
+  if(t.type==='player'){db.ref('sala/players/'+id).update({name:t.name});updateDiceNameOptions();}
   else db.ref('sala/scenes/'+activeScene+'/enemies/'+id).update({name:t.name});
 }
 function clearAll(){
   S.tokens.forEach(t=>{if(t._el)t._el.remove();});
   S.tokens=[];S.selId=null;S.order=[];S.turn=null;
+  grid.classList.remove('measuring');clearArrow();
   db.ref('sala/players').remove();
   db.ref('sala/scenes/'+activeScene+'/enemies').remove();
   db.ref('sala/scenes/'+activeScene+'/order').remove();
@@ -641,7 +640,7 @@ function renderList(){renderLeftPanel();}
 function startDrag(e,id){
   if(e.button!==0||S.activeTerrain)return;e.preventDefault();e.stopPropagation();
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
-  S.selId=id; S.turn=id;
+  S.selId=id;
   const sc=t.col-S.ox, sr=t.row-S.oy;
   drag={id,sx:e.clientX,sy:e.clientY,sc,sr};
   t._el.classList.add('dragging');
@@ -705,7 +704,6 @@ function clearArrow(){const defs=svg.querySelector('defs');svg.innerHTML='';if(d
 // Distancia D&D 5e: Chebyshev (diagonal = 5 ft, igual que recto).
 // Solo se llama cuando la distancia es > 1 casilla (> 5 ft).
 function drawArrow(sc,sr,ec,er){
-  svg.innerHTML='';
   if(sc===ec&&sr===er)return;
   const half=CS/2;
   const x1=sc*CS+half, y1=sr*CS+half;
@@ -780,7 +778,9 @@ function updateDiceNameOptions(){
   const sel=document.getElementById('dplayer-name');if(!sel)return;
   const prev=sel.value;
   sel.innerHTML='<option value="">Anónimo</option><option value="Master">Master</option>';
+  const seen=new Set(['','Master']);
   S.tokens.filter(t=>t.type==='player').forEach(t=>{
+    if(seen.has(t.name))return;seen.add(t.name);
     const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);
   });
   sel.value=Array.from(sel.options).some(o=>o.value===prev)?prev:'';
@@ -819,12 +819,12 @@ function updateDiceDisplay(){
   const parts=Object.entries(dCount).filter(([,n])=>n>0).map(([dt,n])=>`${n}${dt}`);
   const modStr=dMod>0?`+${dMod}`:dMod<0?String(dMod):'';
   document.getElementById('dsel-str').textContent=parts.length?parts.join('+')+modStr:'—';
-  const only1d20=dCount.d20===1&&dCount.d4===0&&dCount.d6===0&&dCount.d8===0&&dCount.d12===0;
-  const vb=document.getElementById('btn-vent'),db=document.getElementById('btn-desv');
-  vb.disabled=!only1d20; db.disabled=!only1d20;
+  const only1d20=dCount.d20===1&&dCount.d4===0&&dCount.d6===0&&dCount.d8===0&&dCount.d10===0&&dCount.d12===0;
+  const vb=document.getElementById('btn-vent'),dsbtn=document.getElementById('btn-desv');
+  vb.disabled=!only1d20; dsbtn.disabled=!only1d20;
   if(!only1d20)dAdvMode=null;
   vb.classList.toggle('active',dAdvMode==='vent');
-  db.classList.toggle('active',dAdvMode==='desv');
+  dsbtn.classList.toggle('active',dAdvMode==='desv');
 }
 
 function setAdvMode(type){
@@ -1005,7 +1005,7 @@ function rollDice(){
   if(!Object.values(dCount).some(n=>n>0))return;
   let rolls={},sum=dMod,diceStr,meshList;
   const modStr=dMod>0?`+${dMod}`:dMod<0?String(dMod):'';
-  const only1d20=dCount.d20===1&&dCount.d4===0&&dCount.d6===0&&dCount.d8===0&&dCount.d12===0;
+  const only1d20=dCount.d20===1&&dCount.d4===0&&dCount.d6===0&&dCount.d8===0&&dCount.d10===0&&dCount.d12===0;
   if(dAdvMode&&only1d20){
     const r1=Math.floor(Math.random()*20)+1,r2=Math.floor(Math.random()*20)+1;
     const picked=dAdvMode==='vent'?Math.max(r1,r2):Math.min(r1,r2);
@@ -1049,7 +1049,7 @@ function renderDiceLog(){
     const det=Object.entries(e.rolls).map(([dt,arr])=>`${dt}:[${arr.join(',')}]`).join(' ');
     return`<div class="dlog-entry">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <span class="dlog-name">${e.player||e.who||'?'}</span><span class="dlog-total-val">${e.total}</span>
+        <span class="dlog-name">${e.player||'?'}</span><span class="dlog-total-val">${e.total}</span>
       </div>
       <div class="dlog-dice-str">${e.dice}</div>
       <div class="dlog-detail-str">${det}${e.modifier?` mod:${e.modifier>0?'+':''}${e.modifier}`:''}</div>
@@ -1095,7 +1095,8 @@ function attachSceneListeners(sceneId){
 function switchScene(id){
   activeScene=id;
   clearEnemies();
-  S.terrain={};S.order=[];S.turn=null;
+  S.terrain={};S.order=[];S.turn=null;S.selId=null;
+  grid.classList.remove('measuring');
   clearArrow();
   renderTerrain();renderAllToks();renderList();
   attachSceneListeners(id);
