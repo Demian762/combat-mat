@@ -470,9 +470,9 @@ function adjMaxHp(d){
 function tokToFb(t){const{_el,...r}=t;return r;}
 
 function uniqueName(base){
-  const names=new Set(S.tokens.map(t=>t.name));
-  if(!names.has(base))return base;
-  let n=2;while(names.has(`${base} ${n}`))n++;
+  const names=new Set(S.tokens.map(t=>t.name.toLowerCase()));
+  if(!names.has(base.toLowerCase()))return base;
+  let n=2;while(names.has(`${base} ${n}`.toLowerCase()))n++;
   return `${base} ${n}`;
 }
 async function addTok(type){
