@@ -653,8 +653,7 @@ function startDrag(e,id){
   if(e.button!==0||S.activeTerrain)return;e.preventDefault();e.stopPropagation();
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
   if(S.turn!==id){S.turn=id;S.selId=id;db.ref('sala/scenes/'+activeScene+'/turn').set(id);}
-  const sc=t.col-S.ox, sr=t.row-S.oy;
-  drag={id,sx:e.clientX,sy:e.clientY,sc,sr};
+  drag={id};
   t._el.classList.add('dragging');
   grid.classList.remove('measuring');
   clearArrow();
@@ -671,9 +670,15 @@ document.addEventListener('mousemove',e=>{
   }
   if(!drag)return;
   const t=S.tokens.find(t=>t.id===drag.id);if(!t||!t._el)return;
-  const nx=clamp(drag.sc+Math.round((e.clientX-drag.sx)/(CS*appZoom)),0,COLS-1);
-  const ny=clamp(drag.sr+Math.round((e.clientY-drag.sy)/(CS*appZoom)),0,ROWS-1);
-  t._el.style.left=nx*CS+'px'; t._el.style.top=ny*CS+'px';
+  const rect=grid.getBoundingClientRect();
+  const z=CS*appZoom;
+  const hc=Math.floor((e.clientX-rect.left)/z);
+  const hr=Math.floor((e.clientY-rect.top-2*appZoom)/z);
+  if(hc<0||hc>=COLS||hr<0||hr>=ROWS){clearArrow();return;}
+  const sc=t.col-S.ox, sr=t.row-S.oy;
+  if(hc===sc&&hr===sr){clearArrow();return;}
+  arrowTarget={sc:hc,sr:hr};
+  drawArrow(sc,sr,hc,hr);
 });
 
 document.addEventListener('mouseup',e=>{
@@ -694,16 +699,14 @@ document.addEventListener('mouseup',e=>{
   const t=S.tokens.find(t=>t.id===drag.id);
   if(t&&t._el){
     t._el.classList.remove('dragging');
-    const rect=grid.getBoundingClientRect();
-    const z=CS*appZoom;
-    const sc=clamp(Math.floor((e.clientX-rect.left)/z),0,COLS-1);
-    const sr=clamp(Math.floor((e.clientY-rect.top-2*appZoom)/z),0,ROWS-1);
-    const prevCol=t.col, prevRow=t.row;
-    t.col=sc+S.ox; t.row=sr+S.oy;
+    if(arrowTarget){
+      t.col=arrowTarget.sc+S.ox; t.row=arrowTarget.sr+S.oy;
+      clearArrow();
+      if(t.type==='player')db.ref('sala/players/'+t.id).update({col:t.col,row:t.row});
+      else db.ref('sala/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
+    }
     if(S.selId)grid.classList.add('measuring');
     renderTok(t);renderList();
-    if(t.type==='player')db.ref('sala/players/'+t.id).update({col:t.col,row:t.row});
-    else db.ref('sala/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
   }
   drag=null;
 });
@@ -715,7 +718,6 @@ let arrowTarget=null; // celda destino activa {sc,sr} en coords de pantalla
 function clearArrow(){const defs=svg.querySelector('defs');svg.innerHTML='';if(defs)svg.appendChild(defs);arrowTarget=null;}
 // Dibuja flecha SVG desde celda origen a destino (coords de pantalla, no absolutas).
 // Distancia D&D 5e: Chebyshev (diagonal = 5 ft, igual que recto).
-// Solo se llama cuando la distancia es > 1 casilla (> 5 ft).
 function drawArrow(sc,sr,ec,er){
   if(sc===ec&&sr===er)return;
   const half=CS/2;
@@ -756,7 +758,6 @@ grid.addEventListener('mousemove',e=>{
   if(hc<0||hc>=COLS||hr<0||hr>=ROWS){clearArrow();return;}
   const sc=t.col-S.ox, sr=t.row-S.oy;
   if(hc===sc&&hr===sr){clearArrow();return;}
-  if(Math.max(Math.abs(hc-sc),Math.abs(hr-sr))<=1){clearArrow();return;}
   arrowTarget={sc:hc,sr:hr};
   drawArrow(sc,sr,hc,hr);
 });
