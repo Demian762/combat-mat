@@ -35,7 +35,6 @@ body { background:#141414; overflow:hidden; width:100vw; height:100vh; font-fami
 .litem:last-child { border-bottom:none; }
 .litem.dragging-item { opacity:.4; }
 .litem.drag-over { border-top:2px solid var(--amber-lt); }
-.litem.litem-active { background:rgba(200,146,42,0.1); border-left:2px solid transparent; }
 .litem.litem-turn { background:rgba(200,146,42,0.07); border-left:2px solid var(--amber); }
 .litem-left { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:4px; width:36px; flex-shrink:0; padding-top:2px; border-right:1px solid var(--border); margin-right:8px; }
 .litem-num { font-family:'Cinzel',serif; font-size:10px; color:rgba(200,146,42,0.6); line-height:1; padding-left:0; text-align:center; width:100%; }
@@ -507,6 +506,7 @@ async function addTok(type){
   document.getElementById('iname').value='';
   const newOrder=[...new Set([...getOrdered().map(tk=>tk.id),newId])];
   db.ref('sala/scenes/'+activeScene+'/order').set(newOrder);
+  if(!S.turn)db.ref('sala/scenes/'+activeScene+'/turn').set(newId);
 }
 
 // Crea el DOM del token si no existe, y actualiza su posición/visibilidad según viewport.
@@ -519,7 +519,7 @@ function renderTok(t){
   if(!t._el){
     const el=document.createElement('div');el.id='tok'+t.id;el.className=`token token-${t.type}`;
     el.addEventListener('mousedown',e=>startDrag(e,t.id));
-    el.addEventListener('click',e=>{e.stopPropagation();sel(t.id);});
+    el.addEventListener('click',e=>{e.stopPropagation();selectTok(t.id);});
     grid.appendChild(el);t._el=el;
   }
   const sc=t.col-S.ox, sr=t.row-S.oy;
@@ -536,11 +536,12 @@ function renderTok(t){
 
 function renderAllToks(){S.tokens.forEach(renderTok);}
 
-// Toggle selección. Al seleccionar activa cursor:none (modo medición de distancia).
-function sel(id){
-  S.selId=S.selId===id?null:id;
-  grid.classList.toggle('measuring', !!S.selId);
-  renderAllToks();renderList();
+function selectTok(id){
+  if(S.turn===id)return;
+  S.turn=id; S.selId=id;
+  db.ref('sala/scenes/'+activeScene+'/turn').set(id);
+  grid.classList.add('measuring');
+  renderAllToks(); renderList();
 }
 function adjHP(id,d){
   const t=S.tokens.find(t=>t.id===id);if(!t)return;
@@ -552,8 +553,11 @@ function delTok(id){
   const t=S.tokens.find(t=>t.id===id);if(!t)return;
   if(t._el)t._el.remove();
   S.tokens=S.tokens.filter(tk=>tk.id!==id);
-  if(S.selId===id){S.selId=null;grid.classList.remove('measuring');clearArrow();}
-  if(S.turn===id)db.ref('sala/scenes/'+activeScene+'/turn').set(null);
+  if(S.turn===id){
+    const next=getOrdered()[0]||null;
+    db.ref('sala/scenes/'+activeScene+'/turn').set(next?next.id:null);
+    if(!next){S.selId=null;grid.classList.remove('measuring');clearArrow();}
+  }
   if(t.type==='player'){
     db.ref('sala/players/'+id).remove();
   }else{
@@ -592,12 +596,6 @@ function getOrdered(){
   visIds.forEach(id=>{if(!ordered.includes(id))ordered.push(id);});
   return ordered.map(id=>S.tokens.find(t=>t.id===id)).filter(Boolean);
 }
-// Activa el turno de un combatiente. Solo uno a la vez. Si ya está activo, lo desactiva.
-function setTurn(id){
-  S.turn = S.turn===id ? null : id;
-  db.ref('sala/scenes/'+activeScene+'/turn').set(S.turn);
-  renderLeftPanel();
-}
 
 function renderLeftPanel(){
   const ordered=getOrdered();
@@ -607,12 +605,11 @@ function renderLeftPanel(){
     const ip=t.type==='player';
     const pct=ip?t.hp/t.maxHp*100:0;
     const hc=pct>50?'#4ae27a':pct>25?'#e2c84a':'#e24a4a';
-    const isActive=S.selId===t.id;
     const isTurn=S.turn===t.id;
-    return `<div class="litem ${isActive?'litem-active':''} ${isTurn?'litem-turn':''}" data-id="${t.id}">
+    return `<div class="litem ${isTurn?'litem-turn':''}" data-id="${t.id}">
       <div class="litem-left">
         <span class="litem-num">${i+1}</span>
-        <div class="litem-cb ${isTurn?'on':''}" onmousedown="event.stopPropagation()" onclick="setTurn(${t.id})"></div>
+        <div class="litem-cb ${isTurn?'on':''}" onmousedown="event.stopPropagation()" onclick="selectTok(${t.id})"></div>
       </div>
       <div class="litem-body">
         <div class="litem-header">
@@ -655,7 +652,7 @@ function renderList(){renderLeftPanel();}
 function startDrag(e,id){
   if(e.button!==0||S.activeTerrain)return;e.preventDefault();e.stopPropagation();
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
-  S.selId=id;
+  if(S.turn!==id){S.turn=id;S.selId=id;db.ref('sala/scenes/'+activeScene+'/turn').set(id);}
   const sc=t.col-S.ox, sr=t.row-S.oy;
   drag={id,sx:e.clientX,sy:e.clientY,sc,sr};
   t._el.classList.add('dragging');
@@ -703,7 +700,7 @@ document.addEventListener('mouseup',e=>{
     const sr=clamp(Math.floor((e.clientY-rect.top-2*appZoom)/z),0,ROWS-1);
     const prevCol=t.col, prevRow=t.row;
     t.col=sc+S.ox; t.row=sr+S.oy;
-    if(t.col!==prevCol||t.row!==prevRow){S.selId=null;grid.classList.remove('measuring');}
+    if(S.selId)grid.classList.add('measuring');
     renderTok(t);renderList();
     if(t.type==='player')db.ref('sala/players/'+t.id).update({col:t.col,row:t.row});
     else db.ref('sala/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
@@ -777,17 +774,10 @@ grid.addEventListener('dblclick',e=>{
 });
 grid.addEventListener('click',e=>{
   if(e.target.closest('.token'))return;
-  if(S.selId===null)return;
-  if(arrowTarget){
-    clickTimer=setTimeout(()=>{
-      S.selId=null;grid.classList.remove('measuring');renderAllToks();renderList();clearArrow();
-    },220);
-  } else {
-    S.selId=null;grid.classList.remove('measuring');renderAllToks();renderList();clearArrow();
-  }
+  clearArrow();
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){S.selId=null;grid.classList.remove('measuring');renderAllToks();renderList();clearArrow();}
+  if(e.key==='Escape')clearArrow();
   if(e.key==='Delete'&&S.selId)delTok(S.selId);
 });
 
@@ -1098,7 +1088,13 @@ function attachSceneListeners(sceneId){
   sceneRefs.order=db.ref(base+'/order');
   sceneRefs.order.on('value',snap=>{S.order=snap.val()||[];renderList();});
   sceneRefs.turn=db.ref(base+'/turn');
-  sceneRefs.turn.on('value',snap=>{S.turn=snap.val()||null;renderList();});
+  sceneRefs.turn.on('value',snap=>{
+    S.turn=snap.val()||null;
+    S.selId=S.turn;
+    grid.classList.toggle('measuring',!!S.selId);
+    renderAllToks(); renderList();
+    if(!S.selId)clearArrow();
+  });
   sceneRefs.pickerStates=db.ref(base+'/pickerStates');
   sceneRefs.pickerStates.on('value',snap=>{
     const v=snap.val();if(!v)return;
