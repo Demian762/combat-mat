@@ -653,7 +653,8 @@ function startDrag(e,id){
   if(e.button!==0||S.activeTerrain)return;e.preventDefault();e.stopPropagation();
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
   if(S.turn!==id){S.turn=id;S.selId=id;db.ref('sala/scenes/'+activeScene+'/turn').set(id);}
-  drag={id};
+  drag={id,fbSet:false,lastFbCol:null,lastFbRow:null};
+  db.ref('sala/scenes/'+activeScene+'/arrow').onDisconnect().remove();
   t._el.classList.add('dragging');
   document.body.classList.add('tok-dragging');
   grid.classList.remove('measuring');
@@ -675,11 +676,15 @@ document.addEventListener('mousemove',e=>{
   const z=CS*appZoom;
   const hc=Math.floor((e.clientX-rect.left)/z);
   const hr=Math.floor((e.clientY-rect.top-2*appZoom)/z);
-  if(hc<0||hc>=COLS||hr<0||hr>=ROWS){clearArrow();return;}
   const sc=t.col-S.ox, sr=t.row-S.oy;
-  if(hc===sc&&hr===sr){clearArrow();return;}
+  if(hc<0||hc>=COLS||hr<0||hr>=ROWS||hc===sc&&hr===sr){clearArrow();return;}
   arrowTarget={sc:hc,sr:hr};
   drawArrow(sc,sr,hc,hr);
+  const absCol=hc+S.ox, absRow=hr+S.oy;
+  if(!drag.fbSet||drag.lastFbCol!==absCol||drag.lastFbRow!==absRow){
+    drag.fbSet=true;drag.lastFbCol=absCol;drag.lastFbRow=absRow;
+    db.ref('sala/scenes/'+activeScene+'/arrow').set({fromId:drag.id,toCol:absCol,toRow:absRow,_sender:CLIENT_ID});
+  }
 });
 
 document.addEventListener('mouseup',e=>{
@@ -703,10 +708,11 @@ document.addEventListener('mouseup',e=>{
     document.body.classList.remove('tok-dragging');
     if(arrowTarget){
       t.col=arrowTarget.sc+S.ox; t.row=arrowTarget.sr+S.oy;
-      clearArrow();
       if(t.type==='player')db.ref('sala/players/'+t.id).update({col:t.col,row:t.row});
       else db.ref('sala/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
     }
+    clearArrow();
+    db.ref('sala/scenes/'+activeScene+'/arrow').onDisconnect().cancel();
     if(S.selId)grid.classList.add('measuring');
     renderTok(t);renderList();
   }
@@ -717,7 +723,10 @@ document.addEventListener('mouseup',e=>{
 const svg=document.getElementById('arrow-svg');
 let arrowTarget=null; // celda destino activa {sc,sr} en coords de pantalla
 
-function clearArrow(){const defs=svg.querySelector('defs');svg.innerHTML='';if(defs)svg.appendChild(defs);arrowTarget=null;}
+function clearArrow(){
+  const defs=svg.querySelector('defs');svg.innerHTML='';if(defs)svg.appendChild(defs);arrowTarget=null;
+  if(drag&&drag.fbSet){drag.fbSet=false;db.ref('sala/scenes/'+activeScene+'/arrow').set(null);}
+}
 // Dibuja flecha SVG desde celda origen a destino (coords de pantalla, no absolutas).
 // Distancia D&D 5e: Chebyshev (diagonal = 5 ft, igual que recto).
 function drawArrow(sc,sr,ec,er){
@@ -1077,6 +1086,17 @@ function attachSceneListeners(sceneId){
   });
   sceneRefs.order=db.ref(base+'/order');
   sceneRefs.order.on('value',snap=>{S.order=snap.val()||[];renderList();});
+  sceneRefs.arrow=db.ref(base+'/arrow');
+  sceneRefs.arrow.on('value',snap=>{
+    const v=snap.val();
+    if(!v){if(!drag)clearArrow();return;}
+    if(v._sender===CLIENT_ID)return;
+    const t=S.tokens.find(t=>t.id===v.fromId);if(!t)return;
+    const sc=t.col-S.ox, sr=t.row-S.oy;
+    const ec=v.toCol-S.ox, er=v.toRow-S.oy;
+    arrowTarget={sc:ec,sr:er};
+    drawArrow(sc,sr,ec,er);
+  });
   sceneRefs.turn=db.ref(base+'/turn');
   sceneRefs.turn.on('value',snap=>{
     S.turn=snap.val()||null;
