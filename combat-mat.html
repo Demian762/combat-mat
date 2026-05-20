@@ -15,7 +15,6 @@ body { background:#141414; overflow:hidden; width:100vw; height:100vh; font-fami
 #grid-wrap { position:relative; flex-shrink:0; }
 #grid { position:relative; display:grid; box-sizing:content-box; grid-template-columns:repeat(20,var(--cs)); grid-template-rows:repeat(20,var(--cs)); width:calc(20*var(--cs)); height:calc(20*var(--cs)); border:2px solid var(--amber); border-left:none; border-right:none; }
 #grid.painting { cursor:crosshair; }
-#grid.measuring { cursor: none; }
 .token { position:absolute; width:var(--cs); height:var(--cs); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:grab; user-select:none; z-index:10; }
 .token:hover { filter:brightness(1.35); z-index:20; }
 .token.selected { z-index:30; }
