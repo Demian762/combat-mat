@@ -132,9 +132,9 @@ input[type=text]:focus { border-color:var(--amber); }
 #btn-vent.active, #btn-desv.active { border-color:var(--amber-lt); background:rgba(200,146,42,0.18); color:var(--amber-lt); box-shadow:0 0 8px rgba(200,146,42,0.35); }
 #dice .sec-title { font-size:12px; }
 #dice .plabel { font-size:11px; letter-spacing:.5px; }
-#scene-select { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
-#scene-select:focus { border-color:var(--amber); }
-#scene-select option { background:#140e04; color:#ddd; }
+#scene-select, #dplayer-name { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
+#scene-select:focus, #dplayer-name:focus { border-color:var(--amber); }
+#scene-select option, #dplayer-name option { background:#140e04; color:#ddd; }
 </style>
 </head>
 <body>
@@ -144,7 +144,10 @@ input[type=text]:focus { border-color:var(--amber); }
   <div id="dice">
     <div class="section">
       <span class="sec-title">Nombre</span>
-      <input type="text" id="dplayer-name" placeholder="Tu nombre..." maxlength="20" style="margin-bottom:0">
+      <select id="dplayer-name" style="margin-bottom:0">
+        <option value="">Anónimo</option>
+        <option value="Master">Master</option>
+      </select>
     </div>
     <div class="section">
       <span class="sec-title">Dados</span>
@@ -773,6 +776,16 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Delete'&&S.selId)delTok(S.selId);
 });
 
+function updateDiceNameOptions(){
+  const sel=document.getElementById('dplayer-name');if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='<option value="">Anónimo</option><option value="Master">Master</option>';
+  S.tokens.filter(t=>t.type==='player').forEach(t=>{
+    const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);
+  });
+  sel.value=Array.from(sel.options).some(o=>o.value===prev)?prev:'';
+}
+
 /* ── Dice ── */
 const DSIDES={d4:4,d6:6,d8:8,d10:10,d12:12,d20:20};
 const DCOLORS={d4:0xe8a020,d6:0x4682d4,d8:0x9b4de0,d10:0x20a8b8,d12:0xc44040,d20:0x20a060};
@@ -1119,6 +1132,7 @@ function initFirebase(){
       renderTok(t);
     });
     renderList();
+    updateDiceNameOptions();
   });
   db.ref('sala/rolls').limitToLast(20).on('child_added',snap=>{
     const r=snap.val();
