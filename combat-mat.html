@@ -1011,6 +1011,13 @@ function rollDice(){
   document.getElementById('droll-result').textContent=String(sum);
   const dPlayerName=(document.getElementById('dplayer-name').value.trim())||'Anónimo';
   db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier:dMod,total:sum,timestamp:Date.now(),_cid:CLIENT_ID});
+  db.ref('sala/rolls').orderByKey().once('value',snap=>{
+    const keys=Object.keys(snap.val()||{});
+    if(keys.length>20){
+      const upd={};keys.slice(0,keys.length-20).forEach(k=>{upd['sala/rolls/'+k]=null;});
+      db.ref().update(upd);
+    }
+  });
   spawnDiceMeshes(rolls,meshList);
   dAdvMode=null;
   dMod=0;
