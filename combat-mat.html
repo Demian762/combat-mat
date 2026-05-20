@@ -469,12 +469,16 @@ function adjMaxHp(d){
 
 function tokToFb(t){const{_el,...r}=t;return r;}
 
+function uniqueName(base){
+  const names=new Set(S.tokens.map(t=>t.name));
+  if(!names.has(base))return base;
+  let n=2;while(names.has(`${base} ${n}`))n++;
+  return `${base} ${n}`;
+}
 async function addTok(type){
   const input=document.getElementById('iname').value.trim();
-  let name;
-  if(input)name=input.slice(0,18);
-  else if(type==='enemy'){const n=S.tokens.filter(t=>t.type==='enemy').length+1;name=`Enemigo ${n}`;}
-  else name='Jugador';
+  const base=input?input.slice(0,18):type==='enemy'?'Enemigo':'Jugador';
+  const name=uniqueName(base);
   const color=type==='player'?S.selectedColor:'#7a1414';
   let col=S.ox,row=S.oy;
   outer:for(let r=S.oy;r<S.oy+ROWS;r++)for(let c=S.ox;c<S.ox+COLS;c++){
