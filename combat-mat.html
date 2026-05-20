@@ -940,11 +940,12 @@ function initDiceScene(){
   })();
 }
 
-function dMakeMesh(dt,result){
+function dMakeMesh(dt,result,dieColor){
   result=result||1;
   const s=1.3;
+  const col=dieColor!=null?dieColor:DCOLORS[dt];
   if(dt==='d10'){
-    const mat=new THREE.MeshPhongMaterial({color:DCOLORS[dt],shininess:100,specular:0x333333});
+    const mat=new THREE.MeshPhongMaterial({color:col,shininess:100,specular:0x333333});
     const g=new THREE.Group();
     const top=new THREE.Mesh(new THREE.ConeGeometry(0.9,1.2,5),mat);top.position.y=0.6;
     const bot=new THREE.Mesh(new THREE.ConeGeometry(0.9,0.9,5),mat);bot.rotation.x=Math.PI;bot.position.y=-0.45;
@@ -966,7 +967,7 @@ function dMakeMesh(dt,result){
     geom=gmap[dt];
     faceNormals=setupFaceGroups(geom,nf,tpf);
   }
-  const mats=nums.map(n=>new THREE.MeshLambertMaterial({map:makeNumTex(n,DCOLORS[dt])}));
+  const mats=nums.map(n=>new THREE.MeshLambertMaterial({map:makeNumTex(n,col)}));
   const mesh=new THREE.Mesh(geom,mats);
   mesh._faceNormals=faceNormals;
   return mesh;
@@ -982,13 +983,13 @@ function dFindPos(occupied){
   return{x:(Math.random()-.5)*12,z:(Math.random()-.5)*7};
 }
 
-function spawnDiceMeshes(rolls, meshList){
+function spawnDiceMeshes(rolls, meshList, dieColor){
   if(!dScene)return;
   const rollsCopy={};Object.keys(rolls).forEach(dt=>{rollsCopy[dt]=[...rolls[dt]];});
   const resultList=meshList.map(dt=>{const a=rollsCopy[dt]||(rollsCopy[dt]=[]);return a.length?a.shift():1;});
   const placed=[];
   meshList.forEach((dt,i)=>{
-    const mesh=dMakeMesh(dt,resultList[i]);
+    const mesh=dMakeMesh(dt,resultList[i],dieColor??null);
     const pos=dFindPos([...dMeshes.map(m=>({x:m.mesh.position.x,z:m.mesh.position.z})),...placed]);
     placed.push(pos);
     const startX=pos.x+(Math.random()-.5)*16;
@@ -1023,7 +1024,9 @@ function rollDice(){
   }
   document.getElementById('droll-result').textContent=String(sum);
   const dPlayerName=(document.getElementById('dplayer-name').value.trim())||'Anónimo';
-  db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier:dMod,total:sum,timestamp:Date.now(),_cid:CLIENT_ID});
+  const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
+  const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
+  db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier:dMod,total:sum,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor});
   db.ref('sala/rolls').orderByKey().once('value',snap=>{
     const keys=Object.keys(snap.val()||{});
     if(keys.length>20){
@@ -1031,7 +1034,7 @@ function rollDice(){
       db.ref().update(upd);
     }
   });
-  spawnDiceMeshes(rolls,meshList);
+  spawnDiceMeshes(rolls,meshList,dieColor);
   dAdvMode=null;
   dMod=0;
   Object.keys(dCount).forEach(k=>dCount[k]=0);
@@ -1142,7 +1145,7 @@ function initFirebase(){
       renderDiceLog();
       if(r.timestamp>PAGE_LOAD_TS&&r._cid!==CLIENT_ID){
         const ml=Object.entries(r.rolls).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
-        spawnDiceMeshes(r.rolls,ml);
+        spawnDiceMeshes(r.rolls,ml,r.color??null);
       }
     }
   });
