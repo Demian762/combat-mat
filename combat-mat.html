@@ -20,6 +20,7 @@ body { background:#141414; overflow:hidden; width:100vw; height:100vh; font-fami
 .token:hover { filter:brightness(1.35); z-index:20; }
 .token.selected { z-index:30; }
 .token.dragging { cursor:grabbing; z-index:100; opacity:.85; }
+body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .tbody { width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:16px; position:relative; }
 .token-player .tbody { border-radius:50%; border:2px solid; }
 .token-player.selected .tbody { box-shadow:0 0 0 2px var(--amber-lt),0 0 14px var(--amber); }
@@ -655,6 +656,7 @@ function startDrag(e,id){
   if(S.turn!==id){S.turn=id;S.selId=id;db.ref('sala/scenes/'+activeScene+'/turn').set(id);}
   drag={id};
   t._el.classList.add('dragging');
+  document.body.classList.add('tok-dragging');
   grid.classList.remove('measuring');
   clearArrow();
   renderAllToks(); renderLeftPanel();
@@ -699,6 +701,7 @@ document.addEventListener('mouseup',e=>{
   const t=S.tokens.find(t=>t.id===drag.id);
   if(t&&t._el){
     t._el.classList.remove('dragging');
+    document.body.classList.remove('tok-dragging');
     if(arrowTarget){
       t.col=arrowTarget.sc+S.ox; t.row=arrowTarget.sr+S.oy;
       clearArrow();
