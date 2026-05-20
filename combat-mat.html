@@ -230,6 +230,8 @@ input[type=text]:focus { border-color:var(--amber); }
         <div class="terr-sw" id="tbtn-lava"  onclick="selectTerrain('lava')"  title="Lava"    style="background:#c81400"></div>
         <div class="terr-sw" id="tbtn-trap"  onclick="selectTerrain('trap')"  title="Trampa"  style="background:#640606"></div>
         <div class="terr-sw" id="tbtn-sand"  onclick="selectTerrain('sand')"  title="Arena"   style="background:#bea564"></div>
+        <div class="terr-sw" id="tbtn-snow"  onclick="selectTerrain('snow')"  title="Nieve"   style="background:#eef2f8"></div>
+        <div class="terr-sw" id="tbtn-metal" onclick="selectTerrain('metal')" title="Metal"   style="background:#7a8490"></div>
       </div>
       <div id="pan-grid">
         <div></div>
@@ -313,6 +315,7 @@ const TERRAIN={
   fence:{bg:'rgba(180,140,60,0.78)'},tree:{bg:'rgba(16,52,14,0.90)'},grass:{bg:'rgba(58,110,34,0.72)'},
   water:{bg:'rgba(18,58,160,0.78)'},ice:{bg:'rgba(120,200,220,0.72)'},
   fire:{bg:'rgba(190,60,8,0.82)'},lava:{bg:'rgba(200,20,0,0.88)'},trap:{bg:'rgba(100,6,6,0.86)'},sand:{bg:'rgba(190,165,100,0.72)'},
+  snow:{bg:'rgba(230,238,248,0.88)'},metal:{bg:'rgba(100,112,126,0.88)'},
 };
 // Viewport fijo 20x20 celdas. Para cambiar tamaño, modificar COLS/ROWS y el CSS --cs
 const COLS=20, ROWS=20;
