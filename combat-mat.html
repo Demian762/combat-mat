@@ -211,7 +211,8 @@ input[type=text]:focus { border-color:var(--amber); }
         <option value="escena9">Escena 9</option>
         <option value="escena10">Escena 10</option>
       </select>
-      <button class="btn bp" onclick="bringPlayersHere()" style="margin-bottom:0">Traer personajes acá</button>
+      <button class="btn bp" onclick="bringPlayersHere()">Traer personajes acá</button>
+      <button class="btn bp" id="btn-fs" onclick="toggleFullscreen()" style="margin-bottom:0">Pantalla completa</button>
     </div>
 
     <div class="section">
@@ -312,6 +313,9 @@ const TERRAIN={
 };
 // Viewport fijo 20x20 celdas. Para cambiar tamaño, modificar COLS/ROWS y el CSS --cs
 const COLS=20, ROWS=20;
+// Dimensiones naturales de #app (usadas para escalar al tamaño de ventana)
+const APP_W=1572, APP_H=884;
+let appZoom=1;
 // Estado HSV de cada picker de color. 'player' = color activo para nuevos jugadores
 const pickerStates={player:{h:211,s:0.59,v:0.89},bg:{h:20,s:0.55,v:0.04},line:{h:35,s:0.65,v:0.72}};
 let pickerTarget=null, cpH=211, cpS=0.59, cpV=0.89;
@@ -414,8 +418,9 @@ function selectTerrain(type){
 // Convierte coordenadas de mouse a celda absoluta (col+ox, row+oy) y pinta/borra terreno
 function paintCell(e){
   const rect=grid.getBoundingClientRect();
-  const sc=Math.floor((e.clientX-rect.left-2)/CS);
-  const sr=Math.floor((e.clientY-rect.top -2)/CS);
+  const z=CS*appZoom;
+  const sc=Math.floor((e.clientX-rect.left)/z);
+  const sr=Math.floor((e.clientY-rect.top-2*appZoom)/z);
   if(sc<0||sc>=COLS||sr<0||sr>=ROWS)return;
   const col=sc+S.ox, row=sr+S.oy;
   const key=`${col},${row}`;
@@ -663,8 +668,8 @@ document.addEventListener('mousemove',e=>{
   }
   if(!drag)return;
   const t=S.tokens.find(t=>t.id===drag.id);if(!t||!t._el)return;
-  const nx=clamp(drag.sc+Math.round((e.clientX-drag.sx)/CS),0,COLS-1);
-  const ny=clamp(drag.sr+Math.round((e.clientY-drag.sy)/CS),0,ROWS-1);
+  const nx=clamp(drag.sc+Math.round((e.clientX-drag.sx)/(CS*appZoom)),0,COLS-1);
+  const ny=clamp(drag.sr+Math.round((e.clientY-drag.sy)/(CS*appZoom)),0,ROWS-1);
   t._el.style.left=nx*CS+'px'; t._el.style.top=ny*CS+'px';
 });
 
@@ -687,8 +692,9 @@ document.addEventListener('mouseup',e=>{
   if(t&&t._el){
     t._el.classList.remove('dragging');
     const rect=grid.getBoundingClientRect();
-    const sc=clamp(Math.floor((e.clientX-rect.left-2)/CS),0,COLS-1);
-    const sr=clamp(Math.floor((e.clientY-rect.top -2)/CS),0,ROWS-1);
+    const z=CS*appZoom;
+    const sc=clamp(Math.floor((e.clientX-rect.left)/z),0,COLS-1);
+    const sr=clamp(Math.floor((e.clientY-rect.top-2*appZoom)/z),0,ROWS-1);
     const prevCol=t.col, prevRow=t.row;
     t.col=sc+S.ox; t.row=sr+S.oy;
     if(t.col!==prevCol||t.row!==prevRow){S.selId=null;grid.classList.remove('measuring');}
@@ -741,8 +747,9 @@ grid.addEventListener('mousemove',e=>{
   if(!S.selId||drag)return;
   const t=S.tokens.find(t=>t.id===S.selId);if(!t)return;
   const rect=grid.getBoundingClientRect();
-  const hc=Math.floor((e.clientX-rect.left-2)/CS);
-  const hr=Math.floor((e.clientY-rect.top-2)/CS);
+  const z=CS*appZoom;
+  const hc=Math.floor((e.clientX-rect.left)/z);
+  const hr=Math.floor((e.clientY-rect.top-2*appZoom)/z);
   if(hc<0||hc>=COLS||hr<0||hr>=ROWS){clearArrow();return;}
   const sc=t.col-S.ox, sr=t.row-S.oy;
   if(hc===sc&&hr===sr){clearArrow();return;}
@@ -1163,7 +1170,24 @@ function initFirebase(){
   renderDiceLog();
 }
 
+/* ── Fit & Fullscreen ── */
+function fitApp(){
+  appZoom=Math.min(window.innerWidth/APP_W, window.innerHeight/APP_H);
+  document.getElementById('app').style.zoom=appZoom;
+}
+function toggleFullscreen(){
+  if(!document.fullscreenElement){document.documentElement.requestFullscreen?.();}
+  else{document.exitFullscreen?.();}
+}
+document.addEventListener('fullscreenchange',()=>{
+  fitApp();
+  const btn=document.getElementById('btn-fs');
+  if(btn)btn.textContent=document.fullscreenElement?'Salir pantalla completa':'Pantalla completa';
+});
+window.addEventListener('resize',fitApp);
+
 initFirebase();
+fitApp();
 </script>
 </body>
 </html>
