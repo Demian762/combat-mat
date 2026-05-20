@@ -295,6 +295,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const CLIENT_ID = Math.random().toString(36).slice(2);
+const PAGE_LOAD_TS = Date.now();
 // ─────────────────────────────────────────────────────────
 
 // Iconos por clase para mostrar en fichas y panel izquierdo
@@ -487,8 +488,7 @@ async function addTok(type){
     db.ref('sala/scenes/'+activeScene+'/enemies/'+newId).set(t);
   }
   document.getElementById('iname').value='';
-  const newOrder=getOrdered().map(tk=>tk.id);
-  newOrder.push(newId);
+  const newOrder=[...new Set([...getOrdered().map(tk=>tk.id),newId])];
   db.ref('sala/scenes/'+activeScene+'/order').set(newOrder);
 }
 
@@ -969,6 +969,24 @@ function dFindPos(occupied){
   return{x:(Math.random()-.5)*12,z:(Math.random()-.5)*7};
 }
 
+function spawnDiceMeshes(rolls, meshList){
+  if(!dScene)return;
+  const rollsCopy={};Object.keys(rolls).forEach(dt=>{rollsCopy[dt]=[...rolls[dt]];});
+  const resultList=meshList.map(dt=>{const a=rollsCopy[dt]||(rollsCopy[dt]=[]);return a.length?a.shift():1;});
+  const placed=[];
+  meshList.forEach((dt,i)=>{
+    const mesh=dMakeMesh(dt,resultList[i]);
+    const pos=dFindPos([...dMeshes.map(m=>({x:m.mesh.position.x,z:m.mesh.position.z})),...placed]);
+    placed.push(pos);
+    const startX=pos.x+(Math.random()-.5)*16;
+    const startZ=pos.z+(Math.random()-.5)*10;
+    const startY=10+Math.random()*5;
+    mesh.position.set(startX,startY,startZ);
+    dScene.add(mesh);
+    dMeshes.push({mesh,rx:(Math.random()-.5)*.5,ry:(Math.random()-.5)*.5,rz:(Math.random()-.5)*.3,py:startY,pvy:-0.05,floorY:1.1,targetQ:null,snapDone:false,age:0,fading:false,fadeAlpha:1,dead:false});
+  });
+}
+
 function rollDice(){
   if(!Object.values(dCount).some(n=>n>0))return;
   let rolls={},sum=dMod,diceStr,meshList;
@@ -992,23 +1010,8 @@ function rollDice(){
   }
   document.getElementById('droll-result').textContent=String(sum);
   const dPlayerName=(document.getElementById('dplayer-name').value.trim())||'Anónimo';
-  db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier:dMod,total:sum,timestamp:Date.now()});
-  if(dScene){
-    const rollsCopy={};Object.keys(rolls).forEach(dt=>{rollsCopy[dt]=[...rolls[dt]];});
-    const resultList=meshList.map(dt=>{const a=rollsCopy[dt]||(rollsCopy[dt]=[]);return a.length?a.shift():1;});
-    const placed=[];
-    meshList.forEach((dt,i)=>{
-      const mesh=dMakeMesh(dt,resultList[i]);
-      const pos=dFindPos([...dMeshes.map(m=>({x:m.mesh.position.x,z:m.mesh.position.z})),...placed]);
-      placed.push(pos);
-      const startX=pos.x+(Math.random()-.5)*16;
-      const startZ=pos.z+(Math.random()-.5)*10;
-      const startY=10+Math.random()*5;
-      mesh.position.set(startX,startY,startZ);
-      dScene.add(mesh);
-      dMeshes.push({mesh,rx:(Math.random()-.5)*.5,ry:(Math.random()-.5)*.5,rz:(Math.random()-.5)*.3,py:startY,pvy:-0.05,floorY:1.1,targetQ:null,snapDone:false,age:0,fading:false,fadeAlpha:1,dead:false});
-    });
-  }
+  db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier:dMod,total:sum,timestamp:Date.now(),_cid:CLIENT_ID});
+  spawnDiceMeshes(rolls,meshList);
   dAdvMode=null;
   dMod=0;
   Object.keys(dCount).forEach(k=>dCount[k]=0);
@@ -1116,6 +1119,10 @@ function initFirebase(){
       dLog.unshift({...r,_key:snap.key});
       if(dLog.length>20)dLog.pop();
       renderDiceLog();
+      if(r.timestamp>PAGE_LOAD_TS&&r._cid!==CLIENT_ID){
+        const ml=Object.entries(r.rolls).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
+        spawnDiceMeshes(r.rolls,ml);
+      }
     }
   });
   attachSceneListeners(activeScene);

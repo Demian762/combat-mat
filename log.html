@@ -110,16 +110,15 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const MAX_VISIBLE = 5;
-const VISIBLE_MS  = 9000;
+const MAX_VISIBLE = 8;
 const wrap = document.getElementById('log-wrap');
-
-// entries = [{el, timer}]  newest at bottom
 const entries = [];
+const seenKeys = new Set();
 
-db.ref('sala/rolls').limitToLast(1).on('child_added', snap => {
+db.ref('sala/rolls').limitToLast(MAX_VISIBLE).on('child_added', snap => {
   const r = snap.val();
-  if (!r) return;
+  if (!r || seenKeys.has(snap.key)) return;
+  seenKeys.add(snap.key);
 
   const el = document.createElement('div');
   el.className = 'roll-entry';
@@ -137,12 +136,8 @@ db.ref('sala/rolls').limitToLast(1).on('child_added', snap => {
     </div>`;
 
   wrap.appendChild(el);
+  entries.push({ el });
 
-  const timer = setTimeout(() => removeEntry(entry), VISIBLE_MS);
-  const entry = { el, timer };
-  entries.push(entry);
-
-  // If over max, remove oldest immediately
   if (entries.length > MAX_VISIBLE) {
     removeEntry(entries[0]);
   }
@@ -151,7 +146,6 @@ db.ref('sala/rolls').limitToLast(1).on('child_added', snap => {
 function removeEntry(entry) {
   const idx = entries.indexOf(entry);
   if (idx === -1) return;
-  clearTimeout(entry.timer);
   entries.splice(idx, 1);
   entry.el.classList.add('fading');
   setTimeout(() => entry.el.remove(), 600);
