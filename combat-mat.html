@@ -748,20 +748,7 @@ function drawArrow(sc,sr,ec,er){
     <text x="${x2}" y="${y2+7}" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="rgba(200,180,120,0.7)">${steps} sq</text>`;
 }
 
-grid.addEventListener('mousemove',e=>{
-  if(!S.selId||drag)return;
-  const t=S.tokens.find(t=>t.id===S.selId);if(!t)return;
-  const rect=grid.getBoundingClientRect();
-  const z=CS*appZoom;
-  const hc=Math.floor((e.clientX-rect.left)/z);
-  const hr=Math.floor((e.clientY-rect.top-2*appZoom)/z);
-  if(hc<0||hc>=COLS||hr<0||hr>=ROWS){clearArrow();return;}
-  const sc=t.col-S.ox, sr=t.row-S.oy;
-  if(hc===sc&&hr===sr){clearArrow();return;}
-  arrowTarget={sc:hc,sr:hr};
-  drawArrow(sc,sr,hc,hr);
-});
-grid.addEventListener('mouseleave',clearArrow);
+grid.addEventListener('mouseleave',()=>{if(drag)clearArrow();});
 let clickTimer=null;
 grid.addEventListener('dblclick',e=>{
   clearTimeout(clickTimer);
