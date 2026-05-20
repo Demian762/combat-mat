@@ -211,8 +211,7 @@ input[type=text]:focus { border-color:var(--amber); }
         <option value="escena9">Escena 9</option>
         <option value="escena10">Escena 10</option>
       </select>
-      <button class="btn bp" onclick="bringPlayersHere()">Traer personajes acá</button>
-      <button class="btn bp" id="btn-fs" onclick="toggleFullscreen()" style="margin-bottom:0">Pantalla completa</button>
+      <button class="btn bp" onclick="bringPlayersHere()" style="margin-bottom:0">Traer personajes acá</button>
     </div>
 
     <div class="section">
@@ -280,6 +279,10 @@ input[type=text]:focus { border-color:var(--amber); }
     <div class="section">
       <button class="btn bd" onclick="clearTerrain()" style="margin-bottom:4px">Limpiar terreno</button>
       <button class="btn bd" onclick="clearAll()">Limpiar todo</button>
+    </div>
+
+    <div class="section" style="margin-top:auto">
+      <button class="btn bp" id="btn-fs" onclick="toggleFullscreen()" style="margin-bottom:0">Pantalla completa</button>
     </div>
 
   </div>
