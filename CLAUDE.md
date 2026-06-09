@@ -81,7 +81,7 @@ No existen. Cualquier cliente conectado puede mover cualquier ficha, pintar terr
 Firebase Realtime Database guarda los datos indefinidamente hasta borrado explícito. El terreno pintado, fichas y HP de una sesión persisten en la siguiente.
 
 ### Autenticación
-Password hardcodeada en JS como filtro básico (no seguridad real). Dejar como `ACCESS_PASSWORD = 'CAMBIAR_ESTO'` con comentario. Sin Firebase Auth.
+Firebase Auth con Google OAuth. Lista de emails permitidos (`ALLOWED_EMAILS`) hardcodeada en JS. Solo los emails de esa lista pueden acceder. `log.html` no requiere auth (es overlay OBS, solo lee `sala/rolls`).
 
 ### Anti-loop de sincronización
 Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebase incluye `_sender: CLIENT_ID`. Al recibir un update, si `_sender === CLIENT_ID` y el JSON coincide con el último escrito, se ignora para no re-renderizar el propio estado.
