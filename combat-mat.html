@@ -345,9 +345,21 @@ function signInWithGoogle() {
   auth.signInWithRedirect(provider);
 }
 
-auth.getRedirectResult().catch(err => {
+auth.getRedirectResult().then(result => {
+  if (result && result.user) {
+    const user = result.user;
+    if (ALLOWED_EMAILS.includes(user.email)) {
+      document.getElementById('login-overlay').classList.add('hidden');
+      if (!appReady) { appReady = true; initFirebase(); fitApp(); }
+    } else {
+      document.getElementById('login-error').textContent = `Acceso denegado: ${user.email} no está autorizado.`;
+      document.getElementById('login-error').style.display = 'block';
+      auth.signOut();
+    }
+  }
+}).catch(err => {
   const el = document.getElementById('login-error');
-  el.textContent = 'Error al iniciar sesión. Intentá de nuevo.';
+  el.textContent = `Error al iniciar sesión (${err.code}).`;
   el.style.display = 'block';
 });
 
