@@ -342,12 +342,14 @@ const ALLOWED_EMAILS = [
 
 function signInWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(err => {
-    const el = document.getElementById('login-error');
-    el.textContent = 'Error al iniciar sesión. Intentá de nuevo.';
-    el.style.display = 'block';
-  });
+  auth.signInWithRedirect(provider);
 }
+
+auth.getRedirectResult().catch(err => {
+  const el = document.getElementById('login-error');
+  el.textContent = 'Error al iniciar sesión. Intentá de nuevo.';
+  el.style.display = 'block';
+});
 
 let appReady = false;
 auth.onAuthStateChanged(user => {
