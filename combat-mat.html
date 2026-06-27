@@ -307,7 +307,6 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const CLIENT_ID = Math.random().toString(36).slice(2);
 
-initFirebase(); fitApp();
 // ─────────────────────────────────────────────────────────
 const PAGE_LOAD_TS = Date.now();
 // ─────────────────────────────────────────────────────────
@@ -1204,6 +1203,7 @@ document.addEventListener('fullscreenchange',()=>{
 });
 window.addEventListener('resize',fitApp);
 
+initFirebase();
 fitApp();
 </script>
 </body>
