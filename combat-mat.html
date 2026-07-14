@@ -351,7 +351,16 @@ const ALLOWED_EMAILS = [
 
 function signInWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithRedirect(provider);
+  auth.signInWithPopup(provider).then(result => {
+    if (result && result.user) handleAuthUser(result.user);
+  }).catch(err => {
+    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+    const el = document.getElementById('login-error');
+    el.textContent = err.code === 'auth/popup-blocked'
+      ? 'Tu navegador bloqueó la ventana de Google. Permití ventanas emergentes para este sitio e intentá de nuevo.'
+      : `Error al iniciar sesión (${err.code}).`;
+    el.style.display = 'block';
+  });
 }
 
 function signOutUser() {
@@ -380,14 +389,6 @@ function handleAuthUser(user) {
     logoutSection.classList.add('hidden');
   }
 }
-
-auth.getRedirectResult().then(result => {
-  if (result && result.user) handleAuthUser(result.user);
-}).catch(err => {
-  const el = document.getElementById('login-error');
-  el.textContent = `Error al iniciar sesión (${err.code}).`;
-  el.style.display = 'block';
-});
 
 auth.onAuthStateChanged(user => handleAuthUser(user));
 
