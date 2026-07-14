@@ -146,11 +146,10 @@ input[type=text]:focus { border-color:var(--amber); }
 #login-error { font-family:'EB Garamond',serif; font-size:14px; color:#e07070; display:none; text-align:center; max-width:320px; }
 
 /* Account bar */
-#account-bar { position:fixed; top:14px; right:18px; z-index:9998; display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--border); border-radius:5px; padding:8px 14px; }
+#account-bar { position:fixed; top:14px; right:18px; z-index:9998; display:flex; align-items:center; background:var(--panel); border:1px solid var(--border); border-radius:5px; padding:8px 14px; }
 #account-bar.hidden { display:none; }
 #account-email { font-family:'EB Garamond',serif; font-size:13px; color:rgba(200,160,80,0.85); letter-spacing:.3px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#btn-logout { font-family:'Cinzel',serif; font-size:10px; letter-spacing:1px; padding:5px 12px; border-radius:4px; border:1px solid var(--amber); background:rgba(255,255,255,0.05); color:var(--amber-lt); text-transform:uppercase; cursor:pointer; transition:background .15s; }
-#btn-logout:hover { background:rgba(200,146,42,0.2); }
+#logout-section.hidden { display:none; }
 
 </style>
 </head>
@@ -173,7 +172,6 @@ input[type=text]:focus { border-color:var(--amber); }
 
 <div id="account-bar" class="hidden">
   <span id="account-email"></span>
-  <button id="btn-logout" onclick="signOutUser()">Cerrar sesión</button>
 </div>
 
 <div id="app">
@@ -186,6 +184,9 @@ input[type=text]:focus { border-color:var(--amber); }
         <option value="">Anónimo</option>
         <option value="Master">Master</option>
       </select>
+    </div>
+    <div class="section hidden" id="logout-section">
+      <button class="btn bp" id="btn-logout" onclick="signOutUser()" style="margin-bottom:0">Cerrar sesión</button>
     </div>
     <div class="section">
       <span class="sec-title">Dados</span>
@@ -369,19 +370,23 @@ function handleAuthUser(user) {
   const errorEl = document.getElementById('login-error');
   const accountBar = document.getElementById('account-bar');
   const accountEmail = document.getElementById('account-email');
+  const logoutSection = document.getElementById('logout-section');
   if (user && ALLOWED_EMAILS.includes(user.email)) {
     overlay.classList.add('hidden');
     accountEmail.textContent = user.email;
     accountBar.classList.remove('hidden');
+    logoutSection.classList.remove('hidden');
     if (!appReady) { appReady = true; initFirebase(); fitApp(); }
   } else if (user) {
     errorEl.textContent = `Acceso denegado: ${user.email} no está autorizado.`;
     errorEl.style.display = 'block';
     accountBar.classList.add('hidden');
+    logoutSection.classList.add('hidden');
     auth.signOut();
   } else {
     overlay.classList.remove('hidden');
     accountBar.classList.add('hidden');
+    logoutSection.classList.add('hidden');
   }
 }
 
