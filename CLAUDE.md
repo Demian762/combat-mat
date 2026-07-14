@@ -11,6 +11,7 @@ Herramientas para sesiones de D&D, hosteadas en GitHub Pages con Firebase Realti
 |---|---|
 | `combat-mat.html` | App principal: mat de combate 20×20 + dados 3D integrados |
 | `log.html` | Overlay OBS: log de tiradas en tiempo real, fondo transparente |
+| `dice.html` | Overlay OBS: solo dados 3D animados, fondo transparente |
 
 Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autocontenido con librerías via CDN.
 
