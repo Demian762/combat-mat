@@ -410,7 +410,7 @@ const COLS=20, ROWS=20;
 // Dimensiones naturales de #app (usadas para escalar al tamaño de ventana)
 const APP_W=1572, APP_H=884;
 let appZoom=1;
-// Estado HSV de cada picker de color. 'player' = color activo para nuevos jugadores
+// Estado HSV de cada picker de color. 'player' = color activo para nuevos jugadores, local por cliente (no sincroniza)
 const pickerStates={player:{h:211,s:0.59,v:0.89},bg:{h:20,s:0.55,v:0.04},line:{h:35,s:0.65,v:0.72}};
 let pickerTarget=null, cpH=211, cpS=0.59, cpV=0.89;
 let selectedClass='Bárbaro';
@@ -458,12 +458,11 @@ function drawPicker(){
   pickerStates[pickerTarget]={h:cpH,s:cpS,v:cpV};
   const hex=hsvToHex(cpH,cpS,cpV);
   document.getElementById('cprev-'+pickerTarget).style.background=hex;
-  if(pickerTarget==='player')S.selectedColor=hex;
-  else applyGridColors();
+  if(pickerTarget==='player'){S.selectedColor=hex;return;}
+  applyGridColors();
   clearTimeout(pickerWriteTimer);
   pickerWriteTimer=setTimeout(()=>{
-    if(pickerTarget==='player')db.ref('sala/pickerPlayer').set({h:cpH,s:cpS,v:cpV});
-    else db.ref('sala/scenes/'+activeScene+'/pickerStates/'+pickerTarget).set({h:cpH,s:cpS,v:cpV});
+    db.ref('sala/scenes/'+activeScene+'/pickerStates/'+pickerTarget).set({h:cpH,s:cpS,v:cpV});
   },200);
 }
 function openPicker(target){
@@ -1232,12 +1231,6 @@ function initFirebase(){
   db.ref('sala/maxHp').on('value',snap=>{
     const v=snap.val();if(v==null)return;
     S.maxHp=v;document.getElementById('ihp-val').textContent=v;
-  });
-  db.ref('sala/pickerPlayer').on('value',snap=>{
-    const v=snap.val();if(!v)return;
-    pickerStates.player=v;S.selectedColor=hsvToHex(v.h,v.s,v.v);
-    document.getElementById('cprev-player').style.background=S.selectedColor;
-    if(pickerTarget==='player'){cpH=v.h;cpS=v.s;cpV=v.v;drawPicker();}
   });
   db.ref('sala/players').on('value',snap=>{
     const data=snap.val()||{};

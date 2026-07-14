@@ -40,7 +40,6 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
     /{id}             → {id, name, cls, hp, maxHp, color, sceneId, col, row}
   /uid                → number              // contador global de ids
   /maxHp              → number              // valor por defecto nuevos tokens
-  /pickerPlayer       → {h, s, v}           // color picker jugador (global)
   /rolls
     /{pushId}         → {player, dice, rolls, modifier, total, timestamp}
 ```
@@ -53,6 +52,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | `selId` | Selección local para medir distancias |
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |
+| `pickerStates.player` | Color del picker de nuevo jugador — elección individual, no debe imponerse a otros clientes |
 
 ---
 
@@ -65,7 +65,7 @@ No existen. Cualquier cliente conectado puede mover cualquier ficha, pintar terr
 - 10 escenas fijas pre-creadas: **"Escena 1"** … **"Escena 10"** (nombres no editables desde UI).
 - Cada escena tiene su propio terreno, enemigos, orden de turno y colores de grilla.
 - El **color picker de fondo y líneas** (`pickerStates.bg` y `pickerStates.line`) es **por escena**.
-- El **color de nuevo jugador** (`pickerPlayer`) es **global**.
+- El **color de nuevo jugador** (`pickerStates.player`) es **estado local por cliente**, no se sincroniza vía Firebase — cada jugador elige su propio color independientemente.
 - Cambiar de escena es **independiente por cliente** — cada uno elige qué escena ver via dropdown. No hay "escena activa global".
 
 ### Movimiento de jugadores entre escenas
