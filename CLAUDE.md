@@ -140,6 +140,7 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.x.x/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.x.x/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.x.x/firebase-auth-compat.js"></script>
 <!-- Three.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 ```
