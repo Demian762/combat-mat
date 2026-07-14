@@ -737,9 +737,11 @@ function renderList(){renderLeftPanel();}
 
 /* ── Drag tokens ── */
 
-// Inicia arrastre de ficha en el mat. Bloquea si hay modo pintura activo.
+// Inicia arrastre de ficha en el mat. Si hay modo pintura activo, lo destilda.
 function startDrag(e,id){
-  if(e.button!==0||S.activeTerrain)return;e.preventDefault();e.stopPropagation();
+  if(e.button!==0)return;
+  if(S.activeTerrain)selectTerrain(S.activeTerrain);
+  e.preventDefault();e.stopPropagation();
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
   if(S.turn!==id){S.turn=id;S.selId=id;db.ref('sala/scenes/'+activeScene+'/turn').set(id);}
   drag={id,fbSet:false,lastFbCol:null,lastFbRow:null};
