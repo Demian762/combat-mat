@@ -108,9 +108,13 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 
 ### Flujo de tirada
 1. Se generan los resultados numéricos al instante del clic.
-2. Se guardan en Firebase **antes** de iniciar la animación.
+2. Se guardan en Firebase **antes** de iniciar la animación, con `hidden:true`.
 3. La animación 3D local termina mostrando el número ya registrado (easing out).
-4. Los demás clientes reciben el resultado numérico desde Firebase; no ven la animación ajena.
+4. Los demás clientes (y `dice.html`) reciben la tirada desde Firebase y reproducen la misma animación con esos resultados.
+5. Al asentarse los dados, el cliente que tiró borra `hidden` y el valor aparece en resultado, historial y `log.html`.
+
+### Revelado al terminar la animación
+**Todas** las tiradas (dados, Porcentaje, Todo o Nada) se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a los 15 s) y recién ahí muestra el resultado local. Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
 
 ### Ruta Firebase
 `/sala/rolls/{pushId}` con forma `{player, dice, rolls, modifier, total, timestamp}`.
@@ -118,7 +122,6 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 Tiradas especiales (botones **Porcentaje** y **Todo o Nada**):
 - Porcentaje: `rolls = {d100:[decenas 0–90], d10:[unidades 1–10]}`, `total` 1–100. `d100` es un d10 con caras 0,10…90.
 - Todo o Nada: `rolls = {coin:["Todo"|"Nada"]}` (moneda dorada: estrella = Todo, cruz = Nada), `total` = `"Todo"`/`"Nada"`.
-- Se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a los 15 s). Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
 
 ---
 

@@ -1251,8 +1251,7 @@ function rollDice(){
     diceStr=Object.entries(dCount).filter(([,n])=>n>0).map(([dt,n])=>`${n}${dt}`).join('+')+modStr;
     meshList=Object.entries(dCount).flatMap(([dt,n])=>Array(n).fill(dt));
   }
-  const {dieColor}=pushRoll(diceStr,rolls,dMod,sum);
-  spawnDiceMeshes(rolls,meshList,dieColor);
+  rollAnimated(diceStr,rolls,dMod,sum);
   dAdvMode=null;
   dMod=0;
   Object.keys(dCount).forEach(k=>dCount[k]=0);
@@ -1260,14 +1259,13 @@ function rollDice(){
   document.getElementById('dmod-val').textContent='0';
 }
 
-// Writes the roll to Firebase (keeping the last 20); shows it locally unless hidden.
-// Hidden rolls stay out of logs until revealed by clearing the flag. Returns {dieColor, ref}.
-function pushRoll(diceStr,rolls,modifier,total,hidden){
-  if(!hidden)document.getElementById('droll-result').textContent=String(total);
+// Writes the roll to Firebase as hidden (keeping the last 20); logs skip it until the flag is cleared.
+// Returns {dieColor, ref}.
+function pushRoll(diceStr,rolls,modifier,total){
   const dPlayerName=(document.getElementById('dplayer-name').value.trim())||'Anónimo';
   const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
   const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
-  const ref=db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,hidden:hidden||null});
+  const ref=db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,hidden:true});
   db.ref('sala/rolls').orderByKey().once('value',snap=>{
     const keys=Object.keys(snap.val()||{});
     if(keys.length>20){
@@ -1278,10 +1276,10 @@ function pushRoll(diceStr,rolls,modifier,total,hidden){
   return {dieColor,ref};
 }
 
-// Special rolls: the value is revealed (locally and in every log) only when the animation ends
-const SPECIAL_REVEAL_MAX_MS=15000; // fallback if the animation never settles (e.g. hidden tab)
-function rollSpecial(diceStr,rolls,total){
-  const {dieColor,ref}=pushRoll(diceStr,rolls,0,total,true);
+// Every roll is revealed (locally and in every log) only when its animation ends
+const REVEAL_MAX_MS=15000; // fallback if the animation never settles (e.g. hidden tab)
+function rollAnimated(diceStr,rolls,modifier,total){
+  const {dieColor,ref}=pushRoll(diceStr,rolls,modifier,total);
   let revealed=false;
   const reveal=()=>{
     if(revealed)return;revealed=true;
@@ -1290,14 +1288,14 @@ function rollSpecial(diceStr,rolls,total){
   };
   const meshList=Object.entries(rolls).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
   spawnDiceMeshes(rolls,meshList,dieColor,reveal);
-  setTimeout(reveal,SPECIAL_REVEAL_MAX_MS);
+  setTimeout(reveal,REVEAL_MAX_MS);
 }
 // Percentile: tens d10 (0..90) + units d10 (1..10) → 1..100
 function rollPercent(){
   const tens=Math.floor(Math.random()*10)*10,units=Math.floor(Math.random()*10)+1;
-  rollSpecial('Porcentaje',{d100:[tens],d10:[units]},tens+units);
+  rollAnimated('Porcentaje',{d100:[tens],d10:[units]},0,tens+units);
 }
-function rollCoin(){const r=Math.random()<.5?'Todo':'Nada';rollSpecial('Todo o Nada',{coin:[r]},r);}
+function rollCoin(){const r=Math.random()<.5?'Todo':'Nada';rollAnimated('Todo o Nada',{coin:[r]},0,r);}
 
 function renderDiceLog(){
   const el=document.getElementById('dlog-list');
