@@ -118,7 +118,7 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 Tiradas especiales (botones **Porcentaje** y **Todo o Nada**):
 - Porcentaje: `rolls = {d100:[decenas 0–90], d10:[unidades 1–10]}`, `total` 1–100. `d100` es un d10 con caras 0,10…90.
 - Todo o Nada: `rolls = {coin:["Todo"|"Nada"]}` (moneda dorada: estrella = Todo, cruz = Nada), `total` = `"Todo"`/`"Nada"`.
-- Se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a los 7 s). Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
+- Se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a los 12 s). Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
 
 ---
 
