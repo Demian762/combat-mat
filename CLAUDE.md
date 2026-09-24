@@ -115,6 +115,8 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 ### Ruta Firebase
 `/sala/rolls/{pushId}` con forma `{player, dice, rolls, modifier, total, timestamp}`.
 
+Tiradas especiales sin dados 3D (botones **Porcentaje** y **Todo o Nada**): `dice` es `"Porcentaje"` / `"Todo o Nada"`, `rolls` vacío (Firebase lo omite, leer siempre como `r.rolls||{}`) y `total` es 1–100 o `"Cara"` / `"Cruz"`.
+
 ---
 
 ## log.html

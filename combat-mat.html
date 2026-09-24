@@ -186,6 +186,8 @@ input[type=text]:focus { border-color:var(--amber); }
     <div class="section">
       <span class="sec-title">Dados</span>
       <div id="dice-rows"></div>
+      <button class="die-pick-btn" onclick="rollPercent()" style="display:block;width:100%;margin-bottom:4px">Porcentaje</button>
+      <button class="die-pick-btn" onclick="rollCoin()" style="display:block;width:100%;margin-bottom:4px">Todo o Nada</button>
       <div style="display:flex;align-items:center;gap:4px;margin:5px 0 6px">
         <span id="dsel-str" style="font-family:'Cinzel',serif;font-size:11px;color:rgba(200,180,120,0.7);flex:1">—</span>
         <button onclick="clearDice()" style="background:rgba(140,30,30,0.25);border:1px solid rgba(220,80,80,0.6);color:#e08080;font-family:'Cinzel',serif;font-size:8px;letter-spacing:.5px;padding:3px 6px;border-radius:3px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='rgba(180,40,40,0.45)'" onmouseout="this.style.background='rgba(140,30,30,0.25)'">Limpiar</button>
@@ -1177,18 +1179,7 @@ function rollDice(){
     diceStr=Object.entries(dCount).filter(([,n])=>n>0).map(([dt,n])=>`${n}${dt}`).join('+')+modStr;
     meshList=Object.entries(dCount).flatMap(([dt,n])=>Array(n).fill(dt));
   }
-  document.getElementById('droll-result').textContent=String(sum);
-  const dPlayerName=(document.getElementById('dplayer-name').value.trim())||'Anónimo';
-  const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
-  const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
-  db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier:dMod,total:sum,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor});
-  db.ref('sala/rolls').orderByKey().once('value',snap=>{
-    const keys=Object.keys(snap.val()||{});
-    if(keys.length>20){
-      const upd={};keys.slice(0,keys.length-20).forEach(k=>{upd['sala/rolls/'+k]=null;});
-      db.ref().update(upd);
-    }
-  });
+  const dieColor=pushRoll(diceStr,rolls,dMod,sum);
   spawnDiceMeshes(rolls,meshList,dieColor);
   dAdvMode=null;
   dMod=0;
@@ -1197,11 +1188,32 @@ function rollDice(){
   document.getElementById('dmod-val').textContent='0';
 }
 
+// Shows the result locally, writes it to Firebase (keeping the last 20) and returns the roller's die color
+function pushRoll(diceStr,rolls,modifier,total){
+  document.getElementById('droll-result').textContent=String(total);
+  const dPlayerName=(document.getElementById('dplayer-name').value.trim())||'Anónimo';
+  const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
+  const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
+  db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor});
+  db.ref('sala/rolls').orderByKey().once('value',snap=>{
+    const keys=Object.keys(snap.val()||{});
+    if(keys.length>20){
+      const upd={};keys.slice(0,keys.length-20).forEach(k=>{upd['sala/rolls/'+k]=null;});
+      db.ref().update(upd);
+    }
+  });
+  return dieColor;
+}
+
+// Special rolls without dice meshes (animations pending)
+function rollPercent(){pushRoll('Porcentaje',{},0,Math.floor(Math.random()*100)+1);}
+function rollCoin(){pushRoll('Todo o Nada',{},0,Math.random()<.5?'Cara':'Cruz');}
+
 function renderDiceLog(){
   const el=document.getElementById('dlog-list');
   if(!dLog.length){el.innerHTML=`<div style="padding:8px 0;font-family:'Cinzel',serif;font-size:9px;color:rgba(180,110,30,0.5);text-align:center;letter-spacing:1px">SIN TIRADAS</div>`;return;}
   el.innerHTML=dLog.map(e=>{
-    const det=Object.entries(e.rolls).map(([dt,arr])=>`${dt}:[${arr.join(',')}]`).join(' ');
+    const det=Object.entries(e.rolls||{}).map(([dt,arr])=>`${dt}:[${arr.join(',')}]`).join(' ');
     return`<div class="dlog-entry">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <span class="dlog-name">${e.player||'?'}</span><span class="dlog-total-val">${e.total}</span>
@@ -1309,8 +1321,8 @@ function initFirebase(){
       if(dLog.length>20)dLog.pop();
       renderDiceLog();
       if(r.timestamp>PAGE_LOAD_TS&&r._cid!==CLIENT_ID){
-        const ml=Object.entries(r.rolls).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
-        spawnDiceMeshes(r.rolls,ml,r.color??null);
+        const ml=Object.entries(r.rolls||{}).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
+        if(ml.length)spawnDiceMeshes(r.rolls,ml,r.color??null);
       }
     }
   });
