@@ -1209,7 +1209,7 @@ function pushRoll(diceStr,rolls,modifier,total){
 
 // Special rolls without dice meshes (animations pending)
 function rollPercent(){pushRoll('Porcentaje',{},0,Math.floor(Math.random()*100)+1);}
-function rollCoin(){pushRoll('Todo o Nada',{},0,Math.random()<.5?'Cara':'Cruz');}
+function rollCoin(){pushRoll('Todo o Nada',{},0,Math.random()<.5?'Todo':'Nada');}
 
 function renderDiceLog(){
   const el=document.getElementById('dlog-list');
