@@ -225,7 +225,7 @@ input[type=text]:focus { border-color:var(--amber); }
   <div id="grid-wrap" style="position:relative;flex-shrink:0;">
     <div id="grid"></div>
     <canvas id="dice-canvas" width="880" height="880" style="position:absolute;top:2px;left:2px;pointer-events:none;z-index:40;"></canvas>
-    <svg id="arrow-svg" style="position:absolute;top:2px;left:2px;pointer-events:none;z-index:50;" width="880" height="880"><defs><filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs></svg>
+    <svg id="arrow-svg" style="position:absolute;top:2px;left:2px;pointer-events:none;z-index:50;" width="880" height="880"><defs><filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g id="arrows-remote"></g><g id="arrow-local"></g></svg>
   </div>
 
   <!-- Right panel -->
@@ -623,7 +623,7 @@ function renderTok(t){
   t._el.innerHTML=`<div class="tbody" style="${bs}">${ip?ICONS[t.cls]||'?':''}</div>`;
 }
 
-function renderAllToks(){S.tokens.forEach(renderTok);}
+function renderAllToks(){S.tokens.forEach(renderTok);renderRemoteArrows();}
 
 function selectTok(id){
   if(S.turn===id)return;
@@ -745,7 +745,7 @@ function startDrag(e,id){
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
   if(S.turn!==id){S.turn=id;S.selId=id;db.ref('sala/scenes/'+activeScene+'/turn').set(id);}
   drag={id,fbSet:false,lastFbCol:null,lastFbRow:null};
-  db.ref('sala/scenes/'+activeScene+'/arrow').onDisconnect().remove();
+  myArrowRef().onDisconnect().remove();
   t._el.classList.add('dragging');
   document.body.classList.add('tok-dragging');
   grid.classList.remove('measuring');
@@ -770,11 +770,11 @@ document.addEventListener('mousemove',e=>{
   const sc=t.col-S.ox, sr=t.row-S.oy;
   if(hc<0||hc>=COLS||hr<0||hr>=ROWS||hc===sc&&hr===sr){clearArrow();return;}
   arrowTarget={sc:hc,sr:hr};
-  drawArrow(sc,sr,hc,hr);
+  arrowLocal.innerHTML=arrowSvg(sc,sr,hc,hr);
   const absCol=hc+S.ox, absRow=hr+S.oy;
   if(!drag.fbSet||drag.lastFbCol!==absCol||drag.lastFbRow!==absRow){
     drag.fbSet=true;drag.lastFbCol=absCol;drag.lastFbRow=absRow;
-    db.ref('sala/scenes/'+activeScene+'/arrow').set({fromId:drag.id,toCol:absCol,toRow:absRow,_sender:CLIENT_ID});
+    myArrowRef().set({fromId:drag.id,toCol:absCol,toRow:absRow});
   }
 });
 
@@ -803,7 +803,7 @@ document.addEventListener('mouseup',e=>{
       else db.ref('sala/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
     }
     clearArrow();
-    db.ref('sala/scenes/'+activeScene+'/arrow').onDisconnect().cancel();
+    myArrowRef().onDisconnect().cancel();
     if(S.selId)grid.classList.add('measuring');
     renderTok(t);renderList();
   }
@@ -811,17 +811,32 @@ document.addEventListener('mouseup',e=>{
 });
 
 /* ── Distance arrow ── */
-const svg=document.getElementById('arrow-svg');
-let arrowTarget=null; // celda destino activa {sc,sr} en coords de pantalla
+// Flecha local (arrastre propio) y flechas ajenas van en grupos SVG separados:
+// las flechas de otros clientes nunca pisan el destino del arrastre local.
+const arrowLocal=document.getElementById('arrow-local');
+const arrowsRemote=document.getElementById('arrows-remote');
+let arrowTarget=null; // destino del arrastre LOCAL {sc,sr} en coords de pantalla
+let remoteArrows={};  // {clientId: {fromId,toCol,toRow}} de la escena activa
+
+// Cada cliente escribe solo su propia flecha → dos arrastres simultáneos no se borran entre sí.
+function myArrowRef(){return db.ref('sala/scenes/'+activeScene+'/arrows/'+CLIENT_ID);}
 
 function clearArrow(){
-  const defs=svg.querySelector('defs');svg.innerHTML='';if(defs)svg.appendChild(defs);arrowTarget=null;
-  if(drag&&drag.fbSet){drag.fbSet=false;db.ref('sala/scenes/'+activeScene+'/arrow').set(null);}
+  arrowLocal.innerHTML='';arrowTarget=null;
+  if(drag&&drag.fbSet){drag.fbSet=false;myArrowRef().remove();}
 }
-// Dibuja flecha SVG desde celda origen a destino (coords de pantalla, no absolutas).
+
+function renderRemoteArrows(){
+  arrowsRemote.innerHTML=Object.entries(remoteArrows).map(([cid,v])=>{
+    if(cid===CLIENT_ID)return '';
+    const t=S.tokens.find(t=>t.id===v.fromId);if(!t)return '';
+    return arrowSvg(t.col-S.ox,t.row-S.oy,v.toCol-S.ox,v.toRow-S.oy);
+  }).join('');
+}
+// Genera el markup SVG de una flecha desde celda origen a destino (coords de pantalla, no absolutas).
 // Distancia D&D 5e: Chebyshev (diagonal = 5 ft, igual que recto).
-function drawArrow(sc,sr,ec,er){
-  if(sc===ec&&sr===er)return;
+function arrowSvg(sc,sr,ec,er){
+  if(sc===ec&&sr===er)return '';
   const half=CS/2;
   const x1=sc*CS+half, y1=sr*CS+half;
   const x2=ec*CS+half, y2=er*CS+half;
@@ -838,11 +853,7 @@ function drawArrow(sc,sr,ec,er){
   const pts=`${ex},${ey} ${ax+px*aw},${ay+py*aw} ${ax-px*aw},${ay-py*aw}`;
   const steps=Math.max(Math.abs(ec-sc),Math.abs(er-sr));
   const dist=steps*5;
-  // Preservar el <defs> estático del SVG al limpiar
-  const defs=svg.querySelector('defs');
-  svg.innerHTML='';
-  if(defs)svg.appendChild(defs);
-  svg.innerHTML+=`
+  return `
     <line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="rgba(240,192,96,0.9)" stroke-width="3"/>
     <polygon points="${pts}" fill="rgba(240,192,96,0.95)" filter="url(#glow)"/>
     <rect x="${x2-half*0.9}" y="${y2-half*0.9}" width="${CS*0.9}" height="${CS*0.9}" rx="4" fill="rgba(0,0,0,0.7)" stroke="rgba(240,192,96,0.6)" stroke-width="1"/>
@@ -1169,25 +1180,23 @@ function attachSceneListeners(sceneId){
   sceneRefs.terrain=db.ref(base+'/terrain');
   sceneRefs.terrain.on('value',snap=>{S.terrain=snap.val()||{};renderTerrain();});
   sceneRefs.enemies=db.ref(base+'/enemies');
+  // Diff incremental (igual que players): no recrear fichas ajenas al cambio,
+  // así un arrastre local en curso no pierde su elemento DOM.
   sceneRefs.enemies.on('value',snap=>{
     const data=snap.val()||{};
-    clearEnemies();
-    Object.values(data).forEach(e=>{S.tokens.push({...e,_el:null});});
+    S.tokens.filter(t=>t.type==='enemy').forEach(t=>{if(!data[t.id]&&t._el)t._el.remove();});
+    S.tokens=S.tokens.filter(t=>t.type!=='enemy'||!!data[t.id]);
+    Object.values(data).forEach(e=>{
+      let t=S.tokens.find(t=>t.id===e.id);
+      if(!t){t={...e,_el:null};S.tokens.push(t);}
+      else if(!drag||drag.id!==t.id){Object.assign(t,e);}
+    });
     renderAllToks();renderList();
   });
   sceneRefs.order=db.ref(base+'/order');
   sceneRefs.order.on('value',snap=>{S.order=snap.val()||[];renderList();});
-  sceneRefs.arrow=db.ref(base+'/arrow');
-  sceneRefs.arrow.on('value',snap=>{
-    const v=snap.val();
-    if(!v){if(!drag)clearArrow();return;}
-    if(v._sender===CLIENT_ID)return;
-    const t=S.tokens.find(t=>t.id===v.fromId);if(!t)return;
-    const sc=t.col-S.ox, sr=t.row-S.oy;
-    const ec=v.toCol-S.ox, er=v.toRow-S.oy;
-    arrowTarget={sc:ec,sr:er};
-    drawArrow(sc,sr,ec,er);
-  });
+  sceneRefs.arrows=db.ref(base+'/arrows');
+  sceneRefs.arrows.on('value',snap=>{remoteArrows=snap.val()||{};renderRemoteArrows();});
   sceneRefs.turn=db.ref(base+'/turn');
   sceneRefs.turn.on('value',snap=>{
     S.turn=snap.val()||null;
@@ -1211,7 +1220,7 @@ function switchScene(id){
   clearEnemies();
   S.terrain={};S.order=[];S.turn=null;S.selId=null;
   grid.classList.remove('measuring');
-  clearArrow();
+  clearArrow();remoteArrows={};
   renderTerrain();renderAllToks();renderList();
   attachSceneListeners(id);
 }

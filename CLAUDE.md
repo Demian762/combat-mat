@@ -36,6 +36,8 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
       /order          → [id, id, ...]        // orden de iniciativa
       /turn           → id | null
       /pickerStates   → {bg:{h,s,v}, line:{h,s,v}}
+      /arrows
+        /{CLIENT_ID}  → {fromId, toCol, toRow}  // flecha de arrastre en curso, una por cliente (onDisconnect remove)
     /escena2 … /escena10   // misma forma
   /players
     /{id}             → {id, name, cls, hp, maxHp, color, sceneId, col, row}
