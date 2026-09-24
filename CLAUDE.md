@@ -94,7 +94,7 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 ## Dados (integrado en combat-mat.html)
 
 ### Dados soportados
-`d4`, `d6`, `d8`, `d12`, `d20`. Sin d10 (geometría compleja).
+`d4`, `d6`, `d8`, `d10`, `d12`, `d20`.
 
 ### Geometrías Three.js
 | Dado | Geometría |
@@ -102,6 +102,7 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 | d4 | `TetrahedronGeometry` |
 | d6 | `BoxGeometry` |
 | d8 | `OctahedronGeometry` |
+| d10 | `makeD10Geometry` (trapezoedro pentagonal custom, 10 caras rombo × 2 triángulos) |
 | d12 | `DodecahedronGeometry` |
 | d20 | `IcosahedronGeometry` |
 
