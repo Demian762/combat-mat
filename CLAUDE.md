@@ -115,7 +115,10 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 ### Ruta Firebase
 `/sala/rolls/{pushId}` con forma `{player, dice, rolls, modifier, total, timestamp}`.
 
-Tiradas especiales sin dados 3D (botones **Porcentaje** y **Todo o Nada**): `dice` es `"Porcentaje"` / `"Todo o Nada"`, `rolls` vacío (Firebase lo omite, leer siempre como `r.rolls||{}`) y `total` es 1–100 o `"Todo"` / `"Nada"`.
+Tiradas especiales (botones **Porcentaje** y **Todo o Nada**):
+- Porcentaje: `rolls = {d100:[decenas 0–90], d10:[unidades 1–10]}`, `total` 1–100. `d100` es un d10 con caras 0,10…90.
+- Todo o Nada: `rolls = {coin:["Todo"|"Nada"]}` (moneda dorada: estrella = Todo, cruz = Nada), `total` = `"Todo"`/`"Nada"`.
+- Se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a los 7 s). Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
 
 ---
 

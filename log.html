@@ -116,15 +116,17 @@ const wrap = document.getElementById('log-wrap');
 const entries = [];
 const seenKeys = new Set();
 
-db.ref('sala/rolls').limitToLast(MAX_VISIBLE).on('child_added', snap => {
+// Hidden rolls (animation still running on the roller's side) are shown once revealed
+function showRoll(snap) {
   const r = snap.val();
-  if (!r || seenKeys.has(snap.key)) return;
+  if (!r || r.hidden || seenKeys.has(snap.key)) return;
   seenKeys.add(snap.key);
 
   const el = document.createElement('div');
   el.className = 'roll-entry';
 
   const det = Object.entries(r.rolls || {})
+    .filter(([dt]) => dt !== 'coin')
     .map(([dt, arr]) => `${dt}:[${arr.join(',')}]`).join('  ');
   const modStr = r.modifier ? ` mod:${r.modifier > 0 ? '+' : ''}${r.modifier}` : '';
 
@@ -142,7 +144,10 @@ db.ref('sala/rolls').limitToLast(MAX_VISIBLE).on('child_added', snap => {
   if (entries.length > MAX_VISIBLE) {
     removeEntry(entries[0]);
   }
-});
+}
+const rollsRef = db.ref('sala/rolls').limitToLast(MAX_VISIBLE);
+rollsRef.on('child_added', showRoll);
+rollsRef.on('child_changed', showRoll);
 
 function removeEntry(entry) {
   const idx = entries.indexOf(entry);
