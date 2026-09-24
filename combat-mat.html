@@ -1111,8 +1111,9 @@ function makeCoinMesh(result){
   const other=result==='Nada'?'Todo':'Nada';
   const mats=[
     new THREE.MeshPhongMaterial({color:0xc8961e,...gold}),
-    new THREE.MeshPhongMaterial({map:makeCoinTex(result==='Nada'?'Nada':'Todo'),...gold}),
-    new THREE.MeshPhongMaterial({map:makeCoinTex(other),...gold}),
+    // Faces matte: a specular highlight would wash out the symbol when the coin faces the camera
+    new THREE.MeshLambertMaterial({map:makeCoinTex(result==='Nada'?'Nada':'Todo')}),
+    new THREE.MeshLambertMaterial({map:makeCoinTex(other)}),
   ];
   const mesh=new THREE.Mesh(geom,mats);
   mesh._faceNormals=[new THREE.Vector3(0,1,0)]; // top cap shows the result
