@@ -186,8 +186,10 @@ input[type=text]:focus { border-color:var(--amber); }
     <div class="section">
       <span class="sec-title">Dados</span>
       <div id="dice-rows"></div>
-      <button class="die-pick-btn" onclick="rollPercent()" style="display:block;width:100%;margin-bottom:4px">Porcentaje</button>
-      <button class="die-pick-btn" onclick="rollCoin()" style="display:block;width:100%;margin-bottom:4px">Todo o Nada</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px">
+        <button class="die-pick-btn" onclick="rollPercent()">Porcentaje</button>
+        <button class="die-pick-btn" onclick="rollCoin()">Todo o Nada</button>
+      </div>
       <div style="display:flex;align-items:center;gap:4px;margin:5px 0 6px">
         <span id="dsel-str" style="font-family:'Cinzel',serif;font-size:11px;color:rgba(200,180,120,0.7);flex:1">—</span>
         <button onclick="clearDice()" style="background:rgba(140,30,30,0.25);border:1px solid rgba(220,80,80,0.6);color:#e08080;font-family:'Cinzel',serif;font-size:8px;letter-spacing:.5px;padding:3px 6px;border-radius:3px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='rgba(180,40,40,0.45)'" onmouseout="this.style.background='rgba(140,30,30,0.25)'">Limpiar</button>
