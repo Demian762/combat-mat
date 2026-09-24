@@ -1115,8 +1115,8 @@ function dFindPos(occupied){
   const minD2=3.2*3.2;
   let fallback=null;
   for(let i=0;i<200;i++){
-    const x=(Math.random()-.5)*12;
-    const z=(Math.random()-.5)*7;
+    const x=(Math.random()-.5)*17;
+    const z=-9+Math.random()*15;
     if(!dOnScreen(x,z))continue;
     if(occupied.every(p=>(p.x-x)*(p.x-x)+(p.z-z)*(p.z-z)>=minD2))return{x,z};
     fallback=fallback||{x,z};
