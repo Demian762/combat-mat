@@ -198,46 +198,60 @@ function dMakeMesh(dt,result,dieColor){
   return mesh;
 }
 
-// True if a die resting at (x,z) fits entirely inside the canvas (bounding sphere projected)
-const DIE_R=1.5,DIE_FLOOR=1.1;
-function dOnScreen(x,z){
+// True if a die of scale k resting at (x,z) fits entirely inside the canvas (bounding sphere projected)
+const DIE_R=1.5,DIE_FLOOR=1.1,DIE_GAP=1.5; // min center distance = DIE_GAP*(k1+k2)
+function dOnScreen(x,z,k){
   dCamera.updateMatrixWorld();
   const v=new THREE.Vector3();
   for(const[dx,dy,dz] of [[-1,0,0],[1,0,0],[0,-1,0],[0,1,0],[0,0,-1],[0,0,1]]){
-    v.set(x+dx*DIE_R,DIE_FLOOR+dy*DIE_R,z+dz*DIE_R).project(dCamera);
+    v.set(x+dx*DIE_R*k,DIE_FLOOR*k+dy*DIE_R*k,z+dz*DIE_R*k).project(dCamera);
     if(Math.abs(v.x)>0.96||Math.abs(v.y)>0.96)return false;
   }
   return true;
 }
 
-function dFindPos(occupied){
-  const minD2=3.2*3.2;
-  let fallback=null;
-  for(let i=0;i<200;i++){
+// Random free spot for a die of scale k, or null if none found
+function dFindPos(occupied,k){
+  for(let i=0;i<400;i++){
     const x=(Math.random()-.5)*17;
     const z=-9+Math.random()*15;
-    if(!dOnScreen(x,z))continue;
-    if(occupied.every(p=>(p.x-x)*(p.x-x)+(p.z-z)*(p.z-z)>=minD2))return{x,z};
-    fallback=fallback||{x,z};
+    if(!dOnScreen(x,z,k))continue;
+    if(occupied.every(p=>(p.x-x)**2+(p.z-z)**2>=(DIE_GAP*(k+p.k))**2))return{x,z};
   }
-  return fallback||{x:0,z:0};
+  return null;
+}
+
+// Non-overlapping landing spots for n dice: evicts oldest resting dice first, then shrinks the roll
+function dPlaceRoll(n){
+  for(let k=1;k>0.3;k*=0.85){
+    for(;;){
+      const live=dMeshes.filter(m=>m.age<600);
+      const occupied=live.map(m=>({x:m.tx,z:m.tz,k:m.k}));
+      const placed=[];
+      for(let i=0;i<n;i++){const p=dFindPos([...occupied,...placed],k);if(!p)break;placed.push({...p,k});}
+      if(placed.length===n)return placed;
+      if(!live.length)break;
+      live.reduce((a,b)=>a.age>b.age?a:b).age=600; // start fading the oldest
+    }
+  }
+  return Array.from({length:n},()=>({x:(Math.random()-.5)*8,z:(Math.random()-.5)*6,k:0.3}));
 }
 
 function spawnDiceMeshes(rolls, meshList, dieColor){
   if(!dScene)return;
   const rollsCopy={};Object.keys(rolls).forEach(dt=>{rollsCopy[dt]=[...rolls[dt]];});
   const resultList=meshList.map(dt=>{const a=rollsCopy[dt]||(rollsCopy[dt]=[]);return a.length?a.shift():1;});
-  const placed=[];
+  const spots=dPlaceRoll(meshList.length);
+  // Same throw offset for the whole roll: dice travel in parallel and never cross mid-air
+  const offX=(Math.random()-.5)*16,offZ=(Math.random()-.5)*10;
   meshList.forEach((dt,i)=>{
     const mesh=dMakeMesh(dt,resultList[i],dieColor??null);
-    const pos=dFindPos([...dMeshes.map(m=>({x:m.tx,z:m.tz})),...placed]);
-    placed.push(pos);
-    const startX=pos.x+(Math.random()-.5)*16;
-    const startZ=pos.z+(Math.random()-.5)*10;
+    const {x,z,k}=spots[i];
+    mesh.scale.setScalar(k);
     const startY=10+Math.random()*5;
-    mesh.position.set(startX,startY,startZ);
+    mesh.position.set(x+offX,startY,z+offZ);
     dScene.add(mesh);
-    dMeshes.push({mesh,rx:(Math.random()-.5)*.5,ry:(Math.random()-.5)*.5,rz:(Math.random()-.5)*.3,py:startY,pvy:-0.05,floorY:DIE_FLOOR,tx:pos.x,tz:pos.z,targetQ:null,snapDone:false,age:0,fading:false,fadeAlpha:1,dead:false});
+    dMeshes.push({mesh,rx:(Math.random()-.5)*.5,ry:(Math.random()-.5)*.5,rz:(Math.random()-.5)*.3,py:startY,pvy:-0.05,floorY:DIE_FLOOR*k,tx:x,tz:z,k,targetQ:null,snapDone:false,age:0,fading:false,fadeAlpha:1,dead:false});
   });
 }
 
