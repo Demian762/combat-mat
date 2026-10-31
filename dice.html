@@ -134,12 +134,12 @@ function initDiceScene(){
         if(p>=1){m.snapDone=true;if(m.onSnap)m.onSnap();}
       }
       m.age++;
-      if(m.age>600){
+      if(m.age>m.fadeAt){
         if(!m.fading){
           m.fading=true;
           m.mesh.traverse(c=>{if(c.isMesh)[].concat(c.material).forEach(mat=>{mat.transparent=true;mat.needsUpdate=true;});});
         }
-        m.fadeAlpha=Math.max(0,1-(m.age-600)/45);
+        m.fadeAlpha=Math.max(0,1-(m.age-m.fadeAt)/45);
         m.mesh.traverse(c=>{if(c.isMesh)[].concat(c.material).forEach(mat=>mat.opacity=m.fadeAlpha);});
         if(m.fadeAlpha<=0){dScene.remove(m.mesh);m.dead=true;anyDead=true;}
       }
@@ -266,13 +266,13 @@ function dFindPos(occupied,k){
 function dPlaceRoll(n){
   for(let k=1;k>0.3;k*=0.85){
     for(;;){
-      const live=dMeshes.filter(m=>m.age<600);
+      const live=dMeshes.filter(m=>m.age<m.fadeAt);
       const occupied=live.map(m=>({x:m.tx,z:m.tz,k:m.k}));
       const placed=[];
       for(let i=0;i<n;i++){const p=dFindPos([...occupied,...placed],k);if(!p)break;placed.push({...p,k});}
       if(placed.length===n)return placed;
       if(!live.length)break;
-      live.reduce((a,b)=>a.age>b.age?a:b).age=600; // start fading the oldest
+      const old=live.reduce((a,b)=>a.age>b.age?a:b);old.age=old.fadeAt; // start fading the oldest
     }
   }
   return Array.from({length:n},()=>({x:(Math.random()-.5)*8,z:(Math.random()-.5)*6,k:0.3}));
@@ -280,6 +280,10 @@ function dPlaceRoll(n){
 
 // Throw physics shared by every die and the coin: high drop, many slow bounces, long glide
 const DPHYS={y0:13,g:.01,rest:.78,stop:.02,glide:.02,spread:1.3,spin:.6};
+// Bounce level = restitution ×100, chosen by whoever rolled (same range as combat-mat.html)
+const DBOUNCE_MIN=30,DBOUNCE_MAX=86,DBOUNCE_DEF=78;
+const dClampBounce=b=>Number.isFinite(b)?Math.round(Math.min(DBOUNCE_MAX,Math.max(DBOUNCE_MIN,b))):DBOUNCE_DEF;
+const dPhysFor=b=>({...DPHYS,rest:dClampBounce(b)/100});
 const _dqa=new THREE.Quaternion(),_dqb=new THREE.Quaternion();
 
 // Frames until the bounce physics in the render loop comes to rest (mirrors it exactly)
@@ -301,13 +305,13 @@ function dTargetQuat(mesh){
 
 const dRandAxis=()=>new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize();
 
-function spawnDiceMeshes(rolls, meshList, dieColor){
+function spawnDiceMeshes(rolls, meshList, dieColor, bounce){
   if(!dScene)return;
   const rollsCopy={};Object.keys(rolls).forEach(dt=>{rollsCopy[dt]=[...rolls[dt]];});
   const resultList=meshList.map(dt=>{const a=rollsCopy[dt]||(rollsCopy[dt]=[]);return a.length?a.shift():1;});
   const spots=dPlaceRoll(meshList.length);
   // Same throw offset for the whole roll: dice travel in parallel and never cross mid-air
-  const ph=DPHYS;
+  const ph=dPhysFor(bounce);
   const offX=(Math.random()-.5)*16*ph.spread,offZ=(Math.random()-.5)*10*ph.spread;
   meshList.forEach((dt,i)=>{
     const mesh=dMakeMesh(dt,resultList[i],dieColor??null);
@@ -319,7 +323,7 @@ function spawnDiceMeshes(rolls, meshList, dieColor){
     const floorY=DIE_FLOOR*k,T=dSettleFrames(ph,startY,floorY);
     // Total spin angle chosen so the initial angular speed is ~spin rad/frame, decaying to 0 at T
     const w1=(.15+Math.random()*.15)*ph.spin,w2=(.04+Math.random()*.08)*ph.spin;
-    dMeshes.push({mesh,ph,py:startY,pvy:-0.05,floorY,T,tx:x,tz:z,k,targetQ:dTargetQuat(mesh),ax1:dRandAxis(),ax2:dRandAxis(),th1:w1*T/2,th2:w2*T/2,snapDone:false,age:0,fading:false,fadeAlpha:1,dead:false});
+    dMeshes.push({mesh,ph,py:startY,pvy:-0.05,floorY,T,tx:x,tz:z,k,targetQ:dTargetQuat(mesh),ax1:dRandAxis(),ax2:dRandAxis(),th1:w1*T/2,th2:w2*T/2,snapDone:false,age:0,fadeAt:Math.max(600,T+180),fading:false,fadeAlpha:1,dead:false});
   });
 }
 
@@ -330,7 +334,7 @@ db.ref('sala/rolls').orderByChild('timestamp').startAt(PAGE_LOAD_TS).on('child_a
   if (!r || seenKeys.has(snap.key)) return;
   seenKeys.add(snap.key);
   const meshList = Object.entries(r.rolls || {}).flatMap(([dt, arr]) => Array(arr.length).fill(dt));
-  spawnDiceMeshes(r.rolls || {}, meshList, r.color ?? null);
+  spawnDiceMeshes(r.rolls || {}, meshList, r.color ?? null, r.bounce);
 });
 
 initDiceScene();

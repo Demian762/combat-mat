@@ -44,7 +44,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
   /uid                → number              // contador global de ids
   /maxHp              → number              // valor por defecto nuevos tokens
   /rolls
-    /{pushId}         → {player, dice, rolls, modifier, total, timestamp}
+    /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, bounce, hidden?}
 ```
 
 ### Lo que NO va a Firebase (estado cliente-local)
@@ -56,6 +56,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |
 | `pickerStates.player` | Color del picker de nuevo jugador — elección individual, no debe imponerse a otros clientes |
+| `dBounce` | Nivel de rebote de los dados — preferencia de cada persona, en `localStorage` (`diceBounce`); viaja en cada tirada como `bounce` |
 
 ---
 
@@ -113,8 +114,11 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 4. Los demás clientes (y `dice.html`) reciben la tirada desde Firebase y reproducen la misma animación con esos resultados.
 5. Al asentarse los dados, el cliente que tiró borra `hidden` y el valor aparece en resultado, historial y `log.html`.
 
+### Rebote por persona
+Deslizador **Rebote** en el panel de dados: valor 30–86 = coeficiente de restitución ×100 (default 78 ≈ 6 s; 30 ≈ 1.5 s; 86 ≈ 10 s). Más rebote → más saltos → más tarda en salir el resultado. Se guarda en `localStorage` y se escribe en la tirada (`bounce`), así los demás clientes y `dice.html` reproducen la misma física (`dPhysFor`). Tiradas sin `bounce` usan el default. Los dados se desvanecen a los 10 s o 3 s después de asentarse, lo que ocurra último (`fadeAt`).
+
 ### Revelado al terminar la animación
-**Todas** las tiradas (dados, Porcentaje, Todo o Nada) se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a los 15 s) y recién ahí muestra el resultado local. Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
+**Todas** las tiradas (dados, Porcentaje, Todo o Nada) se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a los 20 s) y recién ahí muestra el resultado local. Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
 
 ### Ruta Firebase
 `/sala/rolls/{pushId}` con forma `{player, dice, rolls, modifier, total, timestamp}`.

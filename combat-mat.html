@@ -132,6 +132,7 @@ input[type=text]:focus { border-color:var(--amber); }
 #btn-vent.active, #btn-desv.active { border-color:var(--amber-lt); background:rgba(200,146,42,0.18); color:var(--amber-lt); box-shadow:0 0 8px rgba(200,146,42,0.35); }
 #dice .sec-title { font-size:12px; }
 #dice .plabel { font-size:11px; letter-spacing:.5px; }
+#dbounce { width:100%; accent-color:var(--amber); margin:0 0 6px; cursor:pointer; }
 #scene-select, #dplayer-name { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
 #scene-select:focus, #dplayer-name:focus { border-color:var(--amber); }
 #scene-select option, #dplayer-name option { background:#140e04; color:#ddd; }
@@ -206,6 +207,8 @@ input[type=text]:focus { border-color:var(--amber); }
         <button id="btn-vent" class="vd-btn" onclick="setAdvMode('vent')" disabled>Ventaja</button>
         <button id="btn-desv" class="vd-btn" onclick="setAdvMode('desv')" disabled>Desventaja</button>
       </div>
+      <label class="plabel" for="dbounce">Rebote <span id="dbounce-val" style="color:var(--amber-lt)"></span></label>
+      <input type="range" id="dbounce" min="30" max="86" step="1" value="78" oninput="setBounce(+this.value)">
       <button class="roll-btn" onclick="rollDice()">⚄ Tirar</button>
     </div>
     <div class="section" style="text-align:center;padding:10px 12px;height:58px;flex-shrink:0">
@@ -901,7 +904,7 @@ function updateDiceNameOptions(){
 /* ── Dice ── */
 const DSIDES={d4:4,d6:6,d8:8,d10:10,d12:12,d20:20};
 const DCOLORS={d4:0xe8a020,d6:0x4682d4,d8:0x9b4de0,d10:0x20a8b8,d12:0xc44040,d20:0x20a060};
-let dCount={d4:0,d6:0,d8:0,d10:0,d12:0,d20:0},dMod=0,dAdvMode=null,dLog=[],dMeshes=[];
+let dCount={d4:0,d6:0,d8:0,d10:0,d12:0,d20:0},dMod=0,dAdvMode=null,dLog=[],dMeshes=[],dBounce=78;
 let dScene,dCamera,dRenderer;
 
 function initDiceRows(){
@@ -910,6 +913,16 @@ function initDiceRows(){
   g.innerHTML=Object.keys(DSIDES).map(dt=>
     `<button class="die-pick-btn" id="dpick-${dt}" onclick="addDie('${dt}')">${dt}</button>`
   ).join('');
+  let saved=null;try{saved=localStorage.getItem('diceBounce');}catch(e){}
+  setBounce(saved!=null?+saved:DBOUNCE_DEF);
+}
+// Bounce level is a per-person preference: kept in this browser and sent with each roll
+function setBounce(b){
+  dBounce=dClampBounce(b);
+  document.getElementById('dbounce').value=dBounce;
+  const secs=dSettleFrames(dPhysFor(dBounce),DPHYS.y0+2.5,DIE_FLOOR)/60;
+  document.getElementById('dbounce-val').textContent=`· ≈${secs.toFixed(1)} s`;
+  try{localStorage.setItem('diceBounce',String(dBounce));}catch(e){}
 }
 function addDie(dt){dCount[dt]=Math.min(9,dCount[dt]+1);updateDiceDisplay();}
 function adjMod(d){dMod=Math.max(-99,Math.min(99,dMod+d));document.getElementById('dmod-val').textContent=dMod>0?'+'+dMod:String(dMod);updateDiceDisplay();}
@@ -1036,14 +1049,14 @@ function initDiceScene(){
           .multiply(_dqb.setFromAxisAngle(m.ax2,m.th2*r));
         if(p>=1){m.snapDone=true;if(m.onSnap)m.onSnap();}
       }
-      // Per-die fade: 10s visible, then 0.75s fade out
+      // Per-die fade: 10s visible (at least 3s after settling), then 0.75s fade out
       m.age++;
-      if(m.age>600){
+      if(m.age>m.fadeAt){
         if(!m.fading){
           m.fading=true;
           m.mesh.traverse(c=>{if(c.isMesh)[].concat(c.material).forEach(mat=>{mat.transparent=true;mat.needsUpdate=true;});});
         }
-        m.fadeAlpha=Math.max(0,1-(m.age-600)/45);
+        m.fadeAlpha=Math.max(0,1-(m.age-m.fadeAt)/45);
         m.mesh.traverse(c=>{if(c.isMesh)[].concat(c.material).forEach(mat=>mat.opacity=m.fadeAlpha);});
         if(m.fadeAlpha<=0){dScene.remove(m.mesh);m.dead=true;anyDead=true;}
       }
@@ -1170,13 +1183,13 @@ function dFindPos(occupied,k){
 function dPlaceRoll(n){
   for(let k=1;k>0.3;k*=0.85){
     for(;;){
-      const live=dMeshes.filter(m=>m.age<600);
+      const live=dMeshes.filter(m=>m.age<m.fadeAt);
       const occupied=live.map(m=>({x:m.tx,z:m.tz,k:m.k}));
       const placed=[];
       for(let i=0;i<n;i++){const p=dFindPos([...occupied,...placed],k);if(!p)break;placed.push({...p,k});}
       if(placed.length===n)return placed;
       if(!live.length)break;
-      live.reduce((a,b)=>a.age>b.age?a:b).age=600; // start fading the oldest
+      const old=live.reduce((a,b)=>a.age>b.age?a:b);old.age=old.fadeAt; // start fading the oldest
     }
   }
   return Array.from({length:n},()=>({x:(Math.random()-.5)*8,z:(Math.random()-.5)*6,k:0.3}));
@@ -1185,6 +1198,10 @@ function dPlaceRoll(n){
 // onDone (optional) fires once every die of this roll has settled on its result face
 // Throw physics shared by every die and the coin: high drop, many slow bounces, long glide
 const DPHYS={y0:13,g:.01,rest:.78,stop:.02,glide:.02,spread:1.3,spin:.6};
+// Bounce level = restitution ×100 (more bounce → more hops → longer roll); rolls without it use the default
+const DBOUNCE_MIN=30,DBOUNCE_MAX=86,DBOUNCE_DEF=78;
+const dClampBounce=b=>Number.isFinite(b)?Math.round(Math.min(DBOUNCE_MAX,Math.max(DBOUNCE_MIN,b))):DBOUNCE_DEF;
+const dPhysFor=b=>({...DPHYS,rest:dClampBounce(b)/100});
 const _dqa=new THREE.Quaternion(),_dqb=new THREE.Quaternion();
 
 // Frames until the bounce physics in the render loop comes to rest (mirrors it exactly)
@@ -1206,7 +1223,7 @@ function dTargetQuat(mesh){
 
 const dRandAxis=()=>new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize();
 
-function spawnDiceMeshes(rolls, meshList, dieColor, onDone){
+function spawnDiceMeshes(rolls, meshList, dieColor, bounce, onDone){
   if(!dScene)return;
   let left=meshList.length;
   const onSnap=onDone?()=>{if(--left===0)onDone();}:null;
@@ -1214,7 +1231,7 @@ function spawnDiceMeshes(rolls, meshList, dieColor, onDone){
   const resultList=meshList.map(dt=>{const a=rollsCopy[dt]||(rollsCopy[dt]=[]);return a.length?a.shift():1;});
   const spots=dPlaceRoll(meshList.length);
   // Same throw offset for the whole roll: dice travel in parallel and never cross mid-air
-  const ph=DPHYS;
+  const ph=dPhysFor(bounce);
   const offX=(Math.random()-.5)*16*ph.spread,offZ=(Math.random()-.5)*10*ph.spread;
   meshList.forEach((dt,i)=>{
     const mesh=dMakeMesh(dt,resultList[i],dieColor??null);
@@ -1226,7 +1243,7 @@ function spawnDiceMeshes(rolls, meshList, dieColor, onDone){
     const floorY=DIE_FLOOR*k,T=dSettleFrames(ph,startY,floorY);
     // Total spin angle chosen so the initial angular speed is ~spin rad/frame, decaying to 0 at T
     const w1=(.15+Math.random()*.15)*ph.spin,w2=(.04+Math.random()*.08)*ph.spin;
-    dMeshes.push({mesh,ph,py:startY,pvy:-0.05,floorY,T,tx:x,tz:z,k,onSnap,targetQ:dTargetQuat(mesh),ax1:dRandAxis(),ax2:dRandAxis(),th1:w1*T/2,th2:w2*T/2,snapDone:false,age:0,fading:false,fadeAlpha:1,dead:false});
+    dMeshes.push({mesh,ph,py:startY,pvy:-0.05,floorY,T,tx:x,tz:z,k,onSnap,targetQ:dTargetQuat(mesh),ax1:dRandAxis(),ax2:dRandAxis(),th1:w1*T/2,th2:w2*T/2,snapDone:false,age:0,fadeAt:Math.max(600,T+180),fading:false,fadeAlpha:1,dead:false});
   });
 }
 
@@ -1265,7 +1282,7 @@ function pushRoll(diceStr,rolls,modifier,total){
   const dPlayerName=(document.getElementById('dplayer-name').value.trim())||'Anónimo';
   const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
   const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
-  const ref=db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,hidden:true});
+  const ref=db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,bounce:dBounce,hidden:true});
   db.ref('sala/rolls').orderByKey().once('value',snap=>{
     const keys=Object.keys(snap.val()||{});
     if(keys.length>20){
@@ -1277,7 +1294,7 @@ function pushRoll(diceStr,rolls,modifier,total){
 }
 
 // Every roll is revealed (locally and in every log) only when its animation ends
-const REVEAL_MAX_MS=15000; // fallback if the animation never settles (e.g. hidden tab)
+const REVEAL_MAX_MS=20000; // fallback if the animation never settles (e.g. hidden tab)
 function rollAnimated(diceStr,rolls,modifier,total){
   const {dieColor,ref}=pushRoll(diceStr,rolls,modifier,total);
   let revealed=false;
@@ -1287,7 +1304,7 @@ function rollAnimated(diceStr,rolls,modifier,total){
     ref.update({hidden:null});
   };
   const meshList=Object.entries(rolls).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
-  spawnDiceMeshes(rolls,meshList,dieColor,reveal);
+  spawnDiceMeshes(rolls,meshList,dieColor,dBounce,reveal);
   setTimeout(reveal,REVEAL_MAX_MS);
 }
 // Percentile: tens d10 (0..90) + units d10 (1..10) → 1..100
@@ -1416,7 +1433,7 @@ function initFirebase(){
     addToLog(snap.key,r);
     if(r.timestamp>PAGE_LOAD_TS&&r._cid!==CLIENT_ID){
       const ml=Object.entries(r.rolls||{}).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
-      if(ml.length)spawnDiceMeshes(r.rolls,ml,r.color??null);
+      if(ml.length)spawnDiceMeshes(r.rolls,ml,r.color??null,r.bounce);
     }
   });
   rollsRef.on('child_changed',snap=>addToLog(snap.key,snap.val()));
