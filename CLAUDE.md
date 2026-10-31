@@ -44,7 +44,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
   /uid                → number              // contador global de ids
   /maxHp              → number              // valor por defecto nuevos tokens
   /rolls
-    /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, bounce, hidden?}
+    /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, duration, hidden?}
 ```
 
 ### Lo que NO va a Firebase (estado cliente-local)
@@ -56,7 +56,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |
 | `pickerStates.player` | Color del picker de nuevo jugador — elección individual, no debe imponerse a otros clientes |
-| `dBounce` | Nivel de rebote de los dados — preferencia de cada persona, en `localStorage` (`diceBounce`); viaja en cada tirada como `bounce` |
+| `dDuration` | Duración de la tirada en segundos (barra "Rebote") — preferencia de cada persona, en `localStorage` (`diceDuration`); viaja en cada tirada como `duration` |
 
 ---
 
@@ -115,10 +115,14 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 5. Al asentarse los dados, el cliente que tiró borra `hidden` y el valor aparece en resultado, historial y `log.html`.
 
 ### Rebote por persona
-Deslizador **Rebote** en el panel de dados: valor 30–86 = coeficiente de restitución ×100 (default 78 ≈ 6 s; 30 ≈ 1.5 s; 86 ≈ 10 s). Más rebote → más saltos → más tarda en salir el resultado. Se guarda en `localStorage` y se escribe en la tirada (`bounce`), así los demás clientes y `dice.html` reproducen la misma física (`dPhysFor`). Tiradas sin `bounce` usan el default. Los dados se desvanecen a los 10 s o 3 s después de asentarse, lo que ocurra último (`fadeAt`).
+Deslizador **Rebote** en el panel de dados: elige la **duración exacta** de la tirada, 1.5–100 s en escala logarítmica (default 6 s). Se guarda en `localStorage` y se escribe en la tirada (`duration`), así los demás clientes y `dice.html` animan lo mismo; tiradas sin `duration` usan el default.
+- Más duración → más restitución (`dRestFor`: 1.5 s → 0.30, 2 saltos; 6 s → 0.78; 100 s → 0.96, ~80 saltos). Pasados ~25 s, el resto se logra con cámara lenta.
+- Los rebotes son **analíticos** (`dBounces`/`dBounceY`: parábolas exactas, no integración por cuadro). Cada dado estira su calendario natural por `lam = dur/T` para asentarse exactamente en `dur`.
+- La animación depende del **tiempo real** (`performance.now()`), no de cuadros: dura lo mismo a 60 o 144 Hz.
+- Los dados se desvanecen a los 10 s, o 3 s después de asentarse si eso es más tarde (`fadeAt`, en segundos).
 
 ### Revelado al terminar la animación
-**Todas** las tiradas (dados, Porcentaje, Todo o Nada) se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a los 20 s) y recién ahí muestra el resultado local. Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
+**Todas** las tiradas (dados, Porcentaje, Todo o Nada) se escriben con `hidden:true` para que todos animen en simultáneo; el cliente que tira borra `hidden` al terminar su animación (o a `duration` + 3 s como respaldo) y recién ahí muestra el resultado local. Los logs (`combat-mat` historial y `log.html`) ignoran entradas `hidden` y las muestran en `child_changed`.
 
 ### Ruta Firebase
 `/sala/rolls/{pushId}` con forma `{player, dice, rolls, modifier, total, timestamp}`.
