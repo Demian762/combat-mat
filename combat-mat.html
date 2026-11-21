@@ -392,7 +392,7 @@ body:not(.is-master) .master-only { display:none; }
     </div>
 
     <div class="section">
-      <span class="sec-title">Nuevo token</span>
+      <span class="sec-title">Gestión de Tokens</span>
       <label class="plabel">Nombre</label>
       <input type="text" id="iname" placeholder="Nombre..." maxlength="18" oninput="updateCharBtn()">
       <div class="cls-size-row">
@@ -859,7 +859,7 @@ const canDelete=t=>isMaster()||(!!me&&t.type==='player'&&t.owner===me.uid);
 // Misma regla para la vida: un jugador solo ajusta la de su propio personaje (la de los demás la ve, sin botones)
 const canEditHp=canDelete;
 /* ── Botón de personaje del jugador: Nuevo / Borrar / Editar ── */
-// El jugador tiene un solo personaje: el formulario "Nuevo token" muestra sus datos. Si coinciden, el botón lo borra;
+// El jugador tiene un solo personaje: el formulario "Gestión de Tokens" muestra sus datos. Si coinciden, el botón lo borra;
 // si se tocó algo, lo edita. Sin personaje, lo crea. El master sigue con "+ NPC".
 let charFormSig=null; // datos del personaje cargados por última vez en el formulario (para no pisar lo que el jugador está editando)
 const charSig=t=>JSON.stringify([t.name,t.cls||'Otras',t.size||'medium',t.maxHp,(t.color||'').toLowerCase()]);
@@ -1446,7 +1446,7 @@ grid.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape')clearArrow();
-  // Escribiendo en un campo (p. ej. Nombre de Nuevo token), Supr borra texto, no la ficha
+  // Escribiendo en un campo (p. ej. Nombre de Gestión de Tokens), Supr borra texto, no la ficha
   if(e.target.closest&&e.target.closest('input:not([type=range]),textarea,[contenteditable]'))return;
   const target=isMaster()?masterSel:S.selId;
   if(e.key==='Delete'&&target!=null)delTok(target);
