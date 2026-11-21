@@ -1533,7 +1533,7 @@ function drawTerrBase(c,cells,t){
     if(isHexColor(e.base)){c.fillStyle=hexToRgba(e.base,0.85);c.fillRect(x,y,s,s);}
     else if(e.under)e.under.forEach((nb,q)=>{
       const qx=x+(q&1)*s/2,qy=y+(q>>1)*s/2;
-      if(!nb){if(e.base==='tree'){c.fillStyle=TREE_FLOOR;c.fillRect(qx,qy,s/2,s/2);}return;} // entre copas: suelo de bosque
+      if(!nb)return; // sin vecino simple: transparente, se ve el fondo
       if(isHexColor(nb)){c.fillStyle=hexToRgba(nb,0.85);c.fillRect(qx,qy,s/2,s/2);}
       else tex(nb,x,y,e.col,e.row,null,null,[qx,qy,s/2,s/2]);
     });
@@ -1545,8 +1545,8 @@ function drawTerrBase(c,cells,t){
 /* Árboles: copas redondas (más que los líquidos). Las celdas de árbol se agrupan en copas recorriendo todo el terreno en
    orden fila por fila: un bloque libre de 3×3 (si no es parte de uno de 4×4) es una copa grande, uno de 2×2 una mediana
    y si no, la celda sola es una copa chica. Depende solo de dónde hay árboles, no de la vista: no cambia con el pan.
-   Las copas se superponen un poco (bosque), con sombra hacia abajo a la derecha. Debajo, entre copas, suelo de bosque. */
-const TREE_FLOOR='#0d230b';
+   Las copas se superponen un poco (bosque), con sombra hacia abajo a la derecha. Fuera de las copas se ve el terreno
+   vecino (under) y, si no hay ninguno, el fondo. */
 function treeCrowns(ox,oy){
   const has=new Set(),cells=[];
   for(const k in S.terrain)if(parseTerr(S.terrain[k]).base==='tree'){has.add(k);const[c,r]=k.split(',').map(Number);cells.push([c,r]);}
