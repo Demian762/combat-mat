@@ -94,7 +94,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 
 ### Paletas del panel derecho
 Dos paletas separadas, cada una con modo **Simple** (muestras fijas) y **Completa** (selector HSV):
-- **Mapa** (arriba): destino Terreno / Fondo / Líneas. Simple = los 14 terrenos de `TERRAIN` (en Fondo/Líneas esos mismos colores se aplican a la grilla). Completa en Terreno = pincel de color libre (se guarda el hex en `/terrain`). El ✕ borrar y el botón del pincel libre van en `#terr-tools`, a la izquierda de las flechas de pan (✕ solo con destino Terreno; el pincel, además, solo en Completa).
+- **Mapa** (arriba): destino Terreno / Fondo / Líneas. Simple = los 14 terrenos de `TERRAIN` (en Fondo/Líneas esos mismos colores se aplican a la grilla). Completa en Terreno = pincel de color libre (se guarda el hex en `/terrain`). El botón de terreno actual (último pincel elegido, `lastBrush`: terreno con nombre o color libre; clic = prender/apagar) y el ✕ borrar van en `#terr-tools`, a la izquierda de las flechas de pan; ambos solo con destino Terreno, en los dos modos.
 - **Color** del nuevo personaje (dentro de Nuevo token): Simple = 10 colores vivos (`TOK_COLORS`), sin borrar. Completa = selector HSV.
 
 ### Movimiento de jugadores entre escenas

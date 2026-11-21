@@ -322,7 +322,7 @@ body:not(.is-master) .master-only { display:none; }
       <div id="map-tools">
       <!-- Borrar terreno y pincel de color libre (Completa), a la izquierda de las flechas -->
       <div id="terr-tools">
-        <div class="terr-sw" id="brush-custom" onclick="selectTerrain(hsvToHex(terrCustom.h,terrCustom.s,terrCustom.v))" title="Pintar con este color"></div>
+        <div class="terr-sw" id="brush-custom" onclick="selectTerrain(curBrush())"></div>
         <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar terreno">✕</div>
       </div>
       <div id="pan-grid">
@@ -501,6 +501,7 @@ const pickerStates={player:hexToHsv('#4a90e2'),bg:{h:20,s:0.55,v:0.04},line:{h:3
 // palMode = Simple/Completa de cada paleta, preferencia local en localStorage ('palMode').
 let mapTarget='terrain', terrCustom={h:30,s:0.5,v:0.5}, palMode={map:'simple',tok:'simple'};
 let mapPicker=null, tokPicker=null;
+let lastBrush=null; // último pincel de terreno elegido, lo muestra el botón de terreno actual (null = color libre)
 let selectedClass='Otras';
 // Estado global. ox/oy = offset del viewport en el mapa infinito.
 // terrain = {"col,row": tipo}. order = array de ids para orden del panel izquierdo.
@@ -647,16 +648,20 @@ function selectTerrain(type){
   S.activeTerrain=S.activeTerrain===type?null:type;
   updateTerrainUI();
 }
+function curBrush(){return lastBrush||hsvHex(terrCustom);}
 function updateTerrainUI(){
   const a=S.activeTerrain;
   document.querySelectorAll('[data-terr]').forEach(el=>el.classList.toggle('active',el.dataset.terr===a));
-  const custom=hsvHex(terrCustom);
+  // Botón de terreno actual: el último pincel elegido (terreno con nombre o color libre); clic = prenderlo/apagarlo
+  if(a&&a!=='eraser')lastBrush=a;
+  const lb=curBrush();
   const bc=document.getElementById('brush-custom');
-  bc.style.background=custom;
-  bc.classList.toggle('active',isHexColor(a));
-  // ✕ solo tiene sentido con destino Terreno; el pincel libre, además, solo en Completa
+  bc.style.background=isHexColor(lb)?lb:TERRAIN[lb]?.sw||'transparent';
+  bc.title=isHexColor(lb)?'Pintar con este color':TERRAIN[lb]?.name||'';
+  bc.classList.toggle('active',a===lb);
+  // ✕ y terreno actual solo tienen sentido con destino Terreno
   document.querySelector('#terr-tools .tbtn-erase').classList.toggle('off',mapTarget!=='terrain');
-  bc.classList.toggle('off',mapTarget!=='terrain'||palMode.map!=='full');
+  bc.classList.toggle('off',mapTarget!=='terrain');
   document.getElementById('cprev-terrain').style.background=
     !a||a==='eraser'?'transparent':isHexColor(a)?a:TERRAIN[a]?.sw||'transparent';
   grid.classList.toggle('painting',!!a);
