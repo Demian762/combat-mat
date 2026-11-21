@@ -966,6 +966,14 @@ function layoutStacks(){
   });
 }
 
+// Círculo de turno del panel izquierdo: sobre la ficha activa la deselecciona y no queda ninguna (turn = null)
+function toggleTurn(id){
+  if(S.turn!==id){selectTok(id);return;}
+  S.turn=null; S.selId=null;
+  db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(null);
+  grid.classList.remove('measuring'); clearArrow();
+  renderAllToks(); renderList();
+}
 function selectTok(id){
   if(S.turn===id)return;
   S.turn=id; S.selId=id;
@@ -1037,7 +1045,7 @@ function renderLeftPanel(){
     return `<div class="litem ${isTurn?'litem-turn':''}" data-id="${t.id}">
       <div class="litem-left">
         <span class="litem-num">${i+1}</span>
-        <div class="litem-cb ${isTurn?'on':''}" onmousedown="event.stopPropagation()" onclick="selectTok(${t.id})"></div>
+        <div class="litem-cb ${isTurn?'on':''}" onmousedown="event.stopPropagation()" onclick="toggleTurn(${t.id})"></div>
       </div>
       <div class="litem-body">
         <div class="litem-header">
