@@ -578,6 +578,7 @@ const TERRAIN={
   acid:{name:'Ácido / Veneno',sw:'#5ad41e'},cloud:{name:'Nube mágica',sw:'#b4a8dc'},
   chest:{name:'Cofre',sw:'#7a4a1c'},gold:{name:'Oro',sw:'#e8b923'},rack:{name:'Armero',sw:'#6a4a2a'},
   chair:{name:'Silla',sw:'#5c361a'},table:{name:'Mesa',sw:'#5a3418'},brick:{name:'Ladrillo',sw:'#9a4a32'},
+  tiles:{name:'Baldosas',sw:'#d2c4a4'},marble:{name:'Mármol',sw:'#e6e2da'},carpet:{name:'Alfombra',sw:'#7a1c1c'},setts:{name:'Empedrado',sw:'#7c7e86'},
   bush:{name:'Arbustos',sw:'#3f7a2a'},vines:{name:'Enredaderas',sw:'#4c8a2e'},crack:{name:'Grieta',sw:'#2a211a'},
   oil:{name:'Aceite',sw:'#2a2016'},dirty:{name:'Agua sucia',sw:'#556238'},shallow:{name:'Agua poco profunda',sw:'#5aa6c8'},
 };
@@ -586,7 +587,7 @@ const TERRAIN={
 const TERR_CATS=[
   ['nature','Naturaleza',['grass','sand','dirt','snow','mud','straw','tree','bush','vines','crack','void','fire','ice']],
   ['fluid','Fluidos',['water','shallow','dirty','lava','acid','oil','blood','cloud']],
-  ['build','Construcción',['wall','brick','door','fence','roof','stone','wood','metal']],
+  ['build','Construcción',['wall','brick','door','fence','roof','stone','setts','tiles','marble','carpet','wood','metal']],
   ['objects','Objetos',['trap','rubble','chest','gold','rack','chair','table']],
 ];
 const isHexColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
@@ -919,6 +920,58 @@ const TERRAIN_TEX={
       c.fillStyle='rgba(60,20,10,0.25)';c.fillRect(x+m/2,i*h+h-m/2-Math.max(1,m*0.7),w-m,Math.max(1,m*0.7));
       if(R()<0.3){c.fillStyle='rgba(40,14,6,0.25)';c.fillRect(x+m/2+R()*w*0.6,i*h+h*0.3+R()*h*0.3,Math.max(1,s*0.03),Math.max(1,s*0.03));}else{R();R();}
     }
+  },
+  tiles(c,s,R){ // baldosas cerámicas esmaltadas, 2×2 por celda, con junta y un brillo en diagonal
+    c.fillStyle='#857a66';c.fillRect(0,0,s,s);
+    const g=s/2,m=Math.max(1,s*0.03);
+    for(let i=0;i<2;i++)for(let j=0;j<2;j++){
+      const v=R()*22-11,x=i*g+m/2,y=j*g+m/2,w=g-m;
+      c.fillStyle=rgb(212+v,198+v,166+v*0.8);c.fillRect(x,y,w,w);
+      const gr=c.createLinearGradient(x,y,x+w,y+w);gr.addColorStop(0,'rgba(255,255,255,0.28)');gr.addColorStop(0.45,'rgba(255,255,255,0)');gr.addColorStop(1,'rgba(90,70,40,0.12)');
+      c.fillStyle=gr;c.fillRect(x,y,w,w);
+    }
+  },
+  marble(c,s,R){ // mármol pulido: losa clara con nubes grises, vetas y brillo
+    c.fillStyle='#e8e4dc';c.fillRect(0,0,s,s);
+    for(let i=0;i<2;i++){const x=R()*s,y=R()*s,r=s*(0.3+R()*0.3),g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,'rgba(170,165,160,0.25)');g.addColorStop(1,'rgba(170,165,160,0)');c.fillStyle=g;disc(c,x,y,r);}
+    c.lineCap='round';
+    for(let i=0;i<3;i++){
+      const y0=R()*s,y1=R()*s,a=R()*s,b=R()*s,thin=i===2;
+      c.strokeStyle=thin?'rgba(90,85,80,0.55)':'rgba(130,125,120,0.45)';c.lineWidth=Math.max(0.6,s*(thin?0.008:0.016));
+      c.beginPath();c.moveTo(0,y0);c.bezierCurveTo(s*0.33,a,s*0.66,b,s,y1);c.stroke();
+    }
+    const gr=c.createLinearGradient(0,0,s,s);gr.addColorStop(0,'rgba(255,255,255,0.35)');gr.addColorStop(0.5,'rgba(255,255,255,0)');c.fillStyle=gr;c.fillRect(0,0,s,s);
+    c.fillStyle='rgba(120,115,108,0.5)';c.fillRect(0,0,s,Math.max(1,s*0.015));c.fillRect(0,0,Math.max(1,s*0.015),s); // junta entre losas
+  },
+  setts(c,s,R){ // empedrado: piedras talladas en hileras (a soga) sobre arena; continúa entre celdas
+    c.fillStyle='#6e6656';c.fillRect(0,0,s,s);
+    const h=s/3,w=s/2,m=Math.max(1,s*0.04),r=Math.max(1,s*0.04);
+    for(let i=0;i<3;i++)for(let x=i%2?-w/2:0;x<s;x+=w){
+      const v=R()*30-15,bx=x+m/2,by=i*h+m/2,bw=w-m,bh=h-m;
+      c.fillStyle=rgb(118+v,120+v,128+v);c.beginPath();c.roundRect?c.roundRect(bx,by,bw,bh,r):c.rect(bx,by,bw,bh);c.fill();
+      c.fillStyle='rgba(255,255,255,0.12)';c.fillRect(bx+r,by,bw-2*r,Math.max(1,s*0.02));
+      c.fillStyle='rgba(0,0,0,0.18)';c.fillRect(bx+r,by+bh-Math.max(1,s*0.02),bw-2*r,Math.max(1,s*0.02));
+      c.fillStyle='rgba(40,40,50,0.35)';for(let k=0;k<3;k++)c.fillRect(bx+R()*bw,by+R()*bh,Math.max(1,s*0.02),Math.max(1,s*0.02));
+    }
+  },
+  carpet(c,s,R,t,nb){ // alfombra (piso): las vecinas se unen en una sola; guarda azul y dorada en el borde de afuera
+    const L=nb?nb.links:0,m=s*0.06,x0=L&8?0:m,x1=L&2?s:s-m,y0=L&1?0:m,y1=L&4?s:s-m;
+    c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(x0+s*0.02,y0+s*0.02,x1-x0,y1-y0);
+    c.fillStyle='#7a1c1c';c.fillRect(x0,y0,x1-x0,y1-y0);
+    // rombo central con puntos (un motivo por celda; en una alfombra grande se repite)
+    c.fillStyle='#5a1010';c.strokeStyle='#d4a24a';c.lineWidth=Math.max(1,s*0.02);
+    c.beginPath();c.moveTo(s/2,s*0.28);c.lineTo(s*0.72,s/2);c.lineTo(s/2,s*0.72);c.lineTo(s*0.28,s/2);c.closePath();c.fill();c.stroke();
+    c.fillStyle='#d4a24a';disc(c,s/2,s/2,Math.max(1,s*0.035));
+    c.fillStyle='rgba(212,162,74,0.6)';for(const[px,py]of[[0.2,0.2],[0.8,0.2],[0.2,0.8],[0.8,0.8]])disc(c,s*px,s*py,Math.max(0.8,s*0.018));
+    // guarda: banda azul con filete dorado, solo en los lados sin alfombra vecina
+    const b=s*0.13,gl=Math.max(1,s*0.02);
+    c.fillStyle='#1e2a4a';
+    if(!(L&1))c.fillRect(x0,y0,x1-x0,b);if(!(L&4))c.fillRect(x0,y1-b,x1-x0,b);if(!(L&8))c.fillRect(x0,y0,b,y1-y0);if(!(L&2))c.fillRect(x1-b,y0,b,y1-y0);
+    c.fillStyle='#d4a24a';
+    if(!(L&1))c.fillRect(L&8?x0:x0+b,y0+b,(x1-x0)-(L&8?0:b)-(L&2?0:b),gl);
+    if(!(L&4))c.fillRect(L&8?x0:x0+b,y1-b-gl,(x1-x0)-(L&8?0:b)-(L&2?0:b),gl);
+    if(!(L&8))c.fillRect(x0+b,L&1?y0:y0+b,gl,(y1-y0)-(L&1?0:b)-(L&4?0:b));
+    if(!(L&2))c.fillRect(x1-b-gl,L&1?y0:y0+b,gl,(y1-y0)-(L&1?0:b)-(L&4?0:b));
   },
   stone(c,s,R){ // adoquines irregulares con juntas oscuras, sombra y brillo
     c.fillStyle='#34343a';c.fillRect(0,0,s,s);
@@ -1655,9 +1708,11 @@ function buildTerrScene(){
     if(OBJ_NB[over])e.nb=objNeighbors(over,col,row,P);
     if(over==='vines'){let links=0;for(const[dx,dy,b]of[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]])if(P((col+dx)+','+(row+dy)).over==='vines')links|=b;e.nb={links,col,row};}
     // Debajo de un piso líquido: por cuadrante, el terreno vecino no líquido (de costado, de arriba/abajo o en diagonal)
-    if(LIQ[base]||base==='tree')e.under=[0,1,2,3].map(q=>{
+    // Alfombra: piso que se une con las alfombras vecinas en una sola (bnb.links N=1 E=2 S=4 O=8)
+    if(base==='carpet'){let links=0;for(const[dx,dy,b]of[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]])if(P((col+dx)+','+(row+dy)).base==='carpet')links|=b;e.bnb={links};}
+    if(LIQ[base]||base==='tree'||base==='carpet')e.under=[0,1,2,3].map(q=>{
       const dx=q&1?1:-1,dy=q&2?1:-1;
-      for(const[a,b]of[[dx,0],[0,dy],[dx,dy]]){const nb=P((col+a)+','+(row+b)).base;if(nb&&!LIQ[nb]&&nb!=='tree'&&(isHexColor(nb)||TERRAIN_TEX[nb]))return nb;}
+      for(const[a,b]of[[dx,0],[0,dy],[dx,dy]]){const nb=P((col+a)+','+(row+b)).base;if(nb&&!LIQ[nb]&&nb!=='tree'&&nb!=='carpet'&&(isHexColor(nb)||TERRAIN_TEX[nb]))return nb;}
       return null;
     });
     cells.push(e);
@@ -1748,7 +1803,7 @@ const terrCellAnim=e=>!!(e.ab||(!e.base&&OVER_BG[e.over]&&e.ao));
 const terrCellCache=new Map();
 function terrCellBitmap(e){
   if(!e.base&&!OVER_BG[e.over])return null;
-  const key=[e.col,e.row,e.base||'',e.base?'':e.over,e.under?e.under.join('/'):'',CS,terrScale].join('|');
+  const key=[e.col,e.row,e.base||'',e.base?'':e.over,e.under?e.under.join('/'):'',e.bnb?e.bnb.links:'',CS,terrScale].join('|');
   let cv=terrCellCache.get(key);
   if(!cv){
     const d=Math.max(1,Math.ceil(CS*terrScale));
@@ -1783,12 +1838,15 @@ function drawTerrBase(c,cells,t){
   for(const e of cells){
     const x=e.sc*s,y=e.sr*s;
     if(isHexColor(e.base)){c.fillStyle=hexToRgba(e.base,0.85);c.fillRect(x,y,s,s);}
-    else if(e.under)e.under.forEach((nb,q)=>{
-      const qx=x+(q&1)*s/2,qy=y+(q>>1)*s/2;
-      if(!nb)return; // sin vecino simple: transparente, se ve el fondo
-      if(isHexColor(nb)){c.fillStyle=hexToRgba(nb,0.85);c.fillRect(qx,qy,s/2,s/2);}
-      else tex(nb,x,y,e.col,e.row,null,null,[qx,qy,s/2,s/2]);
-    });
+    else if(e.under){
+      e.under.forEach((nb,q)=>{
+        const qx=x+(q&1)*s/2,qy=y+(q>>1)*s/2;
+        if(!nb)return; // sin vecino simple: transparente, se ve el fondo
+        if(isHexColor(nb)){c.fillStyle=hexToRgba(nb,0.85);c.fillRect(qx,qy,s/2,s/2);}
+        else tex(nb,x,y,e.col,e.row,null,null,[qx,qy,s/2,s/2]);
+      });
+      if(e.base==='carpet')terrTex(c,'carpet',x,y,e.col,e.row,null,null,null,e.bnb); // alfombra sobre el piso vecino
+    }
     else if(e.base)tex(e.base,x,y,e.col,e.row,e.ab?t:null);
     else if(e.over==='fence'){c.save();c.translate(x,y);fenceBg(c,s);c.restore();} // cerca sola: su tinte (las barandas van en drawFences)
     else if(OVER_BG[e.over])tex(e.over,x,y,e.col,e.row,e.ao?t:null,OVER_BG[e.over]); // fuego/trampa solos
