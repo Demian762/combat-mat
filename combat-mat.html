@@ -586,7 +586,7 @@ const TERRAIN={
   tomb:{name:'Lápida',sw:'#8a8a90'},signpost:{name:'Poste indicador',sw:'#7a5226'},
   tiles:{name:'Baldosas',sw:'#d2c4a4'},marble:{name:'Mármol',sw:'#e6e2da'},carpet:{name:'Alfombra',sw:'#7a1c1c'},setts:{name:'Empedrado',sw:'#7c7e86'},
   bush:{name:'Arbustos',sw:'#3f7a2a'},vines:{name:'Enredaderas',sw:'#4c8a2e'},crack:{name:'Grieta',sw:'#2a211a'},
-  oil:{name:'Aceite',sw:'#2a2016'},dirty:{name:'Agua sucia',sw:'#556238'},shallow:{name:'Agua poco profunda',sw:'#5aa6c8'},
+  oil:{name:'Aceite',sw:'#b2861e'},dirty:{name:'Agua sucia',sw:'#556238'},shallow:{name:'Agua poco profunda',sw:'#5aa6c8'},
 };
 // Secciones de la paleta Prefabricado (orden de las pestañas y de las muestras). Todo terreno de TERRAIN va en una.
 // Sin límite: la grilla muestra 5×3 y lo demás se ve con su barra vertical.
@@ -1701,7 +1701,7 @@ const LIQ={
 };
 LIQ.shallow={w:0.8,amp:0.26,detail:shallowDetail,bands:[['F',0.5,'rgba(215,236,250,0.8)'],['F',0.6,'#b0a274'],['F',0.6,'rgba(60,150,210,0.5)'],['D',0.85,'rgba(30,100,180,0.25)']]};
 LIQ.dirty={w:0.8,amp:0.26,detail:dirtyDetail,bands:[['F',0.5,'rgba(130,120,80,0.8)'],['F',0.6,'#4d5a30'],['D',0.85,'#3f4c28']]};
-LIQ.oil={w:0.9,amp:0.26,detail:oilDetail,drops:'rgba(20,14,8,0.9)',bands:[['F',0.55,'rgba(18,12,6,0.92)'],['F',0.66,'rgba(34,26,18,0.92)']]};
+LIQ.oil={w:0.9,amp:0.26,detail:oilDetail,drops:'rgba(150,108,20,0.9)',bands:[['F',0.55,'rgba(112,78,12,0.92)'],['F',0.66,'rgba(178,134,30,0.9)']]}; // ámbar
 // Pisos con forma, de abajo hacia arriba. El vacío va abajo de todo: el agua que lo toca cae sobre el abismo. El agua
 // poco profunda va debajo del agua: queda como su orilla.
 const LIQ_BASE_ORDER=['void','mud','dirty','shallow','water','ice','lava'], LIQ_OVER=['blood','acid','oil','cloud'], LIQ_DEEP_W=2.2;
