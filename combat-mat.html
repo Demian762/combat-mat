@@ -1157,28 +1157,348 @@ function terrBg(type){
   return `${TERRAIN[type].sw} url(${terrSwCache[type]}) center/cover`;
 }
 
+/* ── Líquidos: se dibujan por grupos, con forma ──
+   Agua, lava, barro y hielo (pisos) y sangre y ácido (encima) no se dibujan celda por celda: cada grupo de celdas iguales
+   es una sola mancha. La forma sale de un campo suave F = ocupación del grupo suavizada (en cada eje una rampa de ancho w
+   alrededor del borde de la celda: suma 1 adentro, 0 afuera y 0.5 justo en un borde recto) más un poco de ruido; el
+   contorno es F = umbral, trazado con marching squares (liqPath). w chico = esquinas apenas redondeadas; w grande = más
+   redondas. Los rincones en L se rellenan solos (la mancha entra un poco en la celda diagonal). D es el mismo campo con
+   una rampa ancha: llega a ~1 solo lejos de la orilla (agua profunda, centro de la lava). Las bandas (orilla, cuerpo,
+   fondo) son contornos a distintos umbrales de F o D, pintados uno sobre otro. Todo sale de coordenadas absolutas: todos
+   ven la misma forma y no cambia con pan ni zoom. Es solo visual: la celda sigue contando entera.
+   Los pisos líquidos se apilan en LIQ_BASE_ORDER: cada uno se extiende por debajo de los que van más arriba (el barro
+   sigue debajo del agua, el agua debajo del hielo), así una esquina redondeada deja ver al otro líquido y no un hueco.
+   Contra un terreno que no es líquido, la esquina recortada muestra ese terreno (under), y si no hay nada, el fondo. */
+function waterDetail(c,s,R,t){ // olas; animadas: se mecen y brillan
+  const n=s>=80?4:3;c.lineCap='round';c.lineWidth=Math.max(1,s*0.03);
+  for(let i=0;i<n;i++){
+    const x=R()*s,y=(i+0.3+R()*0.5)/n*s,w=s*(0.18+R()*0.12),ph=R()*6.28;
+    const dx=t==null?0:Math.sin(t*1.1+ph)*s*0.06,a=t==null?0.35:0.2+0.25*(0.5+0.5*Math.sin(t*1.7+ph));
+    c.strokeStyle=`rgba(190,220,255,${a})`;
+    c.beginPath();c.moveTo(x+dx-w/2,y);c.quadraticCurveTo(x+dx-w/4,y-w*0.25,x+dx,y);c.quadraticCurveTo(x+dx+w/4,y+w*0.25,x+dx+w/2,y);c.stroke();
+  }
+}
+function lavaDetail(c,s,R,t){ // vetas brillantes, costras y burbujas (animadas: el brillo late y las burbujas revientan)
+  for(let i=0;i<3;i++){
+    const x=R()*s,y=R()*s,r=s*(0.2+R()*0.2),ph=R()*6.28,a=t==null?0.5:0.25+0.4*(0.5+0.5*Math.sin(t*2.2+ph));
+    const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(255,220,80,${a})`);g.addColorStop(1,'rgba(255,120,0,0)');c.fillStyle=g;disc(c,x,y,r);
+  }
+  const n=1+Math.round(R()*2);c.lineWidth=Math.max(0.8,s*0.025);
+  for(let i=0;i<n;i++){
+    const p=blobPts(s*(0.15+R()*0.7),s*(0.15+R()*0.7),s*(0.1+R()*0.1),s*(0.08+R()*0.08),7,0.3,R);
+    c.fillStyle='rgba(50,10,4,0.85)';trace(c,p);c.fill();c.strokeStyle='rgba(255,150,30,0.6)';c.stroke();
+  }
+  for(let i=0;i<2;i++){
+    const x=s*(0.15+R()*0.7),y=s*(0.15+R()*0.7),ph=R(),per=2+R()*2;
+    if(t==null)continue;
+    const u=(t/per+ph)%1;
+    if(u>0.85){const k=(u-0.85)/0.15;c.strokeStyle=`rgba(255,230,120,${1-k})`;c.lineWidth=Math.max(0.8,s*0.02);c.beginPath();c.arc(x,y,s*0.07*(1+k),0,6.2832);c.stroke();}
+    else{const r=s*0.07*u/0.85;c.fillStyle='#ffb040';disc(c,x,y,r);c.fillStyle='rgba(255,250,200,0.7)';disc(c,x-r*0.3,y-r*0.3,r*0.35);}
+  }
+}
+function mudDetail(c,s,R){ // manchas, charcos turbios con reflejo y matas de junco
+  for(let i=0;i<2;i++){c.fillStyle=R()<0.5?'rgba(30,24,10,0.3)':'rgba(90,95,40,0.25)';disc(c,R()*s,R()*s,s*(0.15+R()*0.2));}
+  const k=1+Math.round(R());c.lineWidth=Math.max(0.8,s*0.02);
+  for(let i=0;i<k;i++){
+    const x=s*(0.2+R()*0.6),y=s*(0.2+R()*0.6),p=blobPts(x,y,s*(0.12+R()*0.1),s*(0.08+R()*0.06),7,0.3,R);
+    c.fillStyle='rgba(40,58,40,0.85)';trace(c,p);c.fill();c.strokeStyle='rgba(20,16,6,0.6)';c.stroke();
+    c.fillStyle='rgba(200,220,190,0.25)';c.beginPath();c.ellipse(x-s*0.03,y-s*0.02,s*0.04,s*0.012,0,0,6.2832);c.fill();
+  }
+  const n=Math.round(4*s/44);c.strokeStyle='#3c5a22';c.lineWidth=Math.max(0.8,s*0.022);c.lineCap='round';
+  for(let i=0;i<n;i++){const x=R()*s,y=R()*s,h=s*(0.08+R()*0.08);c.beginPath();c.moveTo(x,y);c.lineTo(x-h*0.3,y-h);c.moveTo(x,y);c.lineTo(x+h*0.25,y-h*0.9);c.stroke();}
+}
+function iceDetail(c,s,R){ // grietas que pueden pasar a la celda vecina y un destello
+  c.lineCap='round';c.lineJoin='round';
+  for(let i=0;i<2;i++){
+    let x=R()*s,y=R()*s;const pts=[[x,y]];let a=R()*6.28;
+    for(let j=0;j<3;j++){a+=(R()-0.5)*1.2;x+=Math.cos(a)*s*0.25;y+=Math.sin(a)*s*0.25;pts.push([x,y]);}
+    for(const[st,lw,o]of[['rgba(30,90,120,0.45)',Math.max(1,s*0.03),0.6],['rgba(255,255,255,0.8)',Math.max(0.7,s*0.015),0]]){
+      c.strokeStyle=st;c.lineWidth=lw;c.beginPath();pts.forEach(([px,py],k)=>k?c.lineTo(px+o,py+o):c.moveTo(px+o,py+o));c.stroke();
+    }
+  }
+  c.strokeStyle='rgba(255,255,255,0.55)';c.lineWidth=Math.max(1,s*0.025);
+  const gx=s*(0.15+R()*0.5),gy=s*(0.15+R()*0.5);c.beginPath();c.moveTo(gx,gy+s*0.12);c.lineTo(gx+s*0.12,gy);c.stroke();
+}
+function bloodDetail(c,s,R){ // brillo húmedo
+  const x=s*(0.25+R()*0.5),y=s*(0.25+R()*0.5),on=R()<0.6;
+  if(on){c.fillStyle='rgba(255,210,210,0.3)';c.beginPath();c.ellipse(x,y,s*0.07,s*0.03,-0.5,0,6.2832);c.fill();}
+}
+function acidDetail(c,s,R,t){ // brillo y burbujas (animadas: crecen y revientan)
+  const hx=s*(0.25+R()*0.5),hy=s*(0.25+R()*0.5);
+  c.fillStyle='rgba(235,255,200,0.35)';c.beginPath();c.ellipse(hx,hy,s*0.07,s*0.03,-0.5,0,6.2832);c.fill();
+  c.lineWidth=Math.max(0.7,s*0.015);
+  for(let i=0;i<3;i++){
+    const x=s*(0.15+R()*0.7),y=s*(0.15+R()*0.7),ph=R(),per=1.5+R()*1.5,br=s*0.035;
+    if(t==null){c.strokeStyle='rgba(210,255,160,0.6)';c.beginPath();c.arc(x,y,br*0.6,0,6.2832);c.stroke();continue;}
+    const u=(t/per+ph)%1;
+    if(u>0.8){const k=(u-0.8)/0.2;c.strokeStyle=`rgba(210,255,160,${0.8*(1-k)})`;c.beginPath();c.arc(x,y,br*(1+k),0,6.2832);c.stroke();}
+    else{c.fillStyle='rgba(190,255,120,0.75)';disc(c,x,y,br*u/0.8);}
+  }
+}
+// w = ancho de la rampa (redondeo), amp = ruido del borde, bands = [campo, umbral, color] de afuera hacia adentro
+// (la primera define el contorno), glow = halo hacia afuera, drops = gotas sueltas fuera del contorno.
+// El ruido solo actúa donde 0<F<1 (cerca del borde): amp tiene que dejar F < umbral afuera (amp < bands[0]) y el
+// interior por encima de todas las bandas F (1-amp > la más alta), o aparecen manchas sueltas.
+const LIQ={
+  water:{w:0.8,amp:0.26,detail:waterDetail,bands:[['F',0.5,'rgba(200,226,252,0.75)'],['F',0.6,'#1f52b8'],['D',0.84,'#1a47a8'],['D',0.97,'#143b96']]},
+  lava:{w:0.8,amp:0.22,detail:lavaDetail,glow:'rgba(255,110,20,0.75)',bands:[['F',0.5,'#2a0804'],['F',0.55,'#ffb328'],['F',0.64,'#e84a06'],['D',0.86,'#d23000']]},
+  mud:{w:0.9,amp:0.28,detail:mudDetail,bands:[['F',0.5,'#2a2210'],['F',0.62,'#4a3f24']]},
+  ice:{w:0.35,amp:0.05,detail:iceDetail,bands:[['F',0.5,'rgba(240,252,255,0.95)'],['F',0.62,'#93d3e4'],['D',0.9,'#7cc2d8']]},
+  blood:{w:0.9,amp:0.28,detail:bloodDetail,drops:'rgba(110,4,4,0.9)',bands:[['F',0.56,'rgba(70,0,0,0.92)'],['F',0.68,'rgba(132,8,8,0.88)']]},
+  acid:{w:0.9,amp:0.26,detail:acidDetail,drops:'rgba(70,190,20,0.9)',glow:'rgba(140,255,60,0.6)',bands:[['F',0.54,'rgba(40,140,10,0.9)'],['F',0.66,'rgba(120,230,50,0.8)']]},
+};
+const LIQ_BASE_ORDER=['mud','water','ice','lava'], LIQ_DEEP_W=2.2;
+const smooth01=u=>{u=u<0?0:u>1?1:u;return u*u*(3-2*u);};
+const liqK=(d,w)=>smooth01((0.5+w/2-Math.abs(d))/w);
+// Ruido del borde: una onda larga (~1 celda) que hace serpentear la orilla y una corta para el detalle, en [-1,1]
+const liqNoise=(x,y,salt)=>0.7*vnoise(x*0.5,y*0.5,salt)+0.3*vnoise(x*1.5,y*1.5,salt+77);
+// Ruido de valor suave (rejilla cada media unidad), en [-1,1]
+function vnoise(x,y,salt){
+  x*=2;y*=2;const xi=Math.floor(x),yi=Math.floor(y),u=smooth01(x-xi),v=smooth01(y-yi);
+  const h=(i,j)=>{let a=(Math.imul(i,374761393)^Math.imul(j,668265263)^Math.imul(salt,-2048144777))>>>0;a=Math.imul(a^(a>>>13),1274126177)>>>0;return((a^(a>>>16))>>>0)/2147483648-1;};
+  return(h(xi,yi)*(1-u)+h(xi+1,yi)*u)*(1-v)+(h(xi,yi+1)*(1-u)+h(xi+1,yi+1)*u)*v;
+}
+// Contorno val(i,j) >= thr sobre la rejilla de muestras (n por celda) de las celdas proc, como un solo Path2D.
+// Cada subcuadrado aporta su parte de adentro como polígono en sentido horario; una celda entera adentro, un rect.
+function liqPath(val,thr,proc,n,st,sx,sy){
+  const p=new Path2D(),CSn=st*n;
+  for(const[ci,ri]of proc){
+    const i0=ci*n,j0=ri*n;let all=true,none=true;
+    for(let j=j0;j<=j0+n;j++)for(let i=i0;i<=i0+n;i++){if(val(i,j)>=thr)none=false;else all=false;}
+    if(none)continue;
+    if(all){p.rect(sx(i0),sy(j0),CSn,CSn);continue;}
+    for(let j=j0;j<j0+n;j++){
+     let run=-1; // tira de subcuadrados enteros adentro: un solo rect (menos llamadas a Path2D)
+     for(let i=i0;i<=i0+n;i++){
+      const a=i<i0+n?val(i,j):0,b=i<i0+n?val(i+1,j):0,cc=i<i0+n?val(i+1,j+1):0,d=i<i0+n?val(i,j+1):0;
+      const full=i<i0+n&&a>=thr&&b>=thr&&cc>=thr&&d>=thr;
+      if(full){if(run<0)run=i;continue;}
+      if(run>=0){p.rect(sx(run),sy(j),(i-run)*st,st);run=-1;}
+      if(i===i0+n||(a<thr&&b<thr&&cc<thr&&d<thr))continue;
+      const x=sx(i),y=sy(j);
+      const q=[[x,y,a],[x+st,y,b],[x+st,y+st,cc],[x,y+st,d]],pts=[];
+      for(let k=0;k<4;k++){
+        const P=q[k],Q=q[(k+1)%4],pin=P[2]>=thr;
+        if(pin)pts.push(P[0],P[1]);
+        if(pin!==(Q[2]>=thr)){const f=(thr-P[2])/(Q[2]-P[2]);pts.push(P[0]+(Q[0]-P[0])*f,P[1]+(Q[1]-P[1])*f);}
+      }
+      p.moveTo(pts[0],pts[1]);for(let k=2;k<pts.length;k+=2)p.lineTo(pts[k],pts[k+1]);p.closePath();
+     }
+    }
+  }
+  return p;
+}
+// Campo suavizado de una ocupación (W×H celdas) sobre la rejilla de muestras ((W·n+1)×(H·n+1)), en dos pasadas
+// separables (primero filas, después columnas): la rampa es la misma en x y en y.
+function liqConv(occ,W,H,n,w){
+  const LW=W*n+1,LH=H*n+1,rad=0.5+w/2;
+  const taps=(N,cells)=>{const t=[];for(let i=0;i<N;i++){const x=i/n,a=[];
+    for(let c=Math.max(0,Math.floor(x-0.5-rad)+1);c<=Math.min(cells-1,Math.ceil(x-0.5+rad)-1);c++){const k=liqK(x-c-0.5,w);if(k>0)a.push(c,k);}
+    t.push(a);}return t;};
+  const tx=taps(LW,W),ty=LH===LW&&H===W?tx:taps(LH,H);
+  const Hm=new Float32Array(H*LW),F=new Float32Array(LH*LW);
+  for(let r=0;r<H;r++){const row=r*W,o=r*LW;for(let i=0;i<LW;i++){const a=tx[i];let s=0;for(let k=0;k<a.length;k+=2)if(occ[row+a[k]])s+=a[k+1];Hm[o+i]=s;}}
+  for(let j=0;j<LH;j++){const a=ty[j],o=j*LW;for(let k=0;k<a.length;k+=2){const src=a[k]*LW,wt=a[k+1];for(let i=0;i<LW;i++)F[o+i]+=wt*Hm[src+i];}}
+  return F;
+}
+// Las formas se calculan por bloques de LIQ_CHUNK×LIQ_CHUNK celdas y se guardan en liqCache, con clave = tipo + bloque +
+// zoom + huella de la ocupación del bloque y su margen. Al mover la vista o pintar otra cosa se reusan; al pintar un
+// líquido solo se recalculan los bloques cuyo margen incluye esa celda. Los bloques se unen en un solo Path2D por banda
+// (addPath) y se pintan con un solo fill, así no se ven costuras entre bloques.
+const LIQ_CHUNK=8, LIQ_M=3, liqCache=new Map();
+function occHash(a){let h=2166136261;for(let i=0;i<a.length;i++){h^=a[i];h=Math.imul(h,16777619);}return h>>>0;}
+// Formas (una por banda) del bloque (cx,cy) de un líquido, en px relativos a la esquina del bloque; null si está vacío
+function liqChunk(type,shapeG,G,cx,cy){
+  const K=LIQ_CHUNK,M=LIQ_M,A=K+2*M,bc0=cx*K-M,br0=cy*K-M; // área local (bloque + margen), en celdas absolutas
+  const loc=new Uint8Array(A*A);let any=false;
+  for(let j=0;j<A;j++)for(let i=0;i<A;i++){const gc=bc0+i-G.c0,gr=br0+j-G.r0;if(gc>=0&&gr>=0&&gc<G.W&&gr<G.H&&shapeG[gr*G.W+gc]){loc[j*A+i]=1;any=true;}}
+  if(!any)return null;
+  const n=Math.max(3,Math.round(CS/6)),key=type+'|'+cx+','+cy+'|'+CS+'|'+occHash(loc);
+  const hit=liqCache.get(key);if(hit)return hit;
+  const L=LIQ[type],st=CS/n,LW=A*n+1,salt=terrSalt(type);
+  const FA=liqConv(loc,A,A,n,L.w);
+  const DA=L.bands.some(b=>b[0]==='D')?liqConv(loc,A,A,n,LIQ_DEEP_W):null;
+  // Ruido solo cerca del borde (0<F<1): adentro y afuera no cambia nada y se ahorra el cálculo
+  for(let k=0;k<FA.length;k++){const f=FA[k];if(f>1e-6&&f<1-1e-6){const i=k%LW,j=(k-i)/LW;FA[k]=f+L.amp*liqNoise(bc0+i/n,br0+j/n,salt);}}
+  const fv=(i,j)=>FA[j*LW+i],dv=(i,j)=>DA[j*LW+i];
+  // Celdas del bloque con alguna vecina (8) ocupada: ahí puede haber borde
+  const proc=[];
+  for(let r=M;r<M+K;r++)for(let c=M;c<M+K;c++){
+    let near=false;
+    for(let a=-1;a<=1&&!near;a++)for(let b=-1;b<=1;b++)if(loc[(r+b)*A+c+a]){near=true;break;}
+    if(near)proc.push([c,r]);
+  }
+  const sx=i=>(i-M*n)*st,sy=j=>(j-M*n)*st;
+  const paths=L.bands.map(([f,thr])=>liqPath(f==='F'?fv:dv,thr,proc,n,st,sx,sy));
+  if(liqCache.size>800)liqCache.clear();
+  liqCache.set(key,paths);
+  return paths;
+}
+// Arma la mancha de un líquido: shape = ocupación para la forma, own = sus propias celdas (detalle y gotas).
+// G = área de trabajo (celdas absolutas c0,r0, tamaño W×H: los bloques kx0..kx1 × ky0..ky1 más su margen).
+function liqRegion(type,shape,own,G,animSet){
+  const L=LIQ[type],salt=terrSalt(type),K=LIQ_CHUNK,paths=L.bands.map(()=>new Path2D());
+  const occ=(arr,c,r)=>{c-=G.c0;r-=G.r0;return c>=0&&r>=0&&c<G.W&&r<G.H&&arr[r*G.W+c]===1;};
+  for(let cy=G.ky0;cy<=G.ky1;cy++)for(let cx=G.kx0;cx<=G.kx1;cx++){
+    const cp=liqChunk(type,shape,G,cx,cy);if(!cp)continue;
+    const m=new DOMMatrix().translateSelf((cx*K-G.ox)*CS,(cy*K-G.oy)*CS);
+    cp.forEach((p,b)=>paths[b].addPath(p,m));
+  }
+  // Celdas propias a la vista (±1): detalle y gotas
+  const proc=[];
+  for(let r=G.oy-1;r<=G.oy+ROWS;r++)for(let c=G.ox-1;c<=G.ox+COLS;c++)if(occ(own,c,r))proc.push([c-G.c0,r-G.r0]);
+  const cells=[],drops=[];
+  for(const[ci,ri]of proc){
+    const col=ci+G.c0,row=ri+G.r0;
+    const key=col+','+row;cells.push([col,row,animSet.has(key)]);
+    if(!L.drops)continue;
+    const R=cellRng(col,row,salt+1); // siempre la misma cantidad de R(): las gotas no cambian al pintar al lado
+    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){
+      const pr=R(),k=1+Math.round(R()),open=!occ(own,col+dx,row+dy);
+      for(let m=0;m<2;m++){
+        const along=(R()-0.5)*0.8,dist=0.62+R()*0.22,rad=0.02+R()*0.03;
+        if(open&&pr<0.7&&m<k)drops.push([col+0.5+dx*dist+(dy?along:0),row+0.5+dy*dist+(dx?along:0),rad]);
+      }
+    }
+  }
+  return{type,paths,cells,drops};
+}
+function drawLiq(c,Rg,t){
+  const L=LIQ[Rg.type];
+  if(L.glow){c.save();c.shadowColor=L.glow;c.shadowBlur=CS*0.3*terrScale;c.fillStyle=L.bands[0][2];c.fill(Rg.paths[0]);c.restore();}
+  c.save();c.clip(Rg.paths[0]);
+  Rg.paths.forEach((p,i)=>{c.fillStyle=L.bands[i][2];c.fill(p);});
+  const salt=terrSalt(Rg.type);
+  for(const[col,row,an]of Rg.cells){c.save();c.translate((col-S.ox)*CS,(row-S.oy)*CS);L.detail(c,CS,cellRng(col,row,salt),an?t:null);c.restore();}
+  c.restore();
+  if(L.drops){c.fillStyle=L.drops;for(const[x,y,r]of Rg.drops)disc(c,(x-S.ox)*CS,(y-S.oy)*CS,r*CS);}
+}
+// Donde el agua o el hielo tocan la lava: una costra de obsidiana sobre el borde compartido y vapor que sube
+function drawContact(c,[c1,r1,c2,r2],t){
+  const s=CS,mx=((c1+c2)/2+0.5-S.ox)*s,my=((r1+r2)/2+0.5-S.oy)*s,side=r1===r2; // vecinas de costado: borde vertical
+  const R=cellRng(c1*3+c2,r1*3+r2,991);
+  const p=blobPts(mx,my,side?s*0.2:s*0.55,side?s*0.55:s*0.2,8,0.25,R);
+  c.fillStyle='rgba(0,0,0,0.4)';trace(c,p,s*0.03,s*0.03);c.fill();
+  c.fillStyle='#1b1520';trace(c,p);c.fill();
+  c.strokeStyle='rgba(255,120,30,0.55)';c.lineWidth=Math.max(1,s*0.025);c.stroke();
+  c.save();c.clip();c.strokeStyle='rgba(170,150,230,0.35)';c.lineWidth=Math.max(0.7,s*0.015);
+  for(let i=0;i<3;i++){const x=mx+(R()-0.5)*s*(side?0.25:0.8),y=my+(R()-0.5)*s*(side?0.8:0.25),l=s*0.1;c.beginPath();c.moveTo(x-l/2,y+l/3);c.lineTo(x+l/2,y-l/3);c.stroke();}
+  c.restore();
+  for(let i=0;i<2;i++){
+    const ph=R(),per=2.5+R()*1.5,off=(R()-0.5)*s*0.5;
+    const u=t==null?0.3+i*0.3:(t/per+ph)%1;
+    const x=mx+(side?0:off),y=my+(side?off:0)-u*s*0.6,r=s*(0.16+u*0.25),a=0.4*(1-u)*Math.min(1,u*6+(t==null?1:0));
+    const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(235,235,240,${a})`);g.addColorStop(1,'rgba(235,235,240,0)');c.fillStyle=g;disc(c,x,y,r);
+  }
+}
+
 const terrCv=document.createElement('canvas');terrCv.id='terrain-canvas';
 const terrCtx=terrCv.getContext('2d');
-let terrAnimVis=[], terrRaf=0, terrLastFrame=0;
-// Dibuja una celda visible (sc,sr = columna/fila en pantalla) en orden: piso, línea de grilla tenue (arriba e
-// izquierda, como el fondo de #grid, para seguir contando casillas) y lo de encima. Sin piso, el fuego pone su propio
-// fondo y la sangre ninguno (se ve la grilla real). tBase/tOver = tiempo de cada capa si está animada, si no null.
-function drawTerrCell(sc,sr,val,tBase,tOver){
-  const c=terrCtx,s=CS,x=sc*s,y=sr*s,col=sc+S.ox,row=sr+S.oy;
-  let{base,over}=parseTerr(val);
-  const layer=(type,t,under)=>{
-    const f=TERRAIN_TEX[type];if(!f)return;
-    c.save();c.beginPath();c.rect(x,y,s,s);c.clip();c.translate(x,y);
-    if(under)under(c,s);
-    f(c,s,cellRng(col,row,terrSalt(type)),t);
-    c.restore();
-  };
-  if(isHexColor(base)){c.fillStyle=hexToRgba(base,0.85);c.fillRect(x,y,s,s);return;}
-  if(base)layer(base,tBase);
-  const ownBg=!base&&OVER_BG[over];
-  if(ownBg)layer(over,tOver,ownBg),over=null; // fuego/trampa solos: con su fondo, debajo de la línea de grilla
-  if(base||ownBg){c.fillStyle=terrLineColor;c.fillRect(x,y,s,1);c.fillRect(x,y,1,s);}
-  if(over)layer(over,tOver);
+let terrScene=null, terrScale=1, terrRaf=0, terrLastFrame=0, terrBaseCv=null;
+// Arma lo que hay que dibujar (se rehace al cambiar el terreno, el pan o el zoom; la animación solo redibuja)
+function buildTerrScene(){
+  const anim=animatedTerrCells(),ox=S.ox,oy=S.oy,memo=new Map();
+  const P=k=>{let v=memo.get(k);if(!v){v=parseTerr(S.terrain[k]);memo.set(k,v);}return v;};
+  const cells=[];
+  for(let sr=0;sr<ROWS;sr++)for(let sc=0;sc<COLS;sc++){
+    const col=sc+ox,row=sr+oy,key=col+','+row;if(!S.terrain[key])continue;
+    const{base,over}=P(key),e={sc,sr,col,row,base,over,ab:anim.base.has(key),ao:anim.over.has(key)};
+    // Debajo de un piso líquido: por cuadrante, el terreno vecino no líquido (de costado, de arriba/abajo o en diagonal)
+    if(LIQ[base])e.under=[0,1,2,3].map(q=>{
+      const dx=q&1?1:-1,dy=q&2?1:-1;
+      for(const[a,b]of[[dx,0],[0,dy],[dx,dy]]){const nb=P((col+a)+','+(row+b)).base;if(nb&&!LIQ[nb]&&(isHexColor(nb)||TERRAIN_TEX[nb]))return nb;}
+      return null;
+    });
+    cells.push(e);
+  }
+  // Ocupación de cada líquido en el área de trabajo (lo visible más un margen, para que el borde no corte la forma)
+  // Área de trabajo: los bloques que tocan lo visible ±1, más el margen que cada bloque necesita alrededor
+  const K=LIQ_CHUNK,kx0=Math.floor((ox-1)/K),kx1=Math.floor((ox+COLS)/K),ky0=Math.floor((oy-1)/K),ky1=Math.floor((oy+ROWS)/K);
+  const G={c0:kx0*K-LIQ_M,r0:ky0*K-LIQ_M,W:(kx1-kx0+1)*K+2*LIQ_M,H:(ky1-ky0+1)*K+2*LIQ_M,ox,oy,kx0,kx1,ky0,ky1},occ={};
+  for(let j=0;j<G.H;j++)for(let i=0;i<G.W;i++){
+    const k=(G.c0+i)+','+(G.r0+j);if(!S.terrain[k])continue;
+    const{base,over}=P(k);
+    for(const t of[base,over])if(LIQ[t])(occ[t]||(occ[t]=new Uint8Array(G.W*G.H)))[j*G.W+i]=1;
+  }
+  const regions={base:[],over:[]};
+  LIQ_BASE_ORDER.forEach((t,idx)=>{
+    if(!occ[t])return;
+    // Se extiende debajo de los líquidos de más arriba, pero solo en las celdas pegadas (8 vecinas) a las suyas:
+    // alcanza para rellenar las esquinas del otro y no aparece alrededor de líquidos que no lo tocan
+    const own=occ[t],shape=own.slice(),W=G.W,H=G.H;
+    const touches=k=>{const i=k%W,j=(k-i)/W;for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++){const x=i+a,y=j+b;if(x>=0&&y>=0&&x<W&&y<H&&own[y*W+x])return true;}return false;};
+    for(const up of LIQ_BASE_ORDER.slice(idx+1))if(occ[up])for(let k=0;k<shape.length;k++)if(occ[up][k]&&!shape[k]&&touches(k))shape[k]=1;
+    regions.base.push(liqRegion(t,shape,occ[t],G,anim.base));
+  });
+  for(const t of['blood','acid'])if(occ[t])regions.over.push(liqRegion(t,occ[t],occ[t],G,anim.over));
+  // Contactos agua/hielo–lava cerca de lo visible
+  const contacts=[];
+  if(occ.lava)for(let r=oy-1;r<=oy+ROWS;r++)for(let c=ox-1;c<=ox+COLS;c++){
+    if(P(c+','+r).base!=='lava')continue;
+    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nb=P((c+dx)+','+(r+dy)).base;if(nb==='water'||nb==='ice')contacts.push([c,r,c+dx,r+dy]);}
+  }
+  const animated=contacts.length>0||cells.some(e=>e.ab||e.ao)||[...regions.base,...regions.over].some(Rg=>Rg.cells.some(x=>x[2]));
+  return{cells,regions,contacts,animated};
+}
+// Dibuja la escena entera. Orden: pisos celda por celda (y lo de encima con fondo propio cuando está solo; bajo un
+// líquido, sus vecinos) → pisos líquidos → línea de grilla tenue (arriba e izquierda, como el fondo de #grid, para
+// seguir contando casillas) → obsidiana y vapor → sangre y ácido → lo de encima celda por celda.
+// t = segundos para las celdas animadas, null = todo quieto.
+function terrTex(c,type,x,y,col,row,t,under,clip){
+  const f=TERRAIN_TEX[type],s=CS;if(!f)return;
+  c.save();c.beginPath();clip?c.rect(clip[0],clip[1],clip[2],clip[3]):c.rect(x,y,s,s);c.clip();c.translate(x,y);
+  if(under)under(c,s);
+  f(c,s,cellRng(col,row,terrSalt(type)),t);
+  c.restore();
+}
+// Pisos celda por celda. Los que no se animan se dibujan una sola vez en Sc.baseImg (al armar la escena) y cada cuadro
+// de la animación solo copia esa imagen: es lo más caro de dibujar con muchas celdas a la vista.
+const terrCellAnim=e=>!!(e.ab||(!e.base&&OVER_BG[e.over]&&e.ao));
+// Cada celda de piso quieta se dibuja una vez en un canvas chico, cacheado por lo que la define (coordenada, piso, lo de
+// encima con fondo propio, vecinos debajo de un líquido, zoom y escala): al pintar o mover la vista solo se dibujan las
+// celdas nuevas y el resto se copia. null = nada que dibujar.
+const terrCellCache=new Map();
+function terrCellBitmap(e){
+  if(!e.base&&!OVER_BG[e.over])return null;
+  const key=[e.col,e.row,e.base||'',e.base?'':e.over,e.under?e.under.join('/'):'',CS,terrScale].join('|');
+  let cv=terrCellCache.get(key);
+  if(!cv){
+    const d=Math.max(1,Math.ceil(CS*terrScale));
+    cv=document.createElement('canvas');cv.width=cv.height=d;
+    const c=cv.getContext('2d');c.setTransform(d/CS,0,0,d/CS,0,0);
+    drawTerrBase(c,[{...e,sc:0,sr:0}],null);
+    if(terrCellCache.size>5000)terrCellCache.clear();
+    terrCellCache.set(key,cv);
+  }
+  return cv;
+}
+function drawTerrScene(t){
+  const c=terrCtx,s=CS,Sc=terrScene;
+  c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,terrCv.width,terrCv.height);
+  if(Sc.baseImg)c.drawImage(Sc.baseImg,0,0);
+  c.setTransform(terrScale,0,0,terrScale,0,0);
+  drawTerrBase(c,Sc.cells.filter(terrCellAnim),t);
+  const tex=(type,x,y,col,row,tt,under,clip)=>terrTex(c,type,x,y,col,row,tt,under,clip);
+  for(const Rg of Sc.regions.base)drawLiq(c,Rg,t);
+  c.fillStyle=terrLineColor;
+  for(const e of Sc.cells)if((e.base&&!isHexColor(e.base))||(!e.base&&OVER_BG[e.over])){c.fillRect(e.sc*s,e.sr*s,s,1);c.fillRect(e.sc*s,e.sr*s,1,s);}
+  for(const k of Sc.contacts)drawContact(c,k,t);
+  for(const Rg of Sc.regions.over)drawLiq(c,Rg,t);
+  for(const e of Sc.cells)if(e.over&&!LIQ[e.over]&&!(!e.base&&OVER_BG[e.over]))tex(e.over,e.sc*s,e.sr*s,e.col,e.row,e.ao?t:null);
+}
+function drawTerrBase(c,cells,t){
+  const s=CS,tex=(type,x,y,col,row,tt,under,clip)=>terrTex(c,type,x,y,col,row,tt,under,clip);
+  for(const e of cells){
+    const x=e.sc*s,y=e.sr*s;
+    if(isHexColor(e.base)){c.fillStyle=hexToRgba(e.base,0.85);c.fillRect(x,y,s,s);}
+    else if(e.under)e.under.forEach((nb,q)=>{
+      if(!nb)return;const qx=x+(q&1)*s/2,qy=y+(q>>1)*s/2;
+      if(isHexColor(nb)){c.fillStyle=hexToRgba(nb,0.85);c.fillRect(qx,qy,s/2,s/2);}
+      else tex(nb,x,y,e.col,e.row,null,null,[qx,qy,s/2,s/2]);
+    });
+    else if(e.base)tex(e.base,x,y,e.col,e.row,e.ab?t:null);
+    else if(OVER_BG[e.over])tex(e.over,x,y,e.col,e.row,e.ao?t:null,OVER_BG[e.over]); // fuego/trampa/cerca solos
+  }
 }
 // Celdas (claves "col,row") de los grupos animables lo bastante grandes, por capa: {base:Set, over:Set}.
 // Mira todo el terreno, no solo lo visible.
@@ -1204,27 +1524,32 @@ function renderTerrain(){
   if(!terrCv.isConnected)grid.prepend(terrCv); // initGrid vacía #grid
   const px=Math.round(VIEW*Math.min(3,(window.devicePixelRatio||1)*appZoom)); // nítido con el zoom de #app
   if(terrCv.width!==px)terrCv.width=terrCv.height=px;
-  terrCtx.setTransform(px/VIEW,0,0,px/VIEW,0,0);
-  terrCtx.clearRect(0,0,VIEW,VIEW);
-  const anim=animatedTerrCells();terrAnimVis=[];
-  for(let sr=0;sr<ROWS;sr++)for(let sc=0;sc<COLS;sc++){
-    const key=(sc+S.ox)+','+(sr+S.oy),val=S.terrain[key];if(!val)continue;
-    drawTerrCell(sc,sr,val,null,null);
-    const ab=anim.base.has(key),ao=anim.over.has(key);
-    if(ab||ao)terrAnimVis.push([sc,sr,val,ab,ao]);
+  terrScale=px/VIEW;
+  terrScene=buildTerrScene();
+  // Pisos quietos a una imagen aparte (se reusa el canvas): la animación la copia en vez de redibujarlos
+  if(!terrBaseCv||terrBaseCv.width!==px){terrBaseCv=document.createElement('canvas');terrBaseCv.width=terrBaseCv.height=px;}
+  const ic=terrBaseCv.getContext('2d');ic.setTransform(1,0,0,1,0,0);ic.clearRect(0,0,px,px);ic.setTransform(terrScale,0,0,terrScale,0,0);
+  for(const e of terrScene.cells){
+    if(terrCellAnim(e))continue;
+    if(isHexColor(e.base)){ic.fillStyle=hexToRgba(e.base,0.85);ic.fillRect(e.sc*CS,e.sr*CS,CS,CS);}
+    else{const b=terrCellBitmap(e);if(b)ic.drawImage(b,e.sc*CS,e.sr*CS,CS,CS);}
   }
-  if(terrAnimVis.length&&!terrRaf)terrRaf=requestAnimationFrame(terrFrame);
+  terrScene.baseImg=terrBaseCv;
+  drawTerrScene(terrScene.animated?performance.now()/1000:null); // si hay animación, sin saltar a la pose quieta
+  if(terrScene.animated&&!terrRaf)terrRaf=requestAnimationFrame(terrFrame);
 }
-// Animación a ~20 cuadros/s, solo de las celdas animadas visibles; se frena sola si no queda ninguna
-// (y requestAnimationFrame ya se pausa con la pestaña oculta). Con el mapa del mundo encima no dibuja.
+// Animación: redibuja la escena ya armada (las formas no se recalculan), a ~20 cuadros/s o menos si cada cuadro tarda:
+// el intervalo es 4× lo que tardó el último (como mucho ~25% de un núcleo). Se frena sola si no queda nada animado a la
+// vista (y requestAnimationFrame ya se pausa con la pestaña oculta). Con el mapa del mundo encima no dibuja.
+let terrFrameGap=50;
 function terrFrame(now){
   terrRaf=0;
-  if(!terrAnimVis.length)return;
+  if(!terrScene||!terrScene.animated)return;
   terrRaf=requestAnimationFrame(terrFrame);
-  if(now-terrLastFrame<50||document.body.classList.contains('show-map'))return;
+  if(now-terrLastFrame<terrFrameGap||document.body.classList.contains('show-map'))return;
   terrLastFrame=now;
-  const t=now/1000;
-  for(const[sc,sr,val,ab,ao]of terrAnimVis){terrCtx.clearRect(sc*CS,sr*CS,CS,CS);drawTerrCell(sc,sr,val,ab?t:null,ao?t:null);}
+  const t0=performance.now();drawTerrScene(now/1000);
+  terrFrameGap=Math.min(250,Math.max(50,(performance.now()-t0)*4));
 }
 function clearTerrain(){
   S.terrain={};
@@ -2408,7 +2733,14 @@ function attachSceneListeners(sceneId){
   Object.values(sceneRefs).forEach(r=>r.off());sceneRefs={};
   const base=ROOT+'/scenes/'+sceneId;
   sceneRefs.terrain=db.ref(base+'/terrain');
-  sceneRefs.terrain.on('value',snap=>{S.terrain=snap.val()||{};renderTerrain();});
+  // Solo redibuja si algo cambió: la escritura propia (paintCell ya redibujó) vuelve acá con el mismo contenido
+  sceneRefs.terrain.on('value',snap=>{
+    const nv=snap.val()||{},ov=S.terrain;
+    let same=Object.keys(nv).length===Object.keys(ov).length;
+    if(same)for(const k in nv)if(nv[k]!==ov[k]){same=false;break;}
+    S.terrain=nv;
+    if(!same)renderTerrain();
+  });
   sceneRefs.enemies=db.ref(base+'/enemies');
   // Diff incremental (igual que players): no recrear fichas ajenas al cambio,
   // así un arrastre local en curso no pierde su elemento DOM.
