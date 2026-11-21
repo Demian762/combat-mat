@@ -856,6 +856,7 @@ function paintCell(e){
       if(TERR_VARIANTS[a]){
         const n=TERR_VARIANTS[a];
         if(terrStroke.has(key)&&cur.over===a)ov=cur.overRaw; // mismo trazo: no cambia
+        else if(TERR_CYCLE[a])ov=a+'#'+(cur.over===a?((cur.v||0)+1)%n:0); // en orden: la primera vez la 0, después la siguiente
         else if(cur.over===a&&n>1){let v=Math.floor(Math.random()*(n-1));if(v>=(cur.v||0))v++;ov=a+'#'+v;} // sobre uno igual: nunca la misma variante
         else ov=a+'#'+Math.floor(Math.random()*n);
       }
@@ -890,8 +891,10 @@ function parseTerr(v){
   if(b)return{base:a,...ov(b)};
   return TERR_OVER[a.split('#')[0]]?ov(a):{base:a};
 }
-// Objetos con variantes (cantidad): cada clic nuevo sobre la celda sortea una; arrastrar sobre la misma no la cambia
-const TERR_VARIANTS={rack:4,furniture:3};
+// Objetos con variantes (cantidad): cada clic nuevo sobre la celda sortea una; arrastrar sobre la misma no la cambia.
+// TERR_CYCLE: en vez de sortear, la primera vez sale la variante 0 y cada clic sobre uno igual pasa a la siguiente
+// (antorcha: 0 = con el pie abajo, 1 = colgando desde arriba).
+const TERR_VARIANTS={rack:4,furniture:3,torch:2},TERR_CYCLE={torch:1};
 const joinTerr=(base,over)=>base&&over?base+'+'+over:base||over||null;
 // Celdas ya tocadas en el trazo actual (se vacía en cada mousedown): el borrador saca una sola capa por pasada
 const terrStroke=new Set();
@@ -1421,7 +1424,9 @@ const TERRAIN_TEX={
     c.fillStyle='#6a6a72';c.fillRect(s*0.22,s*0.72,s*0.1,s*0.12);
     c.strokeStyle='#3a3a42';c.lineWidth=Math.max(1,s*0.025);c.beginPath();c.moveTo(s*0.58,s*0.78);c.lineTo(s*0.82,s*0.72);c.moveTo(s*0.58,s*0.82);c.lineTo(s*0.82,s*0.86);c.stroke();
   },
-  torch(c,s,R,t){ // antorcha de pared (arriba): soporte, palo y llama hacia afuera (animada); la luz va en drawTorchLight
+  torch(c,s,R,t,nb){ // antorcha: v 0 = pie abajo y llama arriba, v 1 = colgando desde arriba y llama abajo (animada);
+    // la luz va en drawTorchLight. Se dibuja colgando y la variante 0 es la misma dada vuelta.
+    if(!nb||!nb.v){c.translate(0,s);c.scale(1,-1);}
     c.fillStyle='#3a3a42';c.fillRect(s*0.4,0,s*0.2,s*0.1);
     c.lineCap='round';c.strokeStyle='#5a3a1a';c.lineWidth=Math.max(1,s*0.07);c.beginPath();c.moveTo(s*0.5,s*0.06);c.lineTo(s*0.5,s*0.36);c.stroke();
     const ph=R()*6.28,k=t==null?1:1+0.15*Math.sin(t*11+ph)+0.08*Math.sin(t*23+ph),sw=t==null?0:Math.sin(t*6+ph)*s*0.03;
@@ -1971,7 +1976,7 @@ function terrTex(c,type,x,y,col,row,t,under,clip,nb){
 // quedan girados al azar (OBJ_SPIN, siempre igual para la misma celda) y los de 2 celdas (OBJ_PAIR, ver objPairs).
 // La biblioteca además se une con las bibliotecas de sus costados (links: 1 = a su izquierda, 2 = a su derecha).
 const OBJ_NB={table:1,chair:1,rack:1,bed:1,coffin:1,furniture:1,shelf:1,throne:1,altar:1,torch:1,corpse:1,bones:1,signpost:1};
-const OBJ_WALL={rack:1,furniture:1,shelf:1,throne:1,altar:1,torch:1},OBJ_SPIN={corpse:1,bones:1,signpost:1},OBJ_PAIR={bed:1,coffin:1};
+const OBJ_WALL={rack:1,furniture:1,shelf:1,throne:1,altar:1},OBJ_SPIN={corpse:1,bones:1,signpost:1},OBJ_PAIR={bed:1,coffin:1};
 function objNeighbors(type,col,row,P,pairs){
   const dirs=[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]]; // N E S O
   if(type==='table'){let links=0;for(const[dx,dy,b]of dirs)if(P((col+dx)+','+(row+dy)).over==='table')links|=b;return{links,rot:0};}
