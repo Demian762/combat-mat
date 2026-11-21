@@ -200,6 +200,8 @@ input[type=text]:focus { border-color:var(--amber); }
 .dlog-total-val { font-family:'Cinzel',serif; font-size:18px; color:var(--amber-lt); }
 .dlog-dice-str { font-family:'Cinzel',serif; font-size:10px; color:var(--amber); }
 .dlog-detail-str { font-size:11px; color:rgba(180,110,30,0.75); font-family:'EB Garamond',serif; }
+/* Pelotita con el color del personaje que tiró (solo tiradas con color: jugadores/NPCs; no Master ni enemigos) */
+.dlog-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:1px; box-shadow:0 0 0 1px rgba(255,255,255,0.35); }
 /* Tiradas propias (isOwnRoll) en blanco; las de los demás siguen en ámbar */
 .dlog-entry.own .dlog-name, .dlog-entry.own .dlog-total-val, .dlog-entry.own .dlog-dice-str { color:#fff; }
 .dlog-entry.own.dlog-detail-str, .dlog-entry.own .dlog-detail-str { color:rgba(255,255,255,0.7); }
@@ -1922,7 +1924,7 @@ function renderDiceLog(){
     const det=Object.entries(e.rolls||{}).filter(([dt])=>dt!=='coin').map(([dt,arr])=>`${dt}:[${[].concat(arr).join(',')}]`).join(' ');
     return`<div class="dlog-entry${own}">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <span class="dlog-name">${esc(e.player||'?')}</span><span class="dlog-total-val">${esc(e.total)}</span>
+        <span class="dlog-name">${typeof e.color==='number'?`<span class="dlog-dot" style="background:#${e.color.toString(16).padStart(6,'0')}"></span>`:''}${esc(e.player||'?')}</span><span class="dlog-total-val">${esc(e.total)}</span>
       </div>
       <div class="dlog-dice-str">${esc(e.dice)}</div>
       <div class="dlog-detail-str">${esc(det)}${e.modifier?` mod:${e.modifier>0?'+':''}${esc(e.modifier)}`:''}</div>
