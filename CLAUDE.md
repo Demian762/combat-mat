@@ -40,11 +40,13 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
         /{CLIENT_ID}  → {fromId, toCol, toRow}  // flecha de arrastre en curso, una por cliente (onDisconnect remove)
     /escena2 … /escena10   // misma forma
   /players
-    /{id}             → {id, name, cls, hp, maxHp, color, sceneId, col, row}
+    /{id}             → {id, name, cls, hp, maxHp, color, sceneId, col, row, owner?}   // owner = uid del jugador que lo creó (no se pone si lo crea el master)
   /uid                → number              // contador global de ids
   /maxHp              → number              // valor por defecto nuevos tokens
   /rolls
     /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, duration, hidden?}
+  /events
+    /{pushId}         → {kind:'scene', player, scene, from, timestamp, color}   // cambios de escena de jugadores; últimas 20
 ```
 
 ### Lo que NO va a Firebase (estado cliente-local)
@@ -63,7 +65,11 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 ## Decisiones de diseño clave
 
 ### Roles y permisos
-No existen. Cualquier cliente conectado puede mover cualquier ficha, pintar terreno, ajustar HP, etc.
+- **Master**: la cuenta `MASTER_EMAIL` (hardcodeada en JS). Puede crear personajes sin límite y cambiar de escena libremente.
+- **Jugadores** (resto de `ALLOWED_EMAILS`): pueden crear **un solo personaje a la vez** (`owner` = su uid; el botón "+ Jugador" se deshabilita mientras exista). Al crearlo, aparece solo en el selector **Nombre** de dados.
+- Si un jugador cambia de escena, **su personaje viaja con él** (se reubica en la celda libre más cercana) y el cambio se registra en `/sala/events`, que se muestra en el **Historial** junto con las tiradas (no aparece en `log.html` ni `dice.html`).
+- Un jugador siempre ve la escena donde está su personaje: al cargar, o si el master lo mueve con "Traer personajes acá", su vista lo sigue.
+- Fuera de eso no hay permisos: cualquier cliente puede mover cualquier ficha, pintar terreno, ajustar HP, etc.
 
 ### Escenas
 - 10 escenas fijas pre-creadas: **"Escena 1"** … **"Escena 10"** (nombres no editables desde UI).

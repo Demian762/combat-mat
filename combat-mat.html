@@ -240,7 +240,7 @@ input[type=text]:focus { border-color:var(--amber); }
 
     <div class="section">
       <span class="sec-title">Escena</span>
-      <select id="scene-select" onchange="switchScene(this.value)">
+      <select id="scene-select" onchange="onSceneSelect(this.value)">
         <option value="escena1">Escena 1</option>
         <option value="escena2">Escena 2</option>
         <option value="escena3">Escena 3</option>
@@ -304,7 +304,7 @@ input[type=text]:focus { border-color:var(--amber); }
         <button class="hpmax-btn" onclick="adjMaxHp(1)">+</button>
         <button class="hpmax-btn" onclick="adjMaxHp(5)" style="font-size:10px">+5</button>
       </div>
-      <button class="btn bp" onclick="addTok('player')">+ Jugador</button>
+      <button class="btn bp" id="btn-add-player" onclick="addTok('player')">+ Jugador</button>
       <button class="btn be" onclick="addTok('enemy')">+ Enemigo</button>
     </div>
 
@@ -370,6 +370,11 @@ function signInWithGoogle() {
   });
 }
 
+// La cuenta del master puede crear personajes sin límite; el resto, uno a la vez (owner = su uid)
+const MASTER_EMAIL = 'godoydemian@gmail.com';
+let me = null;
+const isMaster = () => !!me && me.email === MASTER_EMAIL;
+
 function signOutUser() {
   auth.signOut();
 }
@@ -382,6 +387,7 @@ function handleAuthUser(user) {
   const accountEmail = document.getElementById('account-email');
   const logoutSection = document.getElementById('logout-section');
   if (user && ALLOWED_EMAILS.includes(user.email)) {
+    me = user;
     overlay.classList.add('hidden');
     accountEmail.textContent = user.email;
     logoutSection.classList.remove('hidden');
@@ -581,7 +587,29 @@ function uniqueName(base){
   let n=2;while(names.has(`${base} ${n}`.toLowerCase()))n++;
   return `${base} ${n}`;
 }
+// Personaje propio del jugador conectado (nunca para el master)
+function myChar(){
+  if(!me||isMaster())return null;
+  return S.tokens.find(t=>t.type==='player'&&t.owner===me.uid)||null;
+}
+let creatingChar=false;
+function refreshPlayerControls(){
+  const btn=document.getElementById('btn-add-player');if(!btn)return;
+  const locked=!isMaster()&&(creatingChar||!!myChar());
+  btn.disabled=locked;
+  btn.style.opacity=locked?'0.4':'';
+  btn.style.cursor=locked?'not-allowed':'';
+  btn.title=locked?'Ya tenés un personaje. Borralo para crear otro.':'';
+}
 async function addTok(type){
+  if(type==='player'&&!isMaster()){
+    if(creatingChar||myChar())return;
+    creatingChar=true;refreshPlayerControls();
+  }
+  try{await createTok(type);}
+  finally{if(type==='player'){creatingChar=false;refreshPlayerControls();}}
+}
+async function createTok(type){
   const input=document.getElementById('iname').value.trim();
   const base=input?input.slice(0,18):type==='enemy'?'Enemigo':'Jugador';
   const name=uniqueName(base);
@@ -595,6 +623,7 @@ async function addTok(type){
   const t={id:newId,type,name,cls:type==='player'?selectedClass:null,hp:type==='player'?S.maxHp:null,maxHp:type==='player'?S.maxHp:null,color,col,row};
   if(type==='player'){
     t.sceneId=activeScene;
+    if(!isMaster())t.owner=me.uid;
     db.ref('sala/players/'+newId).set(t);
   }else{
     db.ref('sala/scenes/'+activeScene+'/enemies/'+newId).set(t);
@@ -899,7 +928,12 @@ function updateDiceNameOptions(){
     const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);
   });
   sel.value=Array.from(sel.options).some(o=>o.value===prev)?prev:'';
+  // El personaje propio aparece solo en Nombre (al crearlo, al cargar y al renombrarlo)
+  const mine=myChar();
+  if(mine&&(prev===lastMyCharName||mine.name!==lastMyCharName))sel.value=mine.name;
+  lastMyCharName=mine?mine.name:null;
 }
+let lastMyCharName=null;
 
 /* ── Dice ── */
 const DSIDES={d4:4,d6:6,d8:8,d10:10,d12:12,d20:20};
@@ -1295,14 +1329,18 @@ function pushRoll(diceStr,rolls,modifier,total){
   const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
   const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
   const ref=db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,duration:dDuration,hidden:true});
-  db.ref('sala/rolls').orderByKey().once('value',snap=>{
+  pruneList('sala/rolls');
+  return {dieColor,ref};
+}
+// Keeps only the last 20 entries of a push list
+function pruneList(path){
+  db.ref(path).orderByKey().once('value',snap=>{
     const keys=Object.keys(snap.val()||{});
     if(keys.length>20){
-      const upd={};keys.slice(0,keys.length-20).forEach(k=>{upd['sala/rolls/'+k]=null;});
+      const upd={};keys.slice(0,keys.length-20).forEach(k=>{upd[path+'/'+k]=null;});
       db.ref().update(upd);
     }
   });
-  return {dieColor,ref};
 }
 
 // Every roll is revealed (locally and in every log) only when its animation ends
@@ -1331,6 +1369,11 @@ function renderDiceLog(){
   const el=document.getElementById('dlog-list');
   if(!dLog.length){el.innerHTML=`<div style="padding:8px 0;font-family:'Cinzel',serif;font-size:9px;color:rgba(180,110,30,0.5);text-align:center;letter-spacing:1px">SIN TIRADAS</div>`;return;}
   el.innerHTML=dLog.map(e=>{
+    if(e.kind==='scene')return`<div class="dlog-entry">
+      <span class="dlog-name">${e.player||'?'}</span>
+      <div class="dlog-dice-str">→ ${e.scene}</div>
+      ${e.from?`<div class="dlog-detail-str">desde ${e.from}</div>`:''}
+    </div>`;
     const det=Object.entries(e.rolls||{}).filter(([dt])=>dt!=='coin').map(([dt,arr])=>`${dt}:[${arr.join(',')}]`).join(' ');
     return`<div class="dlog-entry">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
@@ -1402,6 +1445,44 @@ function switchScene(id){
   attachSceneListeners(id);
 }
 
+const sceneName=id=>{const o=document.querySelector(`#scene-select option[value="${id}"]`);return o?o.textContent:id;};
+
+// Cambio de escena elegido en el dropdown: el personaje del jugador viaja con él y queda en el historial
+function onSceneSelect(id){
+  const from=activeScene;
+  switchScene(id);
+  const t=myChar();
+  if(!t||from===id)return;
+  moveCharToScene(t,id);
+  db.ref('sala/events').push({kind:'scene',player:t.name,scene:sceneName(id),from:sceneName(from),timestamp:Date.now(),color:t.color});
+  pruneList('sala/events');
+}
+
+// sceneId se escribe al instante (el listener de players ya ve al personaje en la escena nueva);
+// la posición se ajusta después, a la celda libre más cercana a la que tenía
+async function moveCharToScene(t,sceneId){
+  t.sceneId=sceneId;
+  db.ref('sala/players/'+t.id+'/sceneId').set(sceneId);
+  const snap=await db.ref('sala/scenes/'+sceneId+'/enemies').once('value');
+  const taken=new Set(Object.values(snap.val()||{}).map(e=>e.col+','+e.row));
+  S.tokens.forEach(o=>{if(o.type==='player'&&o.id!==t.id&&o.sceneId===sceneId)taken.add(o.col+','+o.row);});
+  let col=t.col,row=t.row;
+  if(taken.has(col+','+row)){
+    outer:for(let r=S.oy;r<S.oy+ROWS;r++)for(let c=S.ox;c<S.ox+COLS;c++){
+      if(!taken.has(c+','+r)){col=c;row=r;break outer;}
+    }
+  }
+  db.ref('sala/players/'+t.id).update({col,row});
+}
+
+// Un jugador siempre ve la escena donde está su personaje (al cargar o si el master lo trae a otra)
+function followMyChar(){
+  const t=myChar();
+  if(!t||!t.sceneId||t.sceneId===activeScene)return;
+  document.getElementById('scene-select').value=t.sceneId;
+  switchScene(t.sceneId);
+}
+
 function bringPlayersHere(){
   let col=S.ox,row=S.oy;
   const updates={};
@@ -1431,6 +1512,8 @@ function initFirebase(){
     });
     renderList();
     updateDiceNameOptions();
+    refreshPlayerControls();
+    followMyChar();
   });
   // Hidden rolls (animation still running on the roller's side) enter the log when revealed
   const addToLog=(key,r)=>{
@@ -1450,6 +1533,8 @@ function initFirebase(){
     }
   });
   rollsRef.on('child_changed',snap=>addToLog(snap.key,snap.val()));
+  // Cambios de escena de los jugadores: mismo historial, lista aparte para no tocar log.html ni dice.html
+  db.ref('sala/events').limitToLast(20).on('child_added',snap=>addToLog(snap.key,snap.val()));
   attachSceneListeners(activeScene);
   setupPicker();
   initClassGrid();
