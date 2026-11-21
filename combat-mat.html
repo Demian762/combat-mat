@@ -65,6 +65,7 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 #left-split::before { content:''; width:36px; height:3px; border-radius:2px; background:rgba(200,146,42,0.45); }
 #left-split:hover, #left-split.dragging { background:rgba(200,146,42,0.15); }
 #left-split:hover::before, #left-split.dragging::before { background:var(--amber-lt); }
+body:not(.is-master) #left-split { display:none; } /* el id le gana a .master-only: ocultarlo explícitamente */
 body.split-dragging, body.split-dragging * { cursor:row-resize !important; user-select:none; }
 body.is-master #combat-section { border-bottom:none; }
 #left-list, #chest-list { flex:1; min-height:0; overflow-y:auto; }
