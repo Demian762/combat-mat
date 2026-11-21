@@ -54,9 +54,12 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .token-player.selected .tbody { animation:sel-pulse-player 1.2s ease-in-out infinite; }
 .token-enemy .tbody { border-radius:4px; background:rgba(90,8,8,0.88); border:2px solid rgba(180,40,40,0.75); box-shadow:0 0 10px rgba(180,30,30,0.4); }
 .token-enemy.selected .tbody { border-color:#ff5555; animation:sel-pulse-enemy 1.2s ease-in-out infinite; }
-.tcell { position:absolute; width:var(--cs); height:var(--cs); z-index:5; pointer-events:none; }
-/* Etiqueta con el nombre de la ficha bajo el mouse (solo local, no va a Firebase). Fija en body para que #grid no la recorte */
-#tok-label { position:fixed; z-index:500; pointer-events:none; display:none; transform:translate(-50%,-100%); white-space:nowrap; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.5px; color:var(--amber-lt); background:rgba(8,6,4,0.92); border:1px solid var(--amber); border-radius:4px; padding:2px 7px; box-shadow:0 2px 8px rgba(0,0,0,0.6); }
+/* Terreno: una capa canvas con texturas, debajo de las fichas (ver renderTerrain) */
+#terrain-canvas { position:absolute; left:0; top:0; width:var(--view); height:var(--view); z-index:5; pointer-events:none; }
+/* Etiqueta con el nombre de la ficha bajo el mouse (solo local, no va a Firebase). Fija en body para que #grid no la recorte.
+   #ui-tip = la misma etiqueta para elementos con data-tip (muestras de color): sale al instante, no como el title del navegador */
+#ui-tip.below { transform:translate(-50%,0); }
+#tok-label, #ui-tip { position:fixed; z-index:500; pointer-events:none; display:none; transform:translate(-50%,-100%); white-space:nowrap; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.5px; color:var(--amber-lt); background:rgba(8,6,4,0.92); border:1px solid var(--amber); border-radius:4px; padding:2px 7px; box-shadow:0 2px 8px rgba(0,0,0,0.6); }
 #tok-label.below { transform:translate(-50%,0); }
 body.tok-dragging #tok-label { display:none !important; }
 
@@ -376,7 +379,7 @@ body:not(.is-master) .master-only { display:none; }
       <!-- Borrar terreno y pincel de color libre (Completa), a la izquierda de las flechas -->
       <div id="terr-tools">
         <div class="terr-sw" id="brush-custom" onclick="selectTerrain(curBrush())"></div>
-        <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar terreno">✕</div>
+        <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" data-tip="Borrar terreno">✕</div>
       </div>
       <div id="pan-grid">
         <div></div>
@@ -533,14 +536,14 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 // Iconos por clase para mostrar en fichas y panel izquierdo
 const ICONS={'Bárbaro':'⚔','Bardo':'♪','Clérigo':'†','Druida':'✿','Guerrero':'⛊','Monje':'○','Paladín':'✦','Pícaro':'◈','Hechicero':'⬡','Brujo':'◉','Mago':'✧','Explorador':'◎','Artífice':'⚙','Otras':'?'};
 const CLASS_LIST=['Bárbaro','Bardo','Clérigo','Druida','Guerrero','Monje','Paladín','Pícaro','Hechicero','Brujo','Mago','Explorador','Artífice','Otras'];
-// Terrenos con nombre: name = tooltip, sw = color de la muestra en la paleta, bg = color en el mat.
-// En /terrain también puede guardarse un hex '#rrggbb' (pintado con la paleta Completa).
+// Terrenos con nombre: name = etiqueta, sw = color base (muestra en Fondo/Líneas y vista previa). En el mat se dibujan
+// con la textura de TERRAIN_TEX. En /terrain también puede guardarse un hex '#rrggbb' (paleta Completa): cuadrado liso.
 const TERRAIN={
-  wall:{name:'Pared',sw:'#161412',bg:'rgba(22,20,18,0.92)'},stone:{name:'Piedra',sw:'#64646e',bg:'rgba(100,100,110,0.82)'},door:{name:'Puerta',sw:'#5a300c',bg:'rgba(90,48,12,0.88)'},
-  fence:{name:'Cerca',sw:'#b48c3c',bg:'rgba(180,140,60,0.78)'},tree:{name:'Árbol',sw:'#10340e',bg:'rgba(16,52,14,0.90)'},grass:{name:'Hierba',sw:'#3a6e22',bg:'rgba(58,110,34,0.72)'},
-  water:{name:'Agua',sw:'#123aa0',bg:'rgba(18,58,160,0.78)'},ice:{name:'Hielo',sw:'#78c8dc',bg:'rgba(120,200,220,0.72)'},
-  fire:{name:'Fuego',sw:'#be3c08',bg:'rgba(190,60,8,0.82)'},lava:{name:'Lava',sw:'#c81400',bg:'rgba(200,20,0,0.88)'},trap:{name:'Trampa',sw:'#640606',bg:'rgba(100,6,6,0.86)'},sand:{name:'Arena',sw:'#bea564',bg:'rgba(190,165,100,0.72)'},
-  snow:{name:'Nieve',sw:'#eef2f8',bg:'rgba(230,238,248,0.88)'},metal:{name:'Metal',sw:'#7a8490',bg:'rgba(100,112,126,0.88)'},
+  wall:{name:'Pared',sw:'#161412'},stone:{name:'Piedra',sw:'#64646e'},door:{name:'Puerta',sw:'#5a300c'},
+  fence:{name:'Cerca',sw:'#b48c3c'},tree:{name:'Árbol',sw:'#10340e'},grass:{name:'Hierba',sw:'#3a6e22'},
+  water:{name:'Agua',sw:'#123aa0'},ice:{name:'Hielo',sw:'#78c8dc'},
+  fire:{name:'Fuego',sw:'#be3c08'},lava:{name:'Lava',sw:'#c81400'},trap:{name:'Trampa',sw:'#640606'},sand:{name:'Arena',sw:'#bea564'},
+  snow:{name:'Nieve',sw:'#eef2f8'},metal:{name:'Metal',sw:'#7a8490'},blood:{name:'Sangre',sw:'#7a0808'},
 };
 const isHexColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
 // Paleta simple de personajes: colores vivos y claros
@@ -555,6 +558,8 @@ const APP_W=1572, APP_H=884;
 let appZoom=1;
 // Estado HSV de cada picker de color. 'player' = color activo para nuevos jugadores, local por cliente (no sincroniza)
 const pickerStates={player:hexToHsv('#4a90e2'),bg:{h:20,s:0.55,v:0.04},line:{h:35,s:0.65,v:0.72}};
+// Línea de grilla tenue que se dibuja encima de las texturas de terreno (sale del color de Líneas en applyGridColors)
+let terrLineColor='rgba(0,0,0,0)';
 // mapTarget = qué pinta la paleta de arriba (terrain|bg|line). terrCustom = color del pincel de terreno en modo Completa.
 // palMode = Simple/Completa de cada paleta, preferencia local en localStorage ('palMode').
 let mapTarget='terrain', terrCustom={h:30,s:0.5,v:0.5}, palMode={map:'simple',tok:'simple'};
@@ -654,17 +659,17 @@ function setMapTarget(t){
 function renderMapSwatches(){
   const box=document.getElementById('map-simple');
   if(mapTarget==='terrain'){
-    box.innerHTML=Object.entries(TERRAIN).map(([k,t])=>`<div class="terr-sw" data-terr="${k}" onclick="selectTerrain('${k}')" title="${t.name}" style="background:${t.sw}"></div>`).join('');
+    box.innerHTML=Object.entries(TERRAIN).map(([k,t])=>`<div class="terr-sw" data-terr="${k}" onclick="selectTerrain('${k}')" data-tip="${t.name}" style="background:${terrBg(k)}"></div>`).join('');
   }else{
     const cur=hsvHex(pickerStates[mapTarget]);
-    box.innerHTML=Object.values(TERRAIN).map(t=>`<div class="terr-sw${t.sw===cur?' active':''}" onclick="setGridColor('${mapTarget}',hexToHsv('${t.sw}'))" title="${t.name}" style="background:${t.sw}"></div>`).join('');
+    box.innerHTML=Object.values(TERRAIN).map(t=>`<div class="terr-sw${t.sw===cur?' active':''}" onclick="setGridColor('${mapTarget}',hexToHsv('${t.sw}'))" data-tip="${t.name}" style="background:${t.sw}"></div>`).join('');
   }
   updateTerrainUI();
 }
 function renderTokSwatches(){
   const cur=S.selectedColor;
   document.getElementById('tok-simple').innerHTML=TOK_COLORS.map(([n,c])=>
-    `<div class="terr-sw${c===cur?' active':''}" onclick="setTokColor(hexToHsv('${c}'),true)" title="${n}" style="background:${c}"></div>`).join('');
+    `<div class="terr-sw${c===cur?' active':''}" onclick="setTokColor(hexToHsv('${c}'),true)" data-tip="${n}" style="background:${c}"></div>`).join('');
 }
 // Color de la grilla (fondo o líneas) de la escena activa: se aplica al instante y se escribe en Firebase con debounce
 const gridWriteTimers={};
@@ -705,6 +710,8 @@ function applyGridColors(){
   const bgHex=hsvToHex(bh,bs,bv);const[lr,lg,lb]=hsvToRgb(lh,ls,lv);
   const lc=`rgba(${lr},${lg},${lb},0.55)`,cs=CS+'px';
   grid.style.background=`repeating-linear-gradient(0deg,${lc} 0,${lc} 1px,transparent 1px,transparent ${cs}),repeating-linear-gradient(90deg,${lc} 0,${lc} 1px,transparent 1px,transparent ${cs}),${bgHex}`;
+  terrLineColor=`rgba(${lr},${lg},${lb},0.3)`;
+  renderTerrain();
 }
 
 /* ── Pan ── */
@@ -757,8 +764,8 @@ function updateTerrainUI(){
   if(a&&a!=='eraser')lastBrush=a;
   const lb=curBrush();
   const bc=document.getElementById('brush-custom');
-  bc.style.background=isHexColor(lb)?lb:TERRAIN[lb]?.sw||'transparent';
-  bc.title=isHexColor(lb)?'Pintar con este color':TERRAIN[lb]?.name||'';
+  bc.style.background=isHexColor(lb)?lb:TERRAIN[lb]?terrBg(lb):'transparent';
+  bc.dataset.tip=isHexColor(lb)?'Pintar con este color':TERRAIN[lb]?.name||'';
   bc.classList.toggle('active',a===lb);
   // ✕ y terreno actual solo tienen sentido con destino Terreno
   document.querySelector('#terr-tools .tbtn-erase').classList.toggle('off',mapTarget!=='terrain');
@@ -777,26 +784,284 @@ function paintCell(e){
   const col=sc+S.ox, row=sr+S.oy;
   const key=`${col},${row}`;
   if(S.activeTerrain==='eraser'){
+    if(!(key in S.terrain))return; // nada que borrar: sin escritura ni redibujo
     delete S.terrain[key];
     db.ref(ROOT+'/scenes/'+activeScene+'/terrain/'+key).remove();
   }else{
+    if(S.terrain[key]===S.activeTerrain)return; // ya pintada así (el mousemove repite la misma celda)
     S.terrain[key]=S.activeTerrain;
     db.ref(ROOT+'/scenes/'+activeScene+'/terrain/'+key).set(S.activeTerrain);
   }
   renderTerrain();
 }
-// Solo renderiza las celdas visibles en el viewport actual (ox..ox+COLS, oy..oy+ROWS)
+/* ── Texturas de terreno ──
+   Los terrenos con nombre se dibujan con textura en una capa canvas (#terrain-canvas, dentro de #grid, debajo de las fichas).
+   El azar de cada celda sale de su coordenada absoluta (cellRng): todos los clientes ven lo mismo y no cambia con pan ni zoom.
+   Cada textura dibuja en [0,s]×[0,s] (ya recortada a su celda); t = segundos si la celda está animada, null si es estática.
+   Las texturas animadas tienen que llamar a R() la misma cantidad de veces con o sin t, para no cambiar de forma. */
+function cellRng(col,row,salt){
+  let a=(Math.imul(col|0,374761393)^Math.imul(row|0,668265263)^Math.imul(salt|0,-2048144777))>>>0;
+  a=Math.imul(a^(a>>>13),1274126177)>>>0;
+  return()=>{a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};
+}
+const terrSalt=type=>[...type].reduce((h,ch)=>(h*31+ch.charCodeAt(0))|0,7);
+const rgb=(r,g,b,a=1)=>`rgba(${r|0},${g|0},${b|0},${a})`;
+function disc(c,x,y,r){c.beginPath();c.arc(x,y,Math.max(0,r),0,6.2832);c.fill();}
+// Contorno orgánico: k puntos alrededor de (cx,cy) con radio irregular (±jit); trace los une con curvas suaves
+function blobPts(cx,cy,rx,ry,k,jit,R){
+  const p=[];for(let i=0;i<k;i++){const a=(i+R()*0.5)/k*6.2832,f=1-jit+R()*jit*2;p.push([cx+Math.cos(a)*rx*f,cy+Math.sin(a)*ry*f]);}
+  return p;
+}
+function trace(c,p,dx=0,dy=0){
+  const k=p.length,mid=i=>{const A=p[i%k],B=p[(i+1)%k];return[(A[0]+B[0])/2+dx,(A[1]+B[1])/2+dy];};
+  c.beginPath();const s=mid(k-1);c.moveTo(s[0],s[1]);
+  for(let i=0;i<k;i++){const e=mid(i);c.quadraticCurveTo(p[i][0]+dx,p[i][1]+dy,e[0],e[1]);}
+  c.closePath();
+}
+function flame(c,x,b,w,h,sw,col){
+  c.fillStyle=col;c.beginPath();c.moveTo(x-w/2,b);
+  c.bezierCurveTo(x-w/2,b-h*0.45,x+sw-w*0.1,b-h*0.7,x+sw,b-h);
+  c.bezierCurveTo(x+sw+w*0.1,b-h*0.7,x+w/2,b-h*0.45,x+w/2,b);c.closePath();c.fill();
+}
+const TERRAIN_TEX={
+  wall(c,s,R){ // ladrillos; el patrón se repite por celda, así continúa entre celdas vecinas
+    c.fillStyle='#0c0b0a';c.fillRect(0,0,s,s);
+    const h=s/4,w=s/2,m=Math.max(1,s*0.04);
+    for(let i=0;i<4;i++)for(let x=i%2?-w/2:0;x<s;x+=w){
+      const v=34+R()*12;c.fillStyle=rgb(v+6,v+3,v);c.fillRect(x+m/2,i*h+m/2,w-m,h-m);
+      c.fillStyle='rgba(255,255,255,0.07)';c.fillRect(x+m/2,i*h+m/2,w-m,Math.max(1,m*0.6));
+    }
+  },
+  stone(c,s,R){ // adoquines irregulares con juntas oscuras, sombra y brillo
+    c.fillStyle='#34343a';c.fillRect(0,0,s,s);
+    const n=s>=80?3:2,g=s/n,sh=Math.max(1,s*0.025);
+    for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+      const cx=(i+0.5)*g+(R()-0.5)*g*0.12,cy=(j+0.5)*g+(R()-0.5)*g*0.12,rx=g*(0.40+R()*0.06),ry=g*(0.38+R()*0.06),v=88+R()*44;
+      const p=blobPts(cx,cy,rx,ry,7,0.14,R);
+      c.fillStyle='rgba(0,0,0,0.45)';trace(c,p,sh,sh);c.fill();
+      c.fillStyle=rgb(v,v,v+8);trace(c,p);c.fill();
+      c.save();c.clip();
+      c.fillStyle='rgba(255,255,255,0.13)';disc(c,cx-rx*0.35,cy-ry*0.4,rx*0.6);
+      c.fillStyle='rgba(0,0,0,0.12)';disc(c,cx+rx*0.45,cy+ry*0.5,rx*0.7);
+      c.restore();
+    }
+  },
+  door(c,s,R){ // tablones verticales con veta y dos bandas de hierro remachadas
+    const n=4,w=s/n;c.lineWidth=Math.max(0.6,s*0.012);
+    for(let i=0;i<n;i++){
+      const v=R()*18;c.fillStyle=rgb(92+v,50+v*0.6,14);c.fillRect(i*w,0,w,s);
+      c.strokeStyle='rgba(40,18,4,0.45)';
+      for(let k=0;k<2;k++){const gx=i*w+w*(0.25+R()*0.5);c.beginPath();c.moveTo(gx,0);c.bezierCurveTo(gx+w*0.15,s*0.33,gx-w*0.15,s*0.66,gx,s);c.stroke();}
+      c.fillStyle='#2a1406';c.fillRect(i*w,0,Math.max(1,s*0.02),s);
+    }
+    const bh=s*0.09,rv=Math.max(0.8,s*0.022);
+    for(const by of[s*0.18,s*0.72]){
+      c.fillStyle='#2c2c30';c.fillRect(0,by,s,bh);
+      c.fillStyle='rgba(255,255,255,0.15)';c.fillRect(0,by,s,Math.max(1,bh*0.2));
+      c.fillStyle='#9a9aa2';for(let i=0;i<n;i++)disc(c,(i+0.5)*w,by+bh/2,rv);
+    }
+  },
+  fence(c,s){ // dos travesaños horizontales y un poste; el fondo se ve debajo
+    c.fillStyle='rgba(120,95,45,0.30)';c.fillRect(0,0,s,s);
+    const rh=s*0.1;
+    for(const ry of[s*0.3,s*0.62]){
+      c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(0,ry+rh*0.5,s,rh*0.8);
+      c.fillStyle='#b48c3c';c.fillRect(0,ry,s,rh);
+      c.fillStyle='rgba(255,240,200,0.25)';c.fillRect(0,ry,s,Math.max(1,rh*0.25));
+    }
+    const pw=s*0.16,px=s*0.5-pw/2;
+    c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(px+pw*0.3,s*0.16,pw,s*0.74);
+    c.fillStyle='#8a6428';c.beginPath();c.moveTo(px,s*0.2);c.lineTo(px+pw/2,s*0.1);c.lineTo(px+pw,s*0.2);c.lineTo(px+pw,s*0.88);c.lineTo(px,s*0.88);c.closePath();c.fill();
+    c.fillStyle='rgba(255,240,200,0.2)';c.fillRect(px,s*0.2,Math.max(1,pw*0.25),s*0.68);
+  },
+  tree(c,s,R){ // follaje: matas superpuestas con sombra y brillo
+    c.fillStyle='#0a2208';c.fillRect(0,0,s,s);
+    const n=6+Math.round(R()*3);
+    for(let i=0;i<n;i++){
+      const x=R()*s,y=R()*s,r=s*(0.16+R()*0.14),g=60+R()*45,rr=16+R()*16,bb=12+R()*14;
+      c.fillStyle='rgba(0,0,0,0.35)';disc(c,x+r*0.2,y+r*0.25,r);
+      c.fillStyle=rgb(rr,g,bb);disc(c,x,y,r);
+      c.fillStyle='rgba(170,220,120,0.14)';disc(c,x-r*0.3,y-r*0.3,r*0.5);
+    }
+  },
+  grass(c,s,R){ // manchas de tono y matitas
+    c.fillStyle='#35661f';c.fillRect(0,0,s,s);
+    for(let i=0;i<3;i++){c.fillStyle=R()<0.5?'rgba(20,50,10,0.18)':'rgba(120,170,60,0.14)';disc(c,R()*s,R()*s,s*(0.15+R()*0.2));}
+    const n=Math.round(14*s/44);c.lineWidth=Math.max(0.8,s*0.025);c.lineCap='round';
+    for(let i=0;i<n;i++){
+      const x=R()*s,y=s*0.15+R()*s*0.85,h=s*(0.08+R()*0.1),d=(R()-0.5)*h*0.8,v=R();
+      c.strokeStyle=v<0.5?'#5c9a34':v<0.8?'#76b444':'#24481a';
+      c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x+d*0.3,y-h*0.6,x+d,y-h);c.stroke();
+    }
+  },
+  water(c,s,R,t){ // olas; animada: se mecen y brillan
+    c.fillStyle='#143c9e';c.fillRect(0,0,s,s);
+    for(let i=0;i<2;i++){c.fillStyle=R()<0.5?'rgba(10,30,100,0.35)':'rgba(60,110,210,0.25)';disc(c,R()*s,R()*s,s*(0.2+R()*0.2));}
+    const n=s>=80?4:3;c.lineCap='round';c.lineWidth=Math.max(1,s*0.03);
+    for(let i=0;i<n;i++){
+      const x=R()*s,y=(i+0.3+R()*0.5)/n*s,w=s*(0.18+R()*0.12),ph=R()*6.28;
+      const dx=t==null?0:Math.sin(t*1.1+ph)*s*0.06,a=t==null?0.35:0.2+0.25*(0.5+0.5*Math.sin(t*1.7+ph));
+      c.strokeStyle=`rgba(190,220,255,${a})`;
+      c.beginPath();c.moveTo(x+dx-w/2,y);c.quadraticCurveTo(x+dx-w/4,y-w*0.25,x+dx,y);c.quadraticCurveTo(x+dx+w/4,y+w*0.25,x+dx+w/2,y);c.stroke();
+    }
+  },
+  ice(c,s,R){ // degradé frío, grietas y un destello
+    const g=c.createLinearGradient(0,0,s,s);g.addColorStop(0,'#a6e0ee');g.addColorStop(1,'#62b0c8');c.fillStyle=g;c.fillRect(0,0,s,s);
+    c.lineCap='round';c.lineJoin='round';
+    for(let i=0;i<2;i++){
+      let x=R()<0.5?0:s,y=R()*s;if(R()<0.5)[x,y]=[y,x]; // arranca en un borde
+      const pts=[[x,y]];let a=Math.atan2(s/2-y,s/2-x);
+      for(let j=0;j<3;j++){a+=(R()-0.5)*1.2;x+=Math.cos(a)*s*0.25;y+=Math.sin(a)*s*0.25;pts.push([x,y]);}
+      for(const[st,lw,o]of[['rgba(30,90,120,0.45)',Math.max(1,s*0.03),0.6],['rgba(255,255,255,0.8)',Math.max(0.7,s*0.015),0]]){
+        c.strokeStyle=st;c.lineWidth=lw;c.beginPath();pts.forEach(([px,py],k)=>k?c.lineTo(px+o,py+o):c.moveTo(px+o,py+o));c.stroke();
+      }
+    }
+    c.strokeStyle='rgba(255,255,255,0.55)';c.lineWidth=Math.max(1,s*0.025);
+    const gx=s*(0.15+R()*0.2),gy=s*(0.15+R()*0.2);c.beginPath();c.moveTo(gx,gy+s*0.12);c.lineTo(gx+s*0.12,gy);c.stroke();
+  },
+  fire(c,s,R,t){ // lenguas de fuego; animada: titilan y se mecen
+    const g=c.createLinearGradient(0,0,0,s);g.addColorStop(0,'#6a1a06');g.addColorStop(1,'#a83008');c.fillStyle=g;c.fillRect(0,0,s,s);
+    for(let i=0;i<3;i++){
+      const x=s*(0.2+i*0.3+(R()-0.5)*0.12),w=s*(0.26+R()*0.1),h0=s*(0.55+R()*0.3),ph=R()*6.28;
+      const h=h0*(t==null?1:1+0.12*Math.sin(t*9+ph)+0.06*Math.sin(t*23+ph*2)),sw=t==null?0:Math.sin(t*5+ph)*s*0.04,b=s*0.98;
+      flame(c,x,b,w,h,sw,'#e8580c');flame(c,x,b,w*0.55,h*0.6,sw*0.7,'#ffc23a');
+    }
+  },
+  lava(c,s,R,t){ // roca fundida con costras; animada: el brillo late y salen burbujas que revientan
+    c.fillStyle='#d23000';c.fillRect(0,0,s,s);
+    for(let i=0;i<3;i++){
+      const x=R()*s,y=R()*s,r=s*(0.2+R()*0.2),ph=R()*6.28,a=t==null?0.55:0.3+0.4*(0.5+0.5*Math.sin(t*2.2+ph));
+      const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(255,220,80,${a})`);g.addColorStop(1,'rgba(255,120,0,0)');c.fillStyle=g;c.fillRect(0,0,s,s);
+    }
+    const n=2+Math.round(R()*2);c.lineWidth=Math.max(0.8,s*0.025);
+    for(let i=0;i<n;i++){
+      const p=blobPts(R()*s,R()*s,s*(0.14+R()*0.12),s*(0.1+R()*0.1),7,0.3,R);
+      c.fillStyle='rgba(50,10,4,0.85)';trace(c,p);c.fill();c.strokeStyle='rgba(255,150,30,0.6)';c.stroke();
+    }
+    for(let i=0;i<2;i++){
+      const x=s*(0.15+R()*0.7),y=s*(0.15+R()*0.7),ph=R(),per=2+R()*2;
+      if(t==null)continue;
+      const u=(t/per+ph)%1;
+      if(u>0.85){const k=(u-0.85)/0.15;c.strokeStyle=`rgba(255,230,120,${1-k})`;c.lineWidth=Math.max(0.8,s*0.02);c.beginPath();c.arc(x,y,s*0.07*(1+k),0,6.2832);c.stroke();}
+      else{const r=s*0.07*u/0.85;c.fillStyle='#ffb040';disc(c,x,y,r);c.fillStyle='rgba(255,250,200,0.7)';disc(c,x-r*0.3,y-r*0.3,r*0.35);}
+    }
+  },
+  trap(c,s){ // pinchos de metal (pirámides vistas desde arriba)
+    c.fillStyle='#4a0606';c.fillRect(0,0,s,s);
+    const n=s>=80?3:2,g=s/n,h=g*0.32;
+    for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+      const x=(i+0.5)*g,y=(j+0.5)*g;
+      c.fillStyle='rgba(0,0,0,0.4)';c.fillRect(x-h*0.75,y-h*0.75,h*2,h*2);
+      for(const[f,a,b]of[['#d0d0d8',[x-h,y-h],[x+h,y-h]],['#8a8a94',[x+h,y-h],[x+h,y+h]],['#4a4a52',[x+h,y+h],[x-h,y+h]],['#a6a6b0',[x-h,y+h],[x-h,y-h]]]){
+        c.fillStyle=f;c.beginPath();c.moveTo(x,y);c.lineTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.closePath();c.fill();
+      }
+    }
+  },
+  sand(c,s,R){ // granos y ondas de duna
+    c.fillStyle='#bfa463';c.fillRect(0,0,s,s);
+    c.strokeStyle='rgba(120,95,45,0.22)';c.lineWidth=Math.max(1,s*0.03);c.lineCap='round';
+    for(let i=0;i<2;i++){const y=s*(0.25+i*0.45+(R()-0.5)*0.15),x=R()*s*0.3;c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x+s*0.3,y-s*0.08,x+s*0.65,y);c.stroke();}
+    const n=Math.round(s*s/30),d=Math.max(1,s*0.025);
+    for(let i=0;i<n;i++){c.fillStyle=R()<0.5?'rgba(230,210,150,0.7)':'rgba(130,105,55,0.5)';c.fillRect(R()*s,R()*s,d,d);}
+  },
+  snow(c,s,R){ // sombras azuladas suaves y destellos
+    c.fillStyle='#e8eff8';c.fillRect(0,0,s,s);
+    for(let i=0;i<2;i++){
+      const x=R()*s,y=R()*s,r=s*(0.25+R()*0.2),g=c.createRadialGradient(x,y,0,x,y,r);
+      g.addColorStop(0,'rgba(150,175,215,0.35)');g.addColorStop(1,'rgba(150,175,215,0)');c.fillStyle=g;c.fillRect(0,0,s,s);
+    }
+    const n=Math.round(10*s/44),d=Math.max(1,s*0.03);
+    for(let i=0;i<n;i++){c.fillStyle=R()<0.6?'#ffffff':'rgba(140,170,210,0.6)';c.fillRect(R()*s,R()*s,d,d);}
+  },
+  metal(c,s,R){ // chapa cepillada con bisel y remaches
+    const g=c.createLinearGradient(0,0,s,s);g.addColorStop(0,'#8f99a4');g.addColorStop(1,'#56606b');c.fillStyle=g;c.fillRect(0,0,s,s);
+    c.fillStyle='rgba(255,255,255,0.05)';for(let i=0;i<6;i++)c.fillRect(0,R()*s,s,Math.max(1,s*0.015));
+    const b=Math.max(1,s*0.04);
+    c.fillStyle='rgba(255,255,255,0.22)';c.fillRect(0,0,s,b);c.fillRect(0,0,b,s);
+    c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(0,s-b,s,b);c.fillRect(s-b,0,b,s);
+    const r=Math.max(1,s*0.045),o=s*0.15;
+    for(const[x,y]of[[o,o],[s-o,o],[o,s-o],[s-o,s-o]]){c.fillStyle='rgba(0,0,0,0.4)';disc(c,x+r*0.4,y+r*0.4,r);c.fillStyle='#c4ccd4';disc(c,x,y,r);}
+  },
+  blood(c,s,R){ // charco con gotas alrededor; sin fondo: se ve la grilla debajo
+    const cx=s*(0.5+(R()-0.5)*0.2),cy=s*(0.5+(R()-0.5)*0.2),rx=s*(0.26+R()*0.1),ry=s*(0.22+R()*0.1);
+    const p=blobPts(cx,cy,rx,ry,9,0.32,R);
+    c.fillStyle='rgba(70,0,0,0.92)';trace(c,p);c.fill();
+    c.save();c.clip();c.fillStyle='rgba(140,10,10,0.85)';disc(c,cx-rx*0.15,cy-ry*0.15,Math.min(rx,ry)*0.75);c.restore();
+    c.fillStyle='rgba(255,210,210,0.35)';c.beginPath();c.ellipse(cx-rx*0.35,cy-ry*0.4,rx*0.18,ry*0.09,-0.5,0,6.2832);c.fill();
+    const n=3+Math.round(R()*3),lo=s*0.04,hi=s*0.96;
+    for(let i=0;i<n;i++){
+      const a=R()*6.2832,d=Math.max(rx,ry)*(1.1+R()*0.5),r=s*(0.015+R()*0.035);
+      c.fillStyle='rgba(110,4,4,0.9)';disc(c,Math.min(hi,Math.max(lo,cx+Math.cos(a)*d)),Math.min(hi,Math.max(lo,cy+Math.sin(a)*d)),r);
+    }
+  },
+};
+// Terrenos que se animan cuando forman un grupo (vecinos de lado) de al menos TERR_ANIM_MIN celdas
+const TERR_ANIM={lava:1,water:1,fire:1}, TERR_ANIM_MIN=4;
+// Muestra de la paleta Simple: la textura de verdad, dibujada una vez y cacheada como imagen
+const terrSwCache={};
+function terrBg(type){
+  if(!terrSwCache[type]){
+    const cv=document.createElement('canvas');cv.width=cv.height=88;const c=cv.getContext('2d');c.scale(2,2);
+    if(type==='blood'){c.fillStyle='#1c1612';c.fillRect(0,0,44,44);} // el charco sobre un piso oscuro
+    TERRAIN_TEX[type](c,44,cellRng(2,3,terrSalt(type)),null);
+    terrSwCache[type]=cv.toDataURL();
+  }
+  return `${TERRAIN[type].sw} url(${terrSwCache[type]}) center/cover`;
+}
+
+const terrCv=document.createElement('canvas');terrCv.id='terrain-canvas';
+const terrCtx=terrCv.getContext('2d');
+let terrAnimVis=[], terrRaf=0, terrLastFrame=0;
+// Dibuja una celda visible (sc,sr = columna/fila en pantalla). Las texturas llevan encima una línea de grilla tenue
+// (arriba e izquierda, como el fondo de #grid) para poder seguir contando casillas; la sangre no, se ve la grilla real.
+function drawTerrCell(sc,sr,type,t){
+  const c=terrCtx,s=CS,x=sc*s,y=sr*s;
+  if(isHexColor(type)){c.fillStyle=hexToRgba(type,0.85);c.fillRect(x,y,s,s);return;}
+  const f=TERRAIN_TEX[type];if(!f)return;
+  c.save();c.beginPath();c.rect(x,y,s,s);c.clip();c.translate(x,y);
+  f(c,s,cellRng(sc+S.ox,sr+S.oy,terrSalt(type)),t);
+  c.restore();
+  if(type!=='blood'){c.fillStyle=terrLineColor;c.fillRect(x,y,s,1);c.fillRect(x,y,1,s);}
+}
+// Celdas (claves "col,row") de los grupos animables lo bastante grandes; mira todo el terreno, no solo lo visible
+function animatedTerrCells(){
+  const out=new Set(),seen=new Set();
+  for(const[key,type]of Object.entries(S.terrain)){
+    if(!TERR_ANIM[type]||seen.has(key))continue;
+    const grp=[key];seen.add(key);
+    for(let i=0;i<grp.length;i++){
+      const[c,r]=grp[i].split(',').map(Number);
+      for(const[dc,dr]of[[1,0],[-1,0],[0,1],[0,-1]]){const nk=(c+dc)+','+(r+dr);if(!seen.has(nk)&&S.terrain[nk]===type){seen.add(nk);grp.push(nk);}}
+    }
+    if(grp.length>=TERR_ANIM_MIN)grp.forEach(k=>out.add(k));
+  }
+  return out;
+}
+// Solo dibuja las celdas visibles en el viewport actual (ox..ox+COLS, oy..oy+ROWS)
 function renderTerrain(){
-  document.querySelectorAll('.tcell').forEach(el=>el.remove());
-  Object.entries(S.terrain).forEach(([key,type])=>{
-    const bg=TERRAIN[type]?.bg||(isHexColor(type)?hexToRgba(type,0.85):null);if(!bg)return;
-    const[ac,ar]=key.split(',').map(Number);
-    const sc=ac-S.ox, sr=ar-S.oy;
-    if(sc<0||sc>=COLS||sr<0||sr>=ROWS)return;
-    const el=document.createElement('div');el.className='tcell';
-    el.style.cssText=`left:${sc*CS}px;top:${sr*CS}px;background:${bg}`;
-    grid.appendChild(el);
-  });
+  if(!terrCv.isConnected)grid.prepend(terrCv); // initGrid vacía #grid
+  const px=Math.round(VIEW*Math.min(3,(window.devicePixelRatio||1)*appZoom)); // nítido con el zoom de #app
+  if(terrCv.width!==px)terrCv.width=terrCv.height=px;
+  terrCtx.setTransform(px/VIEW,0,0,px/VIEW,0,0);
+  terrCtx.clearRect(0,0,VIEW,VIEW);
+  const anim=animatedTerrCells();terrAnimVis=[];
+  for(let sr=0;sr<ROWS;sr++)for(let sc=0;sc<COLS;sc++){
+    const key=(sc+S.ox)+','+(sr+S.oy),type=S.terrain[key];if(!type)continue;
+    drawTerrCell(sc,sr,type,null);
+    if(anim.has(key))terrAnimVis.push([sc,sr,type]);
+  }
+  if(terrAnimVis.length&&!terrRaf)terrRaf=requestAnimationFrame(terrFrame);
+}
+// Animación a ~20 cuadros/s, solo de las celdas animadas visibles; se frena sola si no queda ninguna
+// (y requestAnimationFrame ya se pausa con la pestaña oculta). Con el mapa del mundo encima no dibuja.
+function terrFrame(now){
+  terrRaf=0;
+  if(!terrAnimVis.length)return;
+  terrRaf=requestAnimationFrame(terrFrame);
+  if(now-terrLastFrame<50||document.body.classList.contains('show-map'))return;
+  terrLastFrame=now;
+  const t=now/1000;
+  for(const[sc,sr,type]of terrAnimVis){terrCtx.clearRect(sc*CS,sr*CS,CS,CS);drawTerrCell(sc,sr,type,t);}
 }
 function clearTerrain(){
   S.terrain={};
@@ -1061,6 +1326,19 @@ function showTokLabel(){
   tokLabel.style.top=(below?r.bottom+6:r.top-6)+'px';
   tokLabel.style.display='block';
 }
+// Etiqueta inmediata para cualquier elemento con data-tip (muestras de color, borrar terreno):
+// el title del navegador tarda ~1 s en salir y a veces no vuelve a aparecer al pasar de una muestra a otra
+const uiTip=document.createElement('div');uiTip.id='ui-tip';document.body.appendChild(uiTip);
+document.addEventListener('mouseover',e=>{
+  const el=e.target.closest?.('[data-tip]');
+  if(!el||!el.dataset.tip){uiTip.style.display='none';return;}
+  const r=el.getBoundingClientRect(),below=r.top<30;
+  uiTip.textContent=el.dataset.tip;
+  uiTip.classList.toggle('below',below);
+  uiTip.style.left=(r.left+r.width/2)+'px';
+  uiTip.style.top=(below?r.bottom+6:r.top-6)+'px';
+  uiTip.style.display='block';
+});
 
 /* Selección / turno.
    /turn = el turno que ven todos (latido en el mat, pelotita del panel). Los jugadores lo pasan a cualquier ficha.
@@ -2169,6 +2447,7 @@ function initFirebase(){
 function fitApp(){
   appZoom=Math.min(window.innerWidth/APP_W, window.innerHeight/APP_H);
   document.getElementById('app').style.zoom=appZoom;
+  renderTerrain(); // el canvas del terreno se redimensiona con el zoom para seguir nítido
 }
 function toggleFullscreen(){
   if(!document.fullscreenElement){document.documentElement.requestFullscreen?.();}

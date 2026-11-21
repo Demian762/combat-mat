@@ -32,7 +32,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 /sala
   /scenes
     /escena1
-      /terrain        → {"col,row": terrainType | "#rrggbb"}   // tipo con nombre (paleta Simple) o color libre (paleta Completa)
+      /terrain        → {"col,row": terrainType | "#rrggbb"}   // tipo con nombre de TERRAIN (paleta Simple, con textura) o color libre (paleta Completa)
       /enemies        → {id: {id, name, size, col, row}}
       /order          → [id, id, ...]        // orden de iniciativa
       /turn           → id | null
@@ -111,8 +111,17 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 
 ### Paletas del panel derecho
 Dos paletas separadas, cada una con modo **Simple** (muestras fijas) y **Completa** (selector HSV):
-- **Mapa** (arriba): destino Terreno / Fondo / Líneas. Simple = los 14 terrenos de `TERRAIN` (en Fondo/Líneas esos mismos colores se aplican a la grilla). Completa en Terreno = pincel de color libre (se guarda el hex en `/terrain`). El botón de terreno actual (último pincel elegido, `lastBrush`: terreno con nombre o color libre; clic = prender/apagar) y el ✕ borrar van en `#terr-tools`, a la izquierda de las flechas de pan; ambos solo con destino Terreno, en los dos modos.
+- **Mapa** (arriba): destino Terreno / Fondo / Líneas. Simple = los 15 terrenos de `TERRAIN` (en Terreno cada muestra muestra su textura, `terrBg`; en Fondo/Líneas se usa su color `sw` y se aplica a la grilla). Completa en Terreno = pincel de color libre (se guarda el hex en `/terrain`). El botón de terreno actual (último pincel elegido, `lastBrush`: terreno con nombre o color libre; clic = prender/apagar) y el ✕ borrar van en `#terr-tools`, a la izquierda de las flechas de pan; ambos solo con destino Terreno, en los dos modos.
 - **Color** del nuevo personaje (dentro de Gestión de Tokens): Simple = 10 colores vivos (`TOK_COLORS`), sin borrar. Completa = selector HSV.
+- Los nombres de las muestras (y del ✕ borrar terreno) van en `data-tip`, no en `title`: `#ui-tip` los muestra al instante al pasar el mouse.
+
+### Texturas de terreno
+- El terreno se dibuja en una capa `<canvas id="terrain-canvas">` dentro de `#grid` (z-index 5, debajo de las fichas), no con un div por celda. `renderTerrain` redibuja las celdas visibles; el canvas se ajusta a `devicePixelRatio × appZoom` para verse nítido.
+- Cada terreno con nombre tiene su textura en `TERRAIN_TEX` (ladrillos, adoquines, tablones, follaje, olas, etc.). El azar sale de la coordenada absoluta de la celda (`cellRng(col,row,salt)`): todos ven lo mismo y no cambia con pan ni zoom. Los colores libres de la paleta Completa siguen siendo cuadrados lisos.
+- **Sangre** (`blood`) es un terreno más, pero se dibuja como charco con gotas sin fondo: la grilla se ve debajo.
+- Encima de cada textura va una línea de grilla tenue (arriba/izquierda, `terrLineColor`, sale del color de Líneas) para poder contar casillas. La sangre no la lleva.
+- **Animación**: lava, agua y fuego se animan (`TERR_ANIM`) cuando forman un grupo de ≥ `TERR_ANIM_MIN` (4) celdas vecinas de lado. Se redibujan solo esas celdas visibles, a ~20 cuadros/s, y se pausa con el mapa del mundo encima o la pestaña oculta. Las texturas animadas llaman a `R()` la misma cantidad de veces con o sin `t`, así la forma no cambia.
+- Todavía cada celda se dibuja sola (bordes rectos): el redondeo y cómo se unen las celdas vecinas queda para después.
 
 ### Movimiento de jugadores entre escenas
 - Los tokens `type:'player'` tienen un campo `sceneId` que indica en qué escena están físicamente.
