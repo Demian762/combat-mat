@@ -81,7 +81,6 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .sec-title { font-family:'Cinzel',serif; font-size:10px; color:var(--amber-lt); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; display:block; }
 .sw-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
 .sw-grid.tok .terr-sw { height:22px; }
-.brush-custom { grid-column:span 4; }
 .pal-head { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
 .pal-head .sec-title, .pal-head .plabel { margin-bottom:0; }
 .pal-mode { display:flex; margin-left:auto; border:1px solid var(--border); border-radius:3px; overflow:hidden; }
@@ -102,7 +101,10 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .tbtn-erase.active { border-color:rgba(200,80,80,0.9); color:#e08080; background:rgba(180,40,40,0.2); }
 
 /* Pan controls */
-#pan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:3px; margin-top:8px; width:90px; margin-left:auto; margin-right:auto; }
+#map-tools { display:flex; justify-content:center; align-items:flex-start; gap:10px; margin-top:8px; }
+#terr-tools { display:flex; flex-direction:column; gap:4px; width:36px; }
+#terr-tools > .off { visibility:hidden; pointer-events:none; }
+#pan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:3px; width:90px; }
 .pan-btn { height:28px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); border-radius:4px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .12s; }
 .pan-btn:hover { background:rgba(200,146,42,0.2); }
 .pan-center { display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:8px; color:rgba(255,255,255,0.2); }
@@ -314,13 +316,15 @@ body:not(.is-master) .master-only { display:none; }
       <div id="map-simple" class="sw-grid"></div>
       <!-- Completa: selector HSV (en Terreno, pinta con cualquier color) -->
       <div id="map-full">
-        <div class="sw-grid" id="map-brush" style="margin-bottom:5px">
-          <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar">✕</div>
-          <div class="terr-sw brush-custom" id="brush-custom" onclick="selectTerrain(hsvToHex(terrCustom.h,terrCustom.s,terrCustom.v))" title="Pintar con este color"></div>
-        </div>
         <canvas id="map-sq"  class="pick-sq"  width="192" height="100"></canvas>
         <canvas id="map-hue" class="pick-hue" width="192" height="12"></canvas>
       </div>
+      </div>
+      <div id="map-tools">
+      <!-- Borrar terreno y pincel de color libre (Completa), a la izquierda de las flechas -->
+      <div id="terr-tools">
+        <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar terreno">✕</div>
+        <div class="terr-sw" id="brush-custom" onclick="selectTerrain(hsvToHex(terrCustom.h,terrCustom.s,terrCustom.v))" title="Pintar con este color"></div>
       </div>
       <div id="pan-grid">
         <div></div>
@@ -332,6 +336,7 @@ body:not(.is-master) .master-only { display:none; }
         <div></div>
         <div class="pan-btn" onclick="pan(0,1)">▼</div>
         <div></div>
+      </div>
       </div>
     </div>
 
@@ -583,8 +588,7 @@ function setMapTarget(t){
 function renderMapSwatches(){
   const box=document.getElementById('map-simple');
   if(mapTarget==='terrain'){
-    box.innerHTML=`<div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar">✕</div>`+
-      Object.entries(TERRAIN).map(([k,t])=>`<div class="terr-sw" data-terr="${k}" onclick="selectTerrain('${k}')" title="${t.name}" style="background:${t.sw}"></div>`).join('');
+    box.innerHTML=Object.entries(TERRAIN).map(([k,t])=>`<div class="terr-sw" data-terr="${k}" onclick="selectTerrain('${k}')" title="${t.name}" style="background:${t.sw}"></div>`).join('');
   }else{
     const cur=hsvHex(pickerStates[mapTarget]);
     box.innerHTML=Object.values(TERRAIN).map(t=>`<div class="terr-sw${t.sw===cur?' active':''}" onclick="setGridColor('${mapTarget}',hexToHsv('${t.sw}'))" title="${t.name}" style="background:${t.sw}"></div>`).join('');
@@ -656,6 +660,9 @@ function updateTerrainUI(){
   const bc=document.getElementById('brush-custom');
   bc.style.background=custom;
   bc.classList.toggle('active',isHexColor(a));
+  // ✕ solo tiene sentido con destino Terreno; el pincel libre, además, solo en Completa
+  document.querySelector('#terr-tools .tbtn-erase').classList.toggle('off',mapTarget!=='terrain');
+  bc.classList.toggle('off',mapTarget!=='terrain'||palMode.map!=='full');
   document.getElementById('cprev-terrain').style.background=
     !a||a==='eraser'?'transparent':isHexColor(a)?a:TERRAIN[a]?.sw||'transparent';
   grid.classList.toggle('painting',!!a);
