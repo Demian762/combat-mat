@@ -1264,8 +1264,9 @@ const LIQ={
   ice:{w:0.35,amp:0.05,detail:iceDetail,bands:[['F',0.5,'rgba(240,252,255,0.95)'],['F',0.62,'#93d3e4'],['D',0.9,'#7cc2d8']]},
   blood:{w:0.9,amp:0.28,detail:bloodDetail,drops:'rgba(110,4,4,0.9)',bands:[['F',0.56,'rgba(70,0,0,0.92)'],['F',0.68,'rgba(132,8,8,0.88)']]},
   acid:{w:0.9,amp:0.26,detail:acidDetail,drops:'rgba(70,190,20,0.9)',glow:'rgba(140,255,60,0.6)',bands:[['F',0.54,'rgba(40,140,10,0.9)'],['F',0.66,'rgba(120,230,50,0.8)']]},
-  // Vacío: borde de roca tenue, centro más negro y una sombra que se derrama sobre el piso de al lado
-  void:{w:0.8,amp:0.2,detail:voidDetail,glow:'rgba(0,0,0,0.85)',bands:[['F',0.5,'#2a2430'],['F',0.57,'#0c0a12'],['D',0.8,'#060509']]},
+  // Vacío: redondo como las copas de árbol (round = campo radial), borde de roca tenue, centro más negro y una sombra
+  // que se derrama sobre el piso de al lado
+  void:{round:1,w:0.8,amp:0.08,detail:voidDetail,glow:'rgba(0,0,0,0.85)',bands:[['F',0.5,'#2a2430'],['F',0.57,'#0c0a12'],['D',0.8,'#060509']]},
   // Nube mágica: velo semitransparente, contorno abultado y borde difuminado (el halo); top = encima de todo lo demás
   cloud:{w:1,amp:0.32,detail:cloudDetail,glow:'rgba(190,160,255,0.65)',top:1,bands:[['F',0.5,'rgba(165,140,225,0.34)'],['F',0.62,'rgba(195,170,250,0.22)']]},
 };
@@ -1359,13 +1360,44 @@ function liqChunk(type,shapeG,G,cx,cy){
 }
 // Arma la mancha de un líquido: shape = ocupación para la forma, own = sus propias celdas (detalle y gotas).
 // G = área de trabajo (celdas absolutas c0,r0, tamaño W×H: los bloques kx0..kx1 × ky0..ky1 más su margen).
+// Formas redondas (L.round, el vacío): campo = una gota por copa (como los árboles: 2×2 = un círculo grande) más una por
+// cada celda prestada de un líquido de arriba. Depende de cómo se agrupa todo el terreno, así que no va por bloques
+// cacheados: se calcula para el área de trabajo en cada armado (es poco).
+function liqRoundPaths(type,shape,own,G,crowns){
+  const L=LIQ[type],n=Math.max(3,Math.round(CS/6)),st=CS/n,LW=G.W*n+1,LH=G.H*n+1,salt=terrSalt(type);
+  const FA=new Float32Array(LW*LH);
+  const splat=(cx,cy,Rk)=>{ // cx,cy en celdas relativas al área; gota (1-(d/Rk)²)², contorno 0.5 en d≈0.54·Rk
+    const R=Rk*n,px=cx*n,py=cy*n;
+    const i0=Math.max(0,Math.ceil(px-R)),i1=Math.min(LW-1,Math.floor(px+R)),j0=Math.max(0,Math.ceil(py-R)),j1=Math.min(LH-1,Math.floor(py+R));
+    for(let j=j0;j<=j1;j++){const dy=(j-py)/R;for(let i=i0;i<=i1;i++){const dx=(i-px)/R,d2=dx*dx+dy*dy;if(d2<1){const k=1-d2;FA[j*LW+i]+=k*k;}}}
+  };
+  for(const[cx,cy,rad]of crowns)splat(cx-G.c0,cy-G.r0,rad*2); // radio visible ≈ 1.08 × el de la copa, como los árboles
+  for(let k=0;k<shape.length;k++)if(shape[k]&&!own[k]){const i=k%G.W;splat(i+0.5,(k-i)/G.W+0.5,1);}
+  const DA=L.bands.some(b=>b[0]==='D')?liqConv(shape,G.W,G.H,n,LIQ_DEEP_W):null;
+  for(let k=0;k<FA.length;k++){const f=FA[k];if(f>1e-6&&f<1-1e-6){const i=k%LW,j=(k-i)/LW;FA[k]=f+L.amp*liqNoise(G.c0+i/n,G.r0+j/n,salt);}}
+  const fv=(i,j)=>FA[j*LW+i],dv=(i,j)=>DA[j*LW+i];
+  const at=(c,r)=>c>=0&&r>=0&&c<G.W&&r<G.H&&shape[r*G.W+c];
+  const proc=[];
+  for(let r=G.oy-1;r<=G.oy+ROWS;r++)for(let c=G.ox-1;c<=G.ox+COLS;c++){
+    const ci=c-G.c0,ri=r-G.r0;let near=false;
+    for(let a=-1;a<=1&&!near;a++)for(let b=-1;b<=1;b++)if(at(ci+a,ri+b)){near=true;break;}
+    if(near)proc.push([ci,ri]);
+  }
+  const sx=i=>(G.c0-G.ox)*CS+i*st,sy=j=>(G.r0-G.oy)*CS+j*st;
+  return L.bands.map(([f,thr])=>liqPath(f==='F'?fv:dv,thr,proc,n,st,sx,sy));
+}
 function liqRegion(type,shape,own,G,animSet){
-  const L=LIQ[type],salt=terrSalt(type),K=LIQ_CHUNK,paths=L.bands.map(()=>new Path2D());
+  const L=LIQ[type],salt=terrSalt(type),K=LIQ_CHUNK;
+  let paths;
   const occ=(arr,c,r)=>{c-=G.c0;r-=G.r0;return c>=0&&r>=0&&c<G.W&&r<G.H&&arr[r*G.W+c]===1;};
-  for(let cy=G.ky0;cy<=G.ky1;cy++)for(let cx=G.kx0;cx<=G.kx1;cx++){
-    const cp=liqChunk(type,shape,G,cx,cy);if(!cp)continue;
-    const m=new DOMMatrix().translateSelf((cx*K-G.ox)*CS,(cy*K-G.oy)*CS);
-    cp.forEach((p,b)=>paths[b].addPath(p,m));
+  if(L.round)paths=liqRoundPaths(type,shape,own,G,treeCrowns(G.ox,G.oy,type));
+  else{
+    paths=L.bands.map(()=>new Path2D());
+    for(let cy=G.ky0;cy<=G.ky1;cy++)for(let cx=G.kx0;cx<=G.kx1;cx++){
+      const cp=liqChunk(type,shape,G,cx,cy);if(!cp)continue;
+      const m=new DOMMatrix().translateSelf((cx*K-G.ox)*CS,(cy*K-G.oy)*CS);
+      cp.forEach((p,b)=>paths[b].addPath(p,m));
+    }
   }
   // Celdas propias a la vista (±1): detalle y gotas
   const proc=[];
@@ -1550,9 +1582,11 @@ function drawTerrBase(c,cells,t){
    Las copas se superponen un poco (bosque), con sombra hacia abajo a la derecha. Fuera de las copas se ve el terreno
    vecino (under) y, si no hay ninguno, el fondo. */
 const TREE_WILD_MIN=12;
-function treeCrowns(ox,oy){
+// Copas de un piso (árbol o vacío): [centro x, centro y, radio, celda ancla col, fila], en celdas absolutas.
+// Se devuelven las que pueden influir en lo visible (con su radio de influencia, 2×radio).
+function treeCrowns(ox,oy,type='tree'){
   const has=new Set(),cells=[];
-  for(const k in S.terrain)if(parseTerr(S.terrain[k]).base==='tree'){has.add(k);const[c,r]=k.split(',').map(Number);cells.push([c,r]);}
+  for(const k in S.terrain)if(parseTerr(S.terrain[k]).base===type){has.add(k);const[c,r]=k.split(',').map(Number);cells.push([c,r]);}
   if(!cells.length)return[];
   cells.sort((a,b)=>a[1]-b[1]||a[0]-b[0]);
   // Tamaño del grupo (vecinas de lado) de cada árbol: los grupos extensos se arman con copas al azar
@@ -1578,8 +1612,8 @@ function treeCrowns(ox,oy){
       scale=0.9+R()*0.25;jx=(R()-0.5)*0.2;jy=(R()-0.5)*0.2;
     }else n=free(c,r,3)&&!free(c,r,4)?3:free(c,r,2)?2:1; // grupo chico: 4 en cuadrado = una copa redonda
     for(let j=0;j<n;j++)for(let i=0;i<n;i++)taken.add((c+i)+','+(r+j));
-    const cx=c+n/2+jx,cy=r+n/2+jy,rad=n/2*scale;
-    if(cx+rad<ox-1||cx-rad>ox+COLS+1||cy+rad<oy-1||cy-rad>oy+ROWS+1)continue;
+    const cx=c+n/2+jx,cy=r+n/2+jy,rad=n/2*scale,reach=2*rad+1;
+    if(cx+reach<ox-1||cx-reach>ox+COLS+1||cy+reach<oy-1||cy-reach>oy+ROWS+1)continue;
     out.push([cx,cy,rad,c,r]);
   }
   return out;
