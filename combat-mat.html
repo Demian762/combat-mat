@@ -123,11 +123,16 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 .sw-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
 .sw-grid.tok .terr-sw { height:22px; }
 /* El panel derecho está medido para la vista del master (la más alta) sin espacio sobrante ni scroll: el selector
-   Completa del Mapa mide 130+5+12 = 147px y Prefabricado no lo pasa: pestañas en 2×2 (~48px) + 3 filas de 28px (hasta
-   18 terrenos por sección). Fondo/Líneas, sin pestañas, usa hasta 4 filas. Si se agrega algo al panel, achicar #map-sq. */
-#map-swatches { grid-template-columns:repeat(6,1fr); }
+   Completa del Mapa mide 130+5+12 = 147px y Prefabricado no lo pasa: pestañas en 2×2 (~48px) + la grilla de muestras,
+   que siempre mide 5 columnas × 3 filas de 28px y tiene su propia barra vertical: se pueden sumar terrenos sin límite
+   sin mover el resto del panel. Si se agrega algo al panel, achicar #map-sq. */
+#map-swatches { grid-template-columns:repeat(5,1fr); grid-auto-rows:28px; height:calc(3*28px + 2*4px + 4px); overflow-y:auto; overflow-x:hidden; padding:2px 4px 2px 2px; box-sizing:border-box; scrollbar-gutter:stable; scrollbar-width:thin; scrollbar-color:var(--amber) rgba(255,255,255,0.07); }
+#map-swatches::-webkit-scrollbar { width:5px; }
+#map-swatches::-webkit-scrollbar-thumb { background:var(--amber); border-radius:3px; }
+#map-swatches::-webkit-scrollbar-track { background:rgba(255,255,255,0.05); border-radius:3px; }
 #map-swatches .terr-sw { height:28px; }
-#terr-cats { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:6px; }
+#map-swatches .terr-sw:hover { transform:none; } /* el agrandado se cortaría contra el borde de la grilla con scroll */
+#terr-cats { display:grid; grid-template-columns:1fr 1fr; gap:3px; margin-bottom:3px; }
 #terr-cats.off { display:none; }
 #terr-cats span { text-align:center; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.8px; text-transform:uppercase; padding:4px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.5); cursor:pointer; white-space:nowrap; }
 #terr-cats span:hover { color:rgba(255,255,255,0.75); }
@@ -562,7 +567,7 @@ const TERRAIN={
   chair:{name:'Silla',sw:'#5c361a'},table:{name:'Mesa',sw:'#5a3418'},
 };
 // Secciones de la paleta Prefabricado (orden de las pestañas y de las muestras). Todo terreno de TERRAIN va en una.
-// Hasta 18 por sección (6×3) para que la paleta no crezca.
+// Sin límite: la grilla muestra 5×3 y lo demás se ve con su barra vertical.
 const TERR_CATS=[
   ['nature','Naturaleza',['grass','sand','dirt','snow','mud','straw','tree','void','fire','ice']],
   ['fluid','Fluidos',['water','lava','acid','blood','cloud']],
@@ -683,7 +688,7 @@ function setMapTarget(t){
 // menos Objetos, aplicados a la grilla. La pestaña elegida es preferencia local ('terrCat' en localStorage).
 let terrCat='nature';
 try{const v=localStorage.getItem('terrCat');if(TERR_CATS.some(c=>c[0]===v))terrCat=v;}catch(e){}
-function setTerrCat(k){terrCat=k;try{localStorage.setItem('terrCat',k);}catch(e){}renderMapSwatches();}
+function setTerrCat(k){terrCat=k;try{localStorage.setItem('terrCat',k);}catch(e){}renderMapSwatches();document.getElementById('map-swatches').scrollTop=0;}
 function renderMapSwatches(){
   const box=document.getElementById('map-swatches'),cats=document.getElementById('terr-cats');
   cats.classList.toggle('off',mapTarget!=='terrain');
