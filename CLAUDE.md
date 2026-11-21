@@ -63,6 +63,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | `masterSel` | Ficha que eligió el master para tirar (ver Selección / turno). Local a su pestaña: al refrescar o cambiar de escena arranca vacía |
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |
+| `hoverTok` | Ficha bajo el mouse: muestra `#tok-label` con su nombre arriba de la ficha (debajo si está pegada al borde de arriba) mientras el mouse esté encima; se oculta al arrastrar. Cada uno ve solo la de su propio mouse (`showTokLabel`, se reubica en `layoutStacks`) |
 | `pickerStates.player` | Color del picker de nuevo jugador — elección individual, no debe imponerse a otros clientes |
 | `maxHp` | HP Máx para el próximo token — cada persona arranca en **10** al cargar (antes `/sala/maxHp`, ya no se usa) |
 | `palMode` | Simple/Completa de cada paleta del panel derecho — preferencia de cada persona, en `localStorage` (`palMode`) |

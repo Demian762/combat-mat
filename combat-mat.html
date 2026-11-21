@@ -55,6 +55,10 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .token-enemy .tbody { border-radius:4px; background:rgba(90,8,8,0.88); border:2px solid rgba(180,40,40,0.75); box-shadow:0 0 10px rgba(180,30,30,0.4); }
 .token-enemy.selected .tbody { border-color:#ff5555; animation:sel-pulse-enemy 1.2s ease-in-out infinite; }
 .tcell { position:absolute; width:var(--cs); height:var(--cs); z-index:5; pointer-events:none; }
+/* Etiqueta con el nombre de la ficha bajo el mouse (solo local, no va a Firebase). Fija en body para que #grid no la recorte */
+#tok-label { position:fixed; z-index:500; pointer-events:none; display:none; transform:translate(-50%,-100%); white-space:nowrap; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.5px; color:var(--amber-lt); background:rgba(8,6,4,0.92); border:1px solid var(--amber); border-radius:4px; padding:2px 7px; box-shadow:0 2px 8px rgba(0,0,0,0.6); }
+#tok-label.below { transform:translate(-50%,0); }
+body.tok-dragging #tok-label { display:none !important; }
 
 /* Left panel */
 #left { width:260px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-right:2px solid var(--amber); display:flex; flex-direction:column; overflow:hidden; height:calc(var(--view) + 4px); }
@@ -986,6 +990,9 @@ function drawTok(t){
     const el=document.createElement('div');el.id='tok'+t.id;el.className=`token token-${t.type}`;
     el.addEventListener('mousedown',e=>startDrag(e,t.id));
     el.addEventListener('click',e=>{e.stopPropagation();selectTok(t.id);});
+    el.addEventListener('mouseenter',()=>{hoverTok=t.id;showTokLabel();});
+    el.addEventListener('mousemove',()=>{if(hoverTok!==t.id)hoverTok=t.id;showTokLabel();});
+    el.addEventListener('mouseleave',()=>{if(hoverTok===t.id){hoverTok=null;showTokLabel();}});
     grid.appendChild(el);t._el=el;
   }
   const sc=t.col-S.ox, sr=t.row-S.oy, sz=tokSize(t);
@@ -1036,6 +1043,23 @@ function layoutStacks(){
       t._el.classList.toggle('stacked',n>1);
     });
   });
+  showTokLabel(); // la ficha bajo el mouse pudo moverse, cambiar de tamaño o desaparecer
+}
+
+// Etiqueta con el nombre de la ficha bajo el mouse: cada cliente ve solo la suya, nada va a Firebase
+let hoverTok=null;
+const tokLabel=document.createElement('div');tokLabel.id='tok-label';document.body.appendChild(tokLabel);
+function showTokLabel(){
+  const t=hoverTok==null?null:S.tokens.find(x=>x.id===hoverTok);
+  const body=t&&t._el&&t._el.isConnected&&t._el.style.display!=='none'&&t._el.querySelector('.tbody');
+  if(!body||!t.name){tokLabel.style.display='none';if(!body)hoverTok=null;return;}
+  const r=body.getBoundingClientRect();
+  if(tokLabel.textContent!==t.name)tokLabel.textContent=t.name;
+  const below=r.top<30; // pegada al borde de arriba de la ventana: la etiqueta va debajo
+  tokLabel.classList.toggle('below',below);
+  tokLabel.style.left=(r.left+r.width/2)+'px';
+  tokLabel.style.top=(below?r.bottom+6:r.top-6)+'px';
+  tokLabel.style.display='block';
 }
 
 /* Selección / turno.
