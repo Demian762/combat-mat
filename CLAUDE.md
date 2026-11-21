@@ -57,7 +57,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | `zoomLevel` | Rueda sobre el mat: 3 niveles sin animación — 1 = 10×10 celdas de 88px, 2 = 20×20 de 44px (default), 3 = 40×40 de 22px. El mat sigue midiendo `VIEW`=880px; cambian `COLS/ROWS` y `CS`, y las fichas escalan con `--cs`. La celda bajo el cursor queda fija. No se guarda |
 | `activeScene` | Cada cliente elige qué escena ver |
 | mapa on/off | Botón **Mapa**: tapa el mat con `mapa.jpg` (clase `show-map` en `body`); los dados siguen visibles encima y las flechas se ocultan. Rueda = zoom hacia el cursor (1× = imagen entera, máx. `MAP_ZMAX`), arrastrar = mover; vista en `mapView`, nunca sale del borde |
-| `selId` | Selección local para medir distancias |
+| `selId` | Copia local de `/turn` (la ficha seleccionada); la escribe el listener de `/turn`, no es una selección aparte |
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |
 | `pickerStates.player` | Color del picker de nuevo jugador — elección individual, no debe imponerse a otros clientes |
@@ -77,12 +77,19 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 - Un jugador siempre ve la escena donde está su personaje: al cargar, o si su `sceneId` cambia desde otro cliente, su vista lo sigue.
 - **Borrar**: el master borra cualquier ficha; un jugador solo su propio personaje (la ✕ del panel izquierdo y la tecla Supr no aparecen/no actúan sobre las demás).
 - **Solo master** (clase `master-only`, ocultos para jugadores vía `body:not(.is-master)`): **+ Enemigo**. (Ya no existe "Limpiar todo".)
-- Los **personajes que crea el master** (+ Jugador) van **directo al baúl**, sin `owner`; los enemigos se crean en la escena activa como siempre.
+- Los **personajes que crea el master** (botón **+ NPC**, que para los jugadores dice **+ Jugador**) van **directo al baúl**, sin `owner`; los enemigos se crean en la escena activa como siempre.
 - **Vida oculta**: los jugadores no ven HP ni barra de los personajes del master (sin `owner`), ni pueden ajustarla; ven una palabra según `hp/maxHp`: **Entero** ≥90 %, **Golpeado** 51–89 %, **Herido** 20–50 %, **En las últimas** 1–19 %, **Caído** con 0 HP (`hpWord`). Los enemigos no tienen HP.
-- **Baúl de personajes** (solo master): el panel izquierdo se divide en **Combatientes** arriba y **Baúl de personajes** abajo, cada uno con su scroll. El divisor entre ambos (`#left-split`) se arrastra; la proporción (15–85 %, default mitad) se guarda en `localStorage` (`leftSplit`). El master arrastra fichas entre ambos: al guardar, la ficha sale de la escena activa (y de su orden/turno) a `/sala/chest`, invisible para todos; al sacarla, entra en la escena activa (en su celda anterior si está libre y visible) y en el orden donde se soltó. El baúl es global: sirve para pasar enemigos y personajes del master entre escenas. Los personajes de jugadores (con `owner`) no van al baúl. Los jugadores solo ven Combatientes, a altura completa.
+- **Baúl de personajes** (solo master): el panel izquierdo se divide en **Combatientes** arriba y **Baúl de personajes** abajo, cada uno con su scroll. El divisor entre ambos (`#left-split`) se arrastra; la proporción (15–85 %, default mitad) se guarda en `localStorage` (`leftSplit`). El master arrastra fichas entre ambos: al guardar, la ficha sale de la escena activa (y de su orden; si era la seleccionada, queda sin selección) a `/sala/chest`, invisible para todos; al sacarla, entra en la escena activa (en su celda anterior si está libre y visible) y en el orden donde se soltó. El baúl es global: sirve para pasar enemigos y personajes del master entre escenas. Los personajes de jugadores (con `owner`) no van al baúl. Los jugadores solo ven Combatientes, a altura completa.
 - **Vida**: el master ajusta la de cualquiera; un jugador solo la de su propio personaje (`canEditHp`, misma regla que borrar). La de los otros jugadores la ve (número y barra) pero sin botones.
 - **Movimiento libre a propósito**: cualquier cliente (master o jugador) puede mover cualquier ficha del mat, incluidos los personajes de otros jugadores y los enemigos. No restringirlo.
 - Fuera de eso no hay permisos: cualquier cliente puede pintar terreno, cambiar colores de la grilla, etc.
+
+### Selección / turno
+- La ficha seleccionada **es** el turno: `/scenes/{escena}/turn`, compartido por todos los clientes de esa escena. Se marca con el círculo del panel izquierdo y con el brillo que late en el mat.
+- Seleccionar: clic en la ficha del mat, en su círculo, o empezar a arrastrarla.
+- **Puede no haber ninguna seleccionada** (`turn = null`), y es un estado normal. Ya no rige la vieja regla de "siempre tiene que haber una".
+- Deseleccionar: clic en el círculo de la ficha activa (`toggleTurn`). Clic en la ficha activa en el mat no la deselecciona.
+- Nada elige una ficha automáticamente: crear un token no lo selecciona, y borrar la activa o guardarla en el baúl deja `turn = null` (no pasa a la siguiente).
 
 ### Modo prueba
 `combat-mat.html?prueba` (como jugador) o `?prueba=master` (como master) usa `ROOT = 'sala/prueba'` en vez de `sala`: misma estructura, datos aparte, cartel "MODO PRUEBA" arriba. El rol sale de la URL, no del email, y solo dentro de la prueba. Todas las rutas de Firebase en `combat-mat.html` se arman con `ROOT` — no escribir `'sala/...'` literal. `log.html` y `dice.html` siguen leyendo solo `sala/rolls`.

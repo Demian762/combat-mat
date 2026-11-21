@@ -899,7 +899,6 @@ async function createTok(type){
   }
   const newOrder=[...new Set([...getOrdered().map(tk=>tk.id),newId])];
   db.ref(ROOT+'/scenes/'+activeScene+'/order').set(newOrder);
-  if(!S.turn)db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(newId);
 }
 
 // Crea el DOM del token si no existe, y actualiza su posición/visibilidad según viewport.
@@ -992,10 +991,11 @@ function delTok(id){
   if(t._el)t._el.remove();
   S.tokens=S.tokens.filter(tk=>tk.id!==id);
   layoutStacks();
+  // Si era la activa no se elige otra: queda sin selección
   if(S.turn===id){
-    const next=getOrdered()[0]||null;
-    db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(next?next.id:null);
-    if(!next){S.selId=null;grid.classList.remove('measuring');clearArrow();}
+    S.turn=null;S.selId=null;
+    db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(null);
+    grid.classList.remove('measuring');clearArrow();
   }
   if(t.type==='player'){
     db.ref(ROOT+'/players/'+id).remove();
@@ -1157,7 +1157,7 @@ function storeInChest(id){
   upd[t.type==='player'?ROOT+'/players/'+id:base+'/enemies/'+id]=null;
   const rest=getOrdered().filter(x=>x.id!==id);
   upd[base+'/order']=rest.length?rest.map(x=>x.id):null;
-  if(S.turn===id)upd[base+'/turn']=rest.length?rest[0].id:null;
+  if(S.turn===id)upd[base+'/turn']=null; // la activa al baúl: queda sin selección
   db.ref().update(upd).catch(chestError);
 }
 // Baúl → Combatientes: entra a la escena activa, antes de `beforeId` en el orden (o al final)
