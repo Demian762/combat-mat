@@ -60,6 +60,7 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .lhp-val { font-family:'Cinzel',serif; font-size:10px; color:#ddd; flex:1; text-align:center; }
 .lhp-bar-wrap { height:3px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; margin-top:4px; }
 .lhp-bar { height:100%; border-radius:2px; transition:width .3s,background .3s; }
+.lhp-word { font-family:'Cinzel',serif; font-size:10px; letter-spacing:.5px; flex:1; text-align:center; }
 
 /* Right panel */
 #side { width:220px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-left:2px solid var(--amber); display:flex; flex-direction:column; overflow-y:auto; max-height:calc(20*var(--cs) + 4px); }
@@ -719,7 +720,7 @@ function selectTok(id){
   renderAllToks(); renderList();
 }
 function adjHP(id,d){
-  const t=S.tokens.find(t=>t.id===id);if(!t)return;
+  const t=S.tokens.find(t=>t.id===id);if(!t||hpHidden(t))return;
   t.hp=clamp(t.hp+d,0,t.maxHp);
   renderTok(t);renderList();
   db.ref(ROOT+'/players/'+id).update({hp:t.hp});
@@ -773,6 +774,13 @@ function getOrdered(){
   return ordered.map(id=>S.tokens.find(t=>t.id===id)).filter(Boolean);
 }
 
+// Los jugadores no ven la vida de los personajes del master (sin owner): solo una palabra por % de vida
+const hpHidden=t=>!isMaster()&&t.type==='player'&&!t.owner;
+function hpWord(t){
+  const pct=t.maxHp?t.hp/t.maxHp*100:0;
+  const [w,c]=pct>=90?['Entero','#f0c060']:pct>50?['Golpeado','#c8922a']:pct>=20?['Herido','#e2884a']:['En las últimas','#e24a4a'];
+  return `<span class="lhp-word" style="color:${c}">${w}</span>`;
+}
 function renderLeftPanel(){
   const ordered=getOrdered();
   const container=document.getElementById('left-list');
@@ -794,7 +802,7 @@ function renderLeftPanel(){
           ${ip?`<span class="litem-cls">${ICONS[t.cls]||''} ${t.cls||''}</span>`:''}
           ${canDelete(t)?`<button class="tdel" onclick="event.stopPropagation();delTok(${t.id})">✕</button>`:''}
         </div>
-        ${ip?`<div class="lhp-row">
+        ${ip&&hpHidden(t)?`<div class="lhp-row">${hpWord(t)}</div>`:ip?`<div class="lhp-row">
           <button class="lhp-btn" onclick="adjHP(${t.id},-1)">−</button>
           <button class="lhp-btn" onclick="adjHP(${t.id},-5)" style="font-size:8px">-5</button>
           <span class="lhp-val">${t.hp} / ${t.maxHp}</span>
