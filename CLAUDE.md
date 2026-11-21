@@ -32,7 +32,8 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 /sala
   /scenes
     /escena1
-      /terrain        → {"col,row": terrainType | "#rrggbb"}   // tipo con nombre de TERRAIN (paleta Simple, con textura) o color libre (paleta Completa)
+      /terrain        → {"col,row": terrainType | "#rrggbb" | "piso+encima"}   // tipo con nombre de TERRAIN (paleta Simple, con textura),
+                      // color libre (paleta Completa), o dos capas: "stone+blood", "grass+fire" (ver Texturas de terreno)
       /enemies        → {id: {id, name, size, col, row}}
       /order          → [id, id, ...]        // orden de iniciativa
       /turn           → id | null
@@ -119,8 +120,12 @@ Dos paletas separadas, cada una con modo **Simple** (muestras fijas) y **Complet
 - El terreno se dibuja en una capa `<canvas id="terrain-canvas">` dentro de `#grid` (z-index 5, debajo de las fichas), no con un div por celda. `renderTerrain` redibuja las celdas visibles; el canvas se ajusta a `devicePixelRatio × appZoom` para verse nítido.
 - Cada terreno con nombre tiene su textura en `TERRAIN_TEX` (ladrillos, adoquines, tablones, follaje, olas, etc.). El azar sale de la coordenada absoluta de la celda (`cellRng(col,row,salt)`): todos ven lo mismo y no cambia con pan ni zoom. Los colores libres de la paleta Completa siguen siendo cuadrados lisos.
 - **Sangre** (`blood`) es un terreno más, pero se dibuja como charco con gotas sin fondo: la grilla se ve debajo.
-- Encima de cada textura va una línea de grilla tenue (arriba/izquierda, `terrLineColor`, sale del color de Líneas) para poder contar casillas. La sangre no la lleva.
-- **Animación**: lava, agua y fuego se animan (`TERR_ANIM`) cuando forman un grupo de ≥ `TERR_ANIM_MIN` (4) celdas vecinas de lado. Se redibujan solo esas celdas visibles, a ~20 cuadros/s, y se pausa con el mapa del mundo encima o la pestaña oculta. Las texturas animadas llaman a `R()` la misma cantidad de veces con o sin `t`, así la forma no cambia.
+- **Capas**: **Fuego** y **Sangre** (`TERR_OVER`) van *encima* de un terreno con nombre; la celda guarda `"piso+encima"` en un solo valor (`parseTerr`/`joinTerr`). Solos (`"fire"`, `"blood"`) no tienen piso: el fuego pone su fondo (`fireBg`), la sangre ninguno. Hay una sola capa de encima por celda (pintar sangre sobre fuego lo reemplaza).
+  - Pintar fuego/sangre conserva el piso con nombre; sobre un color libre lo reemplaza (los colores libres nunca llevan nada encima).
+  - Pintar un piso con nombre conserva lo de encima; pintar un color libre reemplaza todo.
+  - El borrador saca **una capa por pasada** (`terrStroke`, se vacía en cada mousedown): primero lo de encima, con otro clic el piso.
+- Orden de dibujo de cada celda (`drawTerrCell`): piso → línea de grilla tenue (arriba/izquierda, `terrLineColor`, sale del color de Líneas, para poder contar casillas) → lo de encima. La sangre sola no lleva línea.
+- **Animación**: lava, agua y fuego se animan (`TERR_ANIM`) cuando forman un grupo de ≥ `TERR_ANIM_MIN` (4) celdas vecinas de lado. Cada capa agrupa por separado (el fuego sobre piedra cuenta con el resto del fuego). Se redibujan solo esas celdas visibles, a ~20 cuadros/s, y se pausa con el mapa del mundo encima o la pestaña oculta. Las texturas animadas llaman a `R()` la misma cantidad de veces con o sin `t`, así la forma no cambia.
 - Todavía cada celda se dibuja sola (bordes rectos): el redondeo y cómo se unen las celdas vecinas queda para después.
 
 ### Movimiento de jugadores entre escenas
