@@ -852,7 +852,13 @@ function paintCell(e){
       if(terrStroke.has(key))continue;
       next=cur.over?joinTerr(cur.base,null):null;
     }else if(TERR_OVER[a]){ // encima de un terreno simple; sobre un color libre lo reemplaza
-      const ov=TERR_VARIANTS[a]?(terrStroke.has(key)&&cur.over===a?cur.overRaw:a+'#'+Math.floor(Math.random()*TERR_VARIANTS[a])):a;
+      let ov=a;
+      if(TERR_VARIANTS[a]){
+        const n=TERR_VARIANTS[a];
+        if(terrStroke.has(key)&&cur.over===a)ov=cur.overRaw; // mismo trazo: no cambia
+        else if(cur.over===a&&n>1){let v=Math.floor(Math.random()*(n-1));if(v>=(cur.v||0))v++;ov=a+'#'+v;} // sobre uno igual: nunca la misma variante
+        else ov=a+'#'+Math.floor(Math.random()*n);
+      }
       next=joinTerr(isHexColor(cur.base)?null:cur.base,ov);
     }
     else if(isHexColor(a))next=a;                                             // color libre: reemplaza todo
