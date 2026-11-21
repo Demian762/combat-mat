@@ -377,8 +377,7 @@ body:not(.is-master) .master-only { display:none; }
     </div>
 
     <div class="section">
-      <button class="btn bd" onclick="clearTerrain()" style="margin-bottom:4px">Limpiar terreno</button>
-      <button class="btn bd master-only" onclick="clearAll()">Limpiar todo</button>
+      <button class="btn bd" onclick="clearTerrain()">Limpiar terreno</button>
     </div>
 
     <div class="section" style="margin-top:auto">
@@ -925,17 +924,6 @@ function renameTok(id){
   renderTok(t);renderList();
   if(t.type==='player'){db.ref(ROOT+'/players/'+id).update({name:t.name});updateDiceNameOptions();}
   else db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+id).update({name:t.name});
-}
-function clearAll(){
-  if(!isMaster())return;
-  S.tokens.forEach(t=>{if(t._el)t._el.remove();});
-  S.tokens=[];S.selId=null;S.order=[];S.turn=null;
-  grid.classList.remove('measuring');clearArrow();
-  db.ref(ROOT+'/players').remove();
-  db.ref(ROOT+'/scenes/'+activeScene+'/enemies').remove();
-  db.ref(ROOT+'/scenes/'+activeScene+'/order').remove();
-  db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(null);
-  clearTerrain();renderList();
 }
 
 /* ── Left panel ── */
