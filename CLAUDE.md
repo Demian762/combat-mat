@@ -55,7 +55,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 |---|---|
 | `ox`, `oy` | Cada cliente navega el mapa independientemente |
 | `activeScene` | Cada cliente elige qué escena ver |
-| mapa on/off | Botón **Mapa**: tapa el mat con `mapa.jpg` (clase `show-map` en `body`); los dados siguen visibles encima y las flechas se ocultan |
+| mapa on/off | Botón **Mapa**: tapa el mat con `mapa.jpg` (clase `show-map` en `body`); los dados siguen visibles encima y las flechas se ocultan. Rueda = zoom hacia el cursor (1× = imagen entera, máx. `MAP_ZMAX`), arrastrar = mover; vista en `mapView`, nunca sale del borde |
 | `selId` | Selección local para medir distancias |
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |

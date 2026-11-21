@@ -17,7 +17,8 @@ body { background:#141414; overflow:hidden; width:100vw; height:100vh; font-fami
 #grid { position:relative; display:grid; box-sizing:content-box; grid-template-columns:repeat(20,var(--cs)); grid-template-rows:repeat(20,var(--cs)); width:calc(20*var(--cs)); height:calc(20*var(--cs)); border:2px solid var(--amber); border-left:none; border-right:none; }
 #grid.painting { cursor:crosshair; }
 /* Mapa del mundo: tapa el mat (por debajo de los dados), local por cliente */
-#world-map { position:absolute; top:2px; left:0; width:calc(20*var(--cs)); height:calc(20*var(--cs)); z-index:35; background:#0a0805 url('mapa.jpg') center/contain no-repeat; display:none; }
+#world-map { position:absolute; top:2px; left:0; width:calc(20*var(--cs)); height:calc(20*var(--cs)); z-index:35; background:#0a0805 url('mapa.jpg') center/contain no-repeat; display:none; cursor:grab; overflow:hidden; }
+#world-map.panning { cursor:grabbing; }
 body.show-map #world-map { display:block; }
 body.show-map #arrow-svg { display:none; }
 .scene-row { display:flex; gap:4px; align-items:stretch; }
@@ -1698,6 +1699,56 @@ function toggleWorldMap(){
   const on=document.body.classList.toggle('show-map');
   document.getElementById('map-toggle').classList.toggle('on',on);
 }
+// Zoom (rueda) y arrastre del mapa. z=1 = imagen entera (zoom out máximo).
+// x,y = esquina superior izquierda de la imagen dentro del recuadro, en px sin el zoom de #app.
+const MAP_BOX=COLS*CS, MAP_ZMAX=6;
+const mapView={z:1,x:0,y:0,w:0,h:0}; // w,h = tamaño natural de la imagen
+const worldMap=document.getElementById('world-map');
+function mapScale(){return Math.min(MAP_BOX/mapView.w,MAP_BOX/mapView.h)*mapView.z;}
+function applyMapView(){
+  if(!mapView.w)return;
+  const s=mapScale(), w=mapView.w*s, h=mapView.h*s;
+  // Si la imagen es más chica que el recuadro en un eje, se centra; si no, no deja ver el borde vacío
+  mapView.x = w<=MAP_BOX ? (MAP_BOX-w)/2 : Math.min(0,Math.max(MAP_BOX-w,mapView.x));
+  mapView.y = h<=MAP_BOX ? (MAP_BOX-h)/2 : Math.min(0,Math.max(MAP_BOX-h,mapView.y));
+  worldMap.style.backgroundSize=`${w}px ${h}px`;
+  worldMap.style.backgroundPosition=`${mapView.x}px ${mapView.y}px`;
+}
+// Px de pantalla → px del recuadro (descuenta el zoom de #app)
+function mapLocal(e){
+  const r=worldMap.getBoundingClientRect(), k=MAP_BOX/r.width;
+  return {x:(e.clientX-r.left)*k, y:(e.clientY-r.top)*k, k};
+}
+(()=>{
+  const img=new Image();
+  img.onload=()=>{mapView.w=img.naturalWidth;mapView.h=img.naturalHeight;applyMapView();};
+  img.src='mapa.jpg';
+  worldMap.addEventListener('wheel',e=>{
+    e.preventDefault();
+    if(!mapView.w)return;
+    const p=mapLocal(e), s0=mapScale();
+    mapView.z=Math.min(MAP_ZMAX,Math.max(1,mapView.z*Math.exp(-e.deltaY*0.0015)));
+    const s1=mapScale();
+    // Mantiene fijo el punto bajo el cursor
+    mapView.x=p.x-(p.x-mapView.x)*s1/s0;
+    mapView.y=p.y-(p.y-mapView.y)*s1/s0;
+    applyMapView();
+  },{passive:false});
+  let pan=null;
+  worldMap.addEventListener('mousedown',e=>{
+    if(e.button!==0)return;
+    e.preventDefault();
+    pan={cx:e.clientX,cy:e.clientY,x:mapView.x,y:mapView.y,k:mapLocal(e).k};
+    worldMap.classList.add('panning');
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!pan)return;
+    mapView.x=pan.x+(e.clientX-pan.cx)*pan.k;
+    mapView.y=pan.y+(e.clientY-pan.cy)*pan.k;
+    applyMapView();
+  });
+  document.addEventListener('mouseup',()=>{if(pan){pan=null;worldMap.classList.remove('panning');}});
+})();
 function onSceneSelect(id){
   const from=activeScene;
   switchScene(id);
