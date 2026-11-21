@@ -90,9 +90,9 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 - **Jugadores**: seleccionan cualquier ficha (clic en el mat, en su pelotita, o al empezar a arrastrarla) y con eso pasan el turno.
 - **Master**: tiene una selección propia, `masterSel`, **local a su pestaña** (se pierde al refrescar o cambiar de escena). Solo puede elegir fichas sin `owner` (enemigos y NPCs). Elegir una también pasa el turno a ella, así los jugadores la ven marcada, y el master tira los dados como esa ficha. Los personajes de jugadores **no** los selecciona (clic no hace nada), pero sí los puede mover.
 - `masterSel` siempre es igual a `turn` o `null`: si el turno se va a otra ficha (un jugador elige otra, o la ficha se borra o va al baúl), se limpia y el master vuelve a tirar como **Master**. Si un jugador elige un NPC, el turno pasa a ese NPC pero no se vuelve la selección del master.
-- **Panel izquierdo del master**: dos pelotitas por ficha. Ámbar = la suya (clickeable; no aparece en personajes de jugadores). Celeste = el turno actual, solo informativa.
+- **Pelotita del panel izquierdo**: una por ficha y para todos muestra el turno. El master la puede clickear solo en enemigos y NPCs; en personajes de jugadores es informativa (`.litem-cb.ro`). Para tirar como un NPC que eligió un jugador, el master hace clic en la ficha del mat.
 - **Puede no haber ninguna seleccionada** (`turn = null`), y es un estado normal. Ya no rige la vieja regla de "siempre tiene que haber una".
-- Deseleccionar: clic en la pelotita de la ficha elegida (`toggleTurn`; en el master, la ámbar), que deja `turn = null`. Clic en la ficha ya elegida en el mat no la deselecciona.
+- Deseleccionar: clic en la pelotita encendida (`toggleTurn`), que deja `turn = null` y limpia `masterSel`. Clic en la ficha ya elegida en el mat no la deselecciona.
 - Nada elige una ficha automáticamente: crear un token no lo selecciona, y borrar la activa o guardarla en el baúl deja `turn = null` (no pasa a la siguiente).
 - Tecla Supr: el jugador borra la ficha del turno si es suya; el master borra su `masterSel` (nunca la que eligió un jugador).
 

@@ -87,13 +87,10 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 .litem-cb { width:16px; height:16px; border-radius:50%; border:1.5px solid rgba(200,146,42,0.4); background:rgba(255,255,255,0.04); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s, border-color .15s; flex-shrink:0; }
 .litem-cb:hover { border-color:var(--amber); }
 .litem-cb.on { background:var(--amber); border-color:var(--amber-lt); box-shadow:0 0 6px rgba(200,146,42,0.6); }
-/* Master: dos pelotitas por ficha — la suya (ámbar, clickeable) y la del turno que ven todos (celeste, informativa) */
-.litem-cbs { display:flex; gap:3px; }
-.litem-cbs .litem-cb { width:13px; height:13px; }
-.litem-cb.none { visibility:hidden; }
-.litem-cb.info { cursor:default; border-color:rgba(110,170,230,0.45); }
-.litem-cb.info:hover { border-color:rgba(110,170,230,0.45); }
-.litem-cb.info.on { background:#6aa8e8; border-color:#b8d8ff; box-shadow:0 0 6px rgba(110,170,230,0.7); }
+/* Master sobre personajes de jugadores: la pelotita muestra el turno pero no se puede clickear */
+.litem-cb.ro { cursor:default; }
+.litem-cb.ro:hover { border-color:rgba(200,146,42,0.4); }
+.litem-cb.ro.on:hover { border-color:var(--amber-lt); }
 .litem-body { flex:1; min-width:0; }
 .litem-header { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
 .litem-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
@@ -994,12 +991,12 @@ function clearTurn(){
   db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(null);
   grid.classList.remove('measuring'); clearArrow();
 }
-// Pelotita del panel: jugador = la del turno; master = la suya. Sobre la ya elegida, deselecciona (turn = null).
+// Pelotita del panel (muestra el turno): encendida = deselecciona (turn = null); apagada = selecciona.
+// El master solo la tiene clickeable en enemigos y NPCs. Para tirar como un NPC que eligió un jugador, clic en la ficha del mat.
 function toggleTurn(id){
-  const cur=isMaster()?masterSel:S.turn;
-  if(cur!==id){selectTok(id);return;}
-  if(isMaster())setMasterSel(null);
-  if(S.turn===id)clearTurn();
+  if(S.turn!==id){selectTok(id);return;}
+  setMasterSel(null);
+  clearTurn();
   renderAllToks(); renderList();
 }
 // Clic en una ficha del mat, en su pelotita o empezar a arrastrarla.
@@ -1080,12 +1077,9 @@ function renderLeftPanel(){
     return `<div class="litem ${isTurn?'litem-turn':''}" data-id="${t.id}">
       <div class="litem-left">
         <span class="litem-num">${i+1}</span>
-        ${isMaster()?`<div class="litem-cbs">
-          ${t.owner?'<div class="litem-cb none"></div>'
-            :`<div class="litem-cb ${masterSel===t.id?'on':''}" title="Tu selección: tirás como esta ficha" onmousedown="event.stopPropagation()" onclick="toggleTurn(${t.id})"></div>`}
-          <div class="litem-cb info ${isTurn?'on':''}" title="Turno actual (lo que ven los jugadores)" onmousedown="event.stopPropagation()"></div>
-        </div>`
-        :`<div class="litem-cb ${isTurn?'on':''}" onmousedown="event.stopPropagation()" onclick="toggleTurn(${t.id})"></div>`}
+        ${isMaster()&&t.owner
+          ?`<div class="litem-cb ro ${isTurn?'on':''}" title="Turno de un jugador (el master no selecciona personajes de jugadores)" onmousedown="event.stopPropagation()"></div>`
+          :`<div class="litem-cb ${isTurn?'on':''}" onmousedown="event.stopPropagation()" onclick="toggleTurn(${t.id})"></div>`}
       </div>
       <div class="litem-body">
         <div class="litem-header">
