@@ -245,7 +245,7 @@ body:not(.is-master) .master-only { display:none; }
 
     <div class="section">
       <span class="sec-title">Escena</span>
-      <select id="scene-select" onchange="onSceneSelect(this.value)">
+      <select id="scene-select" onchange="onSceneSelect(this.value)" style="margin-bottom:0">
         <option value="escena1">Escena 1</option>
         <option value="escena2">Escena 2</option>
         <option value="escena3">Escena 3</option>
@@ -257,7 +257,6 @@ body:not(.is-master) .master-only { display:none; }
         <option value="escena9">Escena 9</option>
         <option value="escena10">Escena 10</option>
       </select>
-      <button class="btn bp" onclick="bringPlayersHere()" style="margin-bottom:0">Traer personajes acá</button>
     </div>
 
     <div class="section">
@@ -1499,18 +1498,6 @@ function followMyChar(){
   if(!t||!t.sceneId||t.sceneId===activeScene)return;
   document.getElementById('scene-select').value=t.sceneId;
   switchScene(t.sceneId);
-}
-
-function bringPlayersHere(){
-  let col=S.ox,row=S.oy;
-  const updates={};
-  S.tokens.filter(t=>t.type==='player').forEach(t=>{
-    updates['sala/players/'+t.id+'/sceneId']=activeScene;
-    updates['sala/players/'+t.id+'/col']=col;
-    updates['sala/players/'+t.id+'/row']=row;
-    col++;if(col>=S.ox+COLS){col=S.ox;row++;}
-  });
-  if(Object.keys(updates).length)db.ref().update(updates);
 }
 
 function initFirebase(){
