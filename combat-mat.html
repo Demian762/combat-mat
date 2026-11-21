@@ -1137,9 +1137,10 @@ function fireBg(c,s){const g=c.createLinearGradient(0,0,0,s);g.addColorStop(0,'#
 function trapBg(c,s){c.fillStyle='#3a0404';c.fillRect(0,0,s,s);}
 function fenceBg(c,s){c.fillStyle='rgba(120,95,45,0.30)';c.fillRect(0,0,s,s);}
 const OVER_BG={fire:fireBg,trap:trapBg,fence:fenceBg};
-// Terrenos que se animan cuando forman un grupo (vecinos de lado) de al menos TERR_ANIM_MIN celdas.
-// Cada capa agrupa por separado: el fuego encima de piedra se anima con el resto del fuego, no con la piedra.
-const TERR_ANIM={lava:1,water:1,fire:1,acid:1,cloud:1}, TERR_ANIM_MIN=4;
+// Terrenos que se animan cuando forman un grupo (vecinos de lado) de al menos tantas celdas como su valor: el fuego
+// siempre (aunque sea una celda), el resto desde 4. Cada capa agrupa por separado: el fuego encima de piedra se anima
+// con el resto del fuego, no con la piedra.
+const TERR_ANIM={lava:4,water:4,fire:1,acid:4,cloud:4};
 // Muestra de la paleta Simple: la textura de verdad, dibujada una vez y cacheada como imagen
 const terrSwCache={};
 function terrBg(type){
@@ -1235,6 +1236,23 @@ function acidDetail(c,s,R,t){ // brillo y burbujas (animadas: crecen y revientan
     else{c.fillStyle='rgba(190,255,120,0.75)';disc(c,x,y,br*u/0.8);}
   }
 }
+function voidDetail(c,s,R){ // bruma violácea muy tenue y motas lejanas
+  for(let i=0;i<2;i++){
+    const x=R()*s,y=R()*s,r=s*(0.3+R()*0.3),g=c.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,'rgba(70,45,110,0.16)');g.addColorStop(1,'rgba(70,45,110,0)');c.fillStyle=g;disc(c,x,y,r);
+  }
+  const n=Math.round(4*s/44),d=Math.max(1,s*0.02);
+  for(let i=0;i<n;i++){c.fillStyle=`rgba(170,160,220,${0.15+R()*0.2})`;c.fillRect(R()*s,R()*s,d,d);}
+}
+function cloudDetail(c,s,R,t){ // bocanadas que se desplazan despacio y destellos que titilan
+  for(let i=0;i<3;i++){
+    const x0=R()*s,y0=R()*s,r=s*(0.3+R()*0.25),ph=R()*6.28;
+    const x=x0+(t==null?0:Math.sin(t*0.4+ph)*s*0.1),y=y0+(t==null?0:Math.cos(t*0.3+ph)*s*0.06),a=t==null?0.3:0.2+0.15*(0.5+0.5*Math.sin(t*0.8+ph));
+    const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(230,220,255,${a})`);g.addColorStop(1,'rgba(230,220,255,0)');c.fillStyle=g;disc(c,x,y,r);
+  }
+  const n=2+Math.round(R()*2),d=Math.max(1,s*0.03);
+  for(let i=0;i<n;i++){const x=R()*s,y=R()*s,ph=R()*6.28,a=t==null?0.7:0.15+0.8*Math.max(0,Math.sin(t*2+ph));c.fillStyle=`rgba(255,250,255,${a})`;c.fillRect(x,y,d,d);}
+}
 // w = ancho de la rampa (redondeo), amp = ruido del borde, bands = [campo, umbral, color] de afuera hacia adentro
 // (la primera define el contorno), glow = halo hacia afuera, drops = gotas sueltas fuera del contorno.
 // El ruido solo actúa donde 0<F<1 (cerca del borde): amp tiene que dejar F < umbral afuera (amp < bands[0]) y el
@@ -1246,8 +1264,13 @@ const LIQ={
   ice:{w:0.35,amp:0.05,detail:iceDetail,bands:[['F',0.5,'rgba(240,252,255,0.95)'],['F',0.62,'#93d3e4'],['D',0.9,'#7cc2d8']]},
   blood:{w:0.9,amp:0.28,detail:bloodDetail,drops:'rgba(110,4,4,0.9)',bands:[['F',0.56,'rgba(70,0,0,0.92)'],['F',0.68,'rgba(132,8,8,0.88)']]},
   acid:{w:0.9,amp:0.26,detail:acidDetail,drops:'rgba(70,190,20,0.9)',glow:'rgba(140,255,60,0.6)',bands:[['F',0.54,'rgba(40,140,10,0.9)'],['F',0.66,'rgba(120,230,50,0.8)']]},
+  // Vacío: borde de roca tenue, centro más negro y una sombra que se derrama sobre el piso de al lado
+  void:{w:0.8,amp:0.2,detail:voidDetail,glow:'rgba(0,0,0,0.85)',bands:[['F',0.5,'#2a2430'],['F',0.57,'#0c0a12'],['D',0.8,'#060509']]},
+  // Nube mágica: velo semitransparente, contorno abultado y borde difuminado (el halo); top = encima de todo lo demás
+  cloud:{w:1,amp:0.32,detail:cloudDetail,glow:'rgba(190,160,255,0.65)',top:1,bands:[['F',0.5,'rgba(165,140,225,0.34)'],['F',0.62,'rgba(195,170,250,0.22)']]},
 };
-const LIQ_BASE_ORDER=['mud','water','ice','lava'], LIQ_DEEP_W=2.2;
+// Pisos con forma, de abajo hacia arriba. El vacío va abajo de todo: el agua que lo toca cae sobre el abismo.
+const LIQ_BASE_ORDER=['void','mud','water','ice','lava'], LIQ_OVER=['blood','acid','cloud'], LIQ_DEEP_W=2.2;
 const smooth01=u=>{u=u<0?0:u>1?1:u;return u*u*(3-2*u);};
 const liqK=(d,w)=>smooth01((0.5+w/2-Math.abs(d))/w);
 // Ruido del borde: una onda larga (~1 celda) que hace serpentear la orilla y una corta para el detalle, en [-1,1]
@@ -1365,9 +1388,10 @@ function liqRegion(type,shape,own,G,animSet){
 }
 function drawLiq(c,Rg,t){
   const L=LIQ[Rg.type];
+  // Con halo, la primera banda se pinta con la sombra puesta (y no otra vez abajo: con colores translúcidos se notaría)
   if(L.glow){c.save();c.shadowColor=L.glow;c.shadowBlur=CS*0.3*terrScale;c.fillStyle=L.bands[0][2];c.fill(Rg.paths[0]);c.restore();}
   c.save();c.clip(Rg.paths[0]);
-  Rg.paths.forEach((p,i)=>{c.fillStyle=L.bands[i][2];c.fill(p);});
+  Rg.paths.forEach((p,i)=>{if(i||!L.glow){c.fillStyle=L.bands[i][2];c.fill(p);}});
   const salt=terrSalt(Rg.type);
   for(const[col,row,an]of Rg.cells){c.save();c.translate((col-S.ox)*CS,(row-S.oy)*CS);L.detail(c,CS,cellRng(col,row,salt),an?t:null);c.restore();}
   c.restore();
@@ -1394,7 +1418,7 @@ function drawContact(c,[c1,r1,c2,r2],t){
 
 const terrCv=document.createElement('canvas');terrCv.id='terrain-canvas';
 const terrCtx=terrCv.getContext('2d');
-let terrScene=null, terrScale=1, terrRaf=0, terrLastFrame=0, terrBaseCv=null;
+let terrScene=null, terrScale=1, terrRaf=0, terrLastFrame=0, terrBaseCv=null, terrCrownCv=null;
 // Arma lo que hay que dibujar (se rehace al cambiar el terreno, el pan o el zoom; la animación solo redibuja)
 function buildTerrScene(){
   const anim=animatedTerrCells(),ox=S.ox,oy=S.oy,memo=new Map();
@@ -1404,9 +1428,9 @@ function buildTerrScene(){
     const col=sc+ox,row=sr+oy,key=col+','+row;if(!S.terrain[key])continue;
     const{base,over}=P(key),e={sc,sr,col,row,base,over,ab:anim.base.has(key),ao:anim.over.has(key)};
     // Debajo de un piso líquido: por cuadrante, el terreno vecino no líquido (de costado, de arriba/abajo o en diagonal)
-    if(LIQ[base])e.under=[0,1,2,3].map(q=>{
+    if(LIQ[base]||base==='tree')e.under=[0,1,2,3].map(q=>{
       const dx=q&1?1:-1,dy=q&2?1:-1;
-      for(const[a,b]of[[dx,0],[0,dy],[dx,dy]]){const nb=P((col+a)+','+(row+b)).base;if(nb&&!LIQ[nb]&&(isHexColor(nb)||TERRAIN_TEX[nb]))return nb;}
+      for(const[a,b]of[[dx,0],[0,dy],[dx,dy]]){const nb=P((col+a)+','+(row+b)).base;if(nb&&!LIQ[nb]&&nb!=='tree'&&(isHexColor(nb)||TERRAIN_TEX[nb]))return nb;}
       return null;
     });
     cells.push(e);
@@ -1420,7 +1444,7 @@ function buildTerrScene(){
     const{base,over}=P(k);
     for(const t of[base,over])if(LIQ[t])(occ[t]||(occ[t]=new Uint8Array(G.W*G.H)))[j*G.W+i]=1;
   }
-  const regions={base:[],over:[]};
+  const regions={base:[],over:[],top:[]};
   LIQ_BASE_ORDER.forEach((t,idx)=>{
     if(!occ[t])return;
     // Se extiende debajo de los líquidos de más arriba, pero solo en las celdas pegadas (8 vecinas) a las suyas:
@@ -1430,15 +1454,28 @@ function buildTerrScene(){
     for(const up of LIQ_BASE_ORDER.slice(idx+1))if(occ[up])for(let k=0;k<shape.length;k++)if(occ[up][k]&&!shape[k]&&touches(k))shape[k]=1;
     regions.base.push(liqRegion(t,shape,occ[t],G,anim.base));
   });
-  for(const t of['blood','acid'])if(occ[t])regions.over.push(liqRegion(t,occ[t],occ[t],G,anim.over));
+  for(const t of LIQ_OVER)if(occ[t])regions[LIQ[t].top?'top':'over'].push(liqRegion(t,occ[t],occ[t],G,anim.over));
   // Contactos agua/hielo–lava cerca de lo visible
   const contacts=[];
   if(occ.lava)for(let r=oy-1;r<=oy+ROWS;r++)for(let c=ox-1;c<=ox+COLS;c++){
     if(P(c+','+r).base!=='lava')continue;
     for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nb=P((c+dx)+','+(r+dy)).base;if(nb==='water'||nb==='ice')contacts.push([c,r,c+dx,r+dy]);}
   }
-  const animated=contacts.length>0||cells.some(e=>e.ab||e.ao)||[...regions.base,...regions.over].some(Rg=>Rg.cells.some(x=>x[2]));
-  return{cells,regions,contacts,animated};
+  // Cercas a la vista (±1): tramos hacia adelante (derecha, abajo y las dos diagonales de abajo) para no repetirlos
+  const fences={segs:[],posts:[]},isF=(c,r)=>P(c+','+r).over==='fence';
+  for(let r=oy-1;r<=oy+ROWS;r++)for(let c=ox-1;c<=ox+COLS;c++){
+    if(!isF(c,r))continue;
+    fences.posts.push([c+0.5,r+0.5]);
+    const link=(dx,dy)=>isF(c+dx,r+dy)&&(!dx||!dy||(!isF(c+dx,r)&&!isF(c,r+dy)));
+    let any=false;
+    for(const[dx,dy]of[[1,0],[0,1],[1,1],[-1,1],[-1,0],[0,-1],[-1,-1],[1,-1]])if(link(dx,dy)){
+      any=true;
+      if(dy>0||(dy===0&&dx>0))fences.segs.push([c+0.5,r+0.5,c+dx+0.5,r+dy+0.5,true]);
+    }
+    if(!any)fences.segs.push([c,r+0.5,c+1,r+0.5,false]); // sola: horizontal, justo el ancho de la celda
+  }
+  const animated=contacts.length>0||cells.some(e=>e.ab||e.ao)||[...regions.base,...regions.over,...regions.top].some(Rg=>Rg.cells.some(x=>x[2]));
+  return{cells,regions,contacts,fences,crowns:treeCrowns(ox,oy),animated};
 }
 // Dibuja la escena entera. Orden: pisos celda por celda (y lo de encima con fondo propio cuando está solo; bajo un
 // líquido, sus vecinos) → pisos líquidos → línea de grilla tenue (arriba e izquierda, como el fondo de #grid, para
@@ -1480,11 +1517,14 @@ function drawTerrScene(t){
   drawTerrBase(c,Sc.cells.filter(terrCellAnim),t);
   const tex=(type,x,y,col,row,tt,under,clip)=>terrTex(c,type,x,y,col,row,tt,under,clip);
   for(const Rg of Sc.regions.base)drawLiq(c,Rg,t);
+  if(Sc.crownImg){c.setTransform(1,0,0,1,0,0);c.drawImage(Sc.crownImg,0,0);c.setTransform(terrScale,0,0,terrScale,0,0);} // copas (quietas)
   c.fillStyle=terrLineColor;
   for(const e of Sc.cells)if((e.base&&!isHexColor(e.base))||(!e.base&&OVER_BG[e.over])){c.fillRect(e.sc*s,e.sr*s,s,1);c.fillRect(e.sc*s,e.sr*s,1,s);}
   for(const k of Sc.contacts)drawContact(c,k,t);
   for(const Rg of Sc.regions.over)drawLiq(c,Rg,t);
-  for(const e of Sc.cells)if(e.over&&!LIQ[e.over]&&!(!e.base&&OVER_BG[e.over]))tex(e.over,e.sc*s,e.sr*s,e.col,e.row,e.ao?t:null);
+  for(const e of Sc.cells)if(e.over&&e.over!=='fence'&&!LIQ[e.over]&&!(!e.base&&OVER_BG[e.over]))tex(e.over,e.sc*s,e.sr*s,e.col,e.row,e.ao?t:null);
+  drawFences(c,Sc.fences);
+  for(const Rg of Sc.regions.top)drawLiq(c,Rg,t); // nube mágica: encima de todo
 }
 function drawTerrBase(c,cells,t){
   const s=CS,tex=(type,x,y,col,row,tt,under,clip)=>terrTex(c,type,x,y,col,row,tt,under,clip);
@@ -1492,12 +1532,83 @@ function drawTerrBase(c,cells,t){
     const x=e.sc*s,y=e.sr*s;
     if(isHexColor(e.base)){c.fillStyle=hexToRgba(e.base,0.85);c.fillRect(x,y,s,s);}
     else if(e.under)e.under.forEach((nb,q)=>{
-      if(!nb)return;const qx=x+(q&1)*s/2,qy=y+(q>>1)*s/2;
+      const qx=x+(q&1)*s/2,qy=y+(q>>1)*s/2;
+      if(!nb){if(e.base==='tree'){c.fillStyle=TREE_FLOOR;c.fillRect(qx,qy,s/2,s/2);}return;} // entre copas: suelo de bosque
       if(isHexColor(nb)){c.fillStyle=hexToRgba(nb,0.85);c.fillRect(qx,qy,s/2,s/2);}
       else tex(nb,x,y,e.col,e.row,null,null,[qx,qy,s/2,s/2]);
     });
     else if(e.base)tex(e.base,x,y,e.col,e.row,e.ab?t:null);
-    else if(OVER_BG[e.over])tex(e.over,x,y,e.col,e.row,e.ao?t:null,OVER_BG[e.over]); // fuego/trampa/cerca solos
+    else if(e.over==='fence'){c.save();c.translate(x,y);fenceBg(c,s);c.restore();} // cerca sola: su tinte (las barandas van en drawFences)
+    else if(OVER_BG[e.over])tex(e.over,x,y,e.col,e.row,e.ao?t:null,OVER_BG[e.over]); // fuego/trampa solos
+  }
+}
+/* Árboles: copas redondas (más que los líquidos). Las celdas de árbol se agrupan en copas recorriendo todo el terreno en
+   orden fila por fila: un bloque libre de 3×3 (si no es parte de uno de 4×4) es una copa grande, uno de 2×2 una mediana
+   y si no, la celda sola es una copa chica. Depende solo de dónde hay árboles, no de la vista: no cambia con el pan.
+   Las copas se superponen un poco (bosque), con sombra hacia abajo a la derecha. Debajo, entre copas, suelo de bosque. */
+const TREE_FLOOR='#0d230b';
+function treeCrowns(ox,oy){
+  const has=new Set(),cells=[];
+  for(const k in S.terrain)if(parseTerr(S.terrain[k]).base==='tree'){has.add(k);const[c,r]=k.split(',').map(Number);cells.push([c,r]);}
+  if(!cells.length)return[];
+  cells.sort((a,b)=>a[1]-b[1]||a[0]-b[0]);
+  const taken=new Set(),out=[];
+  const free=(c,r,n)=>{for(let j=0;j<n;j++)for(let i=0;i<n;i++){const k=(c+i)+','+(r+j);if(!has.has(k)||taken.has(k))return false;}return true;};
+  for(const[c,r]of cells){
+    if(taken.has(c+','+r))continue;
+    const n=free(c,r,3)&&!free(c,r,4)?3:free(c,r,2)?2:1;
+    for(let j=0;j<n;j++)for(let i=0;i<n;i++)taken.add((c+i)+','+(r+j));
+    const cx=c+n/2,cy=r+n/2,rad=n/2;
+    if(cx+rad<ox-1||cx-rad>ox+COLS+1||cy+rad<oy-1||cy-rad>oy+ROWS+1)continue;
+    out.push([cx,cy,rad,c,r]);
+  }
+  return out;
+}
+function drawCrowns(c,crowns){
+  if(!crowns.length)return;
+  const s=CS,X=v=>(v-S.ox)*s,Y=v=>(v-S.oy)*s;
+  const sh=crowns.map(([cx,cy,rad,c0,r0])=>{const R=cellRng(c0,r0,4242+rad*10),x=X(cx),y=Y(cy),r=rad*1.08*s;return{x,y,r,R,p:blobPts(x,y,r,r,14,0.05,R)};});
+  c.fillStyle='rgba(0,0,0,0.35)';for(const h of sh){trace(c,h.p,s*0.1,s*0.14);c.fill();}
+  for(const{x,y,r,R,p}of sh){
+    const g=50+R()*25;c.fillStyle=rgb(14+R()*10,g,12+R()*10);trace(c,p);c.fill();
+    c.save();c.clip();
+    const n=Math.round(6+(r/s)*(r/s)*14);
+    for(let i=0;i<n;i++){
+      const a=R()*6.2832,d=Math.sqrt(R())*r*0.85,cr=s*(0.14+R()*0.12),px=x+Math.cos(a)*d,py=y+Math.sin(a)*d,gg=60+R()*45,rr=16+R()*16,bb=12+R()*14;
+      c.fillStyle='rgba(0,0,0,0.3)';disc(c,px+cr*0.2,py+cr*0.25,cr);
+      c.fillStyle=rgb(rr,gg,bb);disc(c,px,py,cr);
+      c.fillStyle='rgba(170,220,120,0.14)';disc(c,px-cr*0.3,py-cr*0.3,cr*0.5);
+    }
+    let gr=c.createRadialGradient(x-r*0.35,y-r*0.35,0,x-r*0.35,y-r*0.35,r*0.8);gr.addColorStop(0,'rgba(190,230,140,0.16)');gr.addColorStop(1,'rgba(190,230,140,0)');c.fillStyle=gr;disc(c,x,y,r*1.1);
+    gr=c.createRadialGradient(x,y,r*0.45,x,y,r*1.05);gr.addColorStop(0,'rgba(0,20,0,0)');gr.addColorStop(1,'rgba(0,20,0,0.4)');c.fillStyle=gr;disc(c,x,y,r*1.1);
+    c.restore();
+    c.strokeStyle='rgba(5,25,5,0.55)';c.lineWidth=Math.max(1,s*0.03);trace(c,p);c.stroke();
+  }
+}
+// Cercas: se unen con sus vecinas (de costado, arriba/abajo o en diagonal) con dos barandas de centro a centro, sin
+// recortar a la celda, así una hilera en cualquier dirección es continua. La diagonal se une solo si las dos celdas de
+// costado no son cerca (en una L no se forma un triángulo). Una cerca sin vecinas va horizontal. Postes encima.
+function drawFences(c,F){
+  if(!F.segs.length&&!F.posts.length)return;
+  const s=CS,o=s*0.16,rw=s*0.1,X=v=>(v-S.ox)*s,Y=v=>(v-S.oy)*s;
+  const rails=(dx,dy,col,w)=>{
+    c.strokeStyle=col;c.lineWidth=w;c.lineCap='butt';c.beginPath();
+    for(const[x1,y1,x2,y2,ext]of F.segs){
+      const L=Math.hypot(x2-x1,y2-y1),ux=(x2-x1)/L,uy=(y2-y1)/L,e=ext?o/s:0,px=-uy*o,py=ux*o;
+      const ax=X(x1-ux*e)+dx,ay=Y(y1-uy*e)+dy,bx=X(x2+ux*e)+dx,by=Y(y2+uy*e)+dy;
+      for(const k of[-1,1]){c.moveTo(ax+px*k,ay+py*k);c.lineTo(bx+px*k,by+py*k);}
+    }
+    c.stroke();
+  };
+  rails(s*0.03,s*0.05,'rgba(0,0,0,0.35)',rw);
+  rails(0,0,'#b48c3c',rw);
+  rails(0,-rw*0.3,'rgba(255,240,200,0.25)',Math.max(1,rw*0.25));
+  const pw=s*0.16;
+  for(const[cx,cy]of F.posts){
+    const x=X(cx)-pw/2,y=Y(cy)-s*0.5;
+    c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(x+pw*0.3,y+s*0.16,pw,s*0.74);
+    c.fillStyle='#8a6428';c.beginPath();c.moveTo(x,y+s*0.2);c.lineTo(x+pw/2,y+s*0.1);c.lineTo(x+pw,y+s*0.2);c.lineTo(x+pw,y+s*0.88);c.lineTo(x,y+s*0.88);c.closePath();c.fill();
+    c.fillStyle='rgba(255,240,200,0.2)';c.fillRect(x,y+s*0.2,Math.max(1,pw*0.25),s*0.68);
   }
 }
 // Celdas (claves "col,row") de los grupos animables lo bastante grandes, por capa: {base:Set, over:Set}.
@@ -1514,7 +1625,7 @@ function animatedTerrCells(){
         const[c,r]=grp[i].split(',').map(Number);
         for(const[dc,dr]of[[1,0],[-1,0],[0,1],[0,-1]]){const nk=(c+dc)+','+(r+dr);if(!seen.has(nk)&&typeAt(nk)===type){seen.add(nk);grp.push(nk);}}
       }
-      if(grp.length>=TERR_ANIM_MIN)grp.forEach(k=>out[lay].add(k));
+      if(grp.length>=TERR_ANIM[type])grp.forEach(k=>out[lay].add(k));
     }
   }
   return out;
@@ -1535,6 +1646,12 @@ function renderTerrain(){
     else{const b=terrCellBitmap(e);if(b)ic.drawImage(b,e.sc*CS,e.sr*CS,CS,CS);}
   }
   terrScene.baseImg=terrBaseCv;
+  // Copas de árbol: también a una imagen aparte (son muchas manchas; la animación solo la copia)
+  if(terrScene.crowns.length){
+    if(!terrCrownCv||terrCrownCv.width!==px){terrCrownCv=document.createElement('canvas');terrCrownCv.width=terrCrownCv.height=px;}
+    const cc=terrCrownCv.getContext('2d');cc.setTransform(1,0,0,1,0,0);cc.clearRect(0,0,px,px);cc.setTransform(terrScale,0,0,terrScale,0,0);
+    drawCrowns(cc,terrScene.crowns);terrScene.crownImg=terrCrownCv;
+  }
   drawTerrScene(terrScene.animated?performance.now()/1000:null); // si hay animación, sin saltar a la pose quieta
   if(terrScene.animated&&!terrRaf)terrRaf=requestAnimationFrame(terrFrame);
 }
