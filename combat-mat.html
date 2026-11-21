@@ -122,9 +122,16 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 .sec-title { font-family:'Cinzel',serif; font-size:10px; color:var(--amber-lt); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; display:block; }
 .sw-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
 .sw-grid.tok .terr-sw { height:22px; }
-/* Terrenos: 6 columnas × 4 filas de 26px = 116px, no más alto que el selector Completa (117px), así la sección no crece */
-#map-simple { grid-template-columns:repeat(6,1fr); }
-#map-simple .terr-sw { height:26px; }
+/* El panel derecho está medido para la vista del master (la más alta) sin espacio sobrante ni scroll: el selector
+   Completa del Mapa mide 130+5+12 = 147px y Prefabricado ocupa lo mismo: pestañas (~23px) + 4 filas de 28px (hasta 24
+   terrenos por sección). Fondo/Líneas, sin pestañas, entra igual. Si se agrega algo al panel, achicar #map-sq. */
+#map-swatches { grid-template-columns:repeat(6,1fr); }
+#map-swatches .terr-sw { height:28px; }
+#terr-cats { display:flex; gap:3px; margin-bottom:5px; }
+#terr-cats.off { display:none; }
+#terr-cats span { flex:1 1 auto; text-align:center; font-family:'Cinzel',serif; font-size:7px; letter-spacing:.3px; text-transform:uppercase; padding:3px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.45); cursor:pointer; white-space:nowrap; }
+#terr-cats span:hover { color:rgba(255,255,255,0.75); }
+#terr-cats span.active { background:rgba(200,146,42,0.18); color:var(--amber-lt); border-color:var(--amber); }
 .pal-head { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
 .pal-head .sec-title, .pal-head .plabel { margin-bottom:0; }
 .pal-mode { display:flex; margin-left:auto; border:1px solid var(--border); border-radius:3px; overflow:hidden; }
@@ -361,7 +368,7 @@ body:not(.is-master) .master-only { display:none; }
       <div class="pal-head">
         <span class="sec-title">Mapa</span>
         <div class="pal-mode" id="mode-map">
-          <span data-m="simple" onclick="setPalMode('map','simple')">Simple</span><span data-m="full" onclick="setPalMode('map','full')">Completa</span>
+          <span data-m="simple" onclick="setPalMode('map','simple')">Prefabricado</span><span data-m="full" onclick="setPalMode('map','full')">Completa</span>
         </div>
       </div>
       <div class="ctrow" id="map-targets" style="margin-bottom:6px">
@@ -369,12 +376,13 @@ body:not(.is-master) .master-only { display:none; }
         <div class="ctbtn" id="ctbtn-bg"      onclick="setMapTarget('bg')">     <div class="cprev" id="cprev-bg"></div>     <span>Fondo</span></div>
         <div class="ctbtn" id="ctbtn-line"    onclick="setMapTarget('line')">   <div class="cprev" id="cprev-line"></div>   <span>Líneas</span></div>
       </div>
-      <!-- Simple: colores de terreno fijos (en Fondo/Líneas, los mismos colores se aplican a la grilla) -->
+      <!-- Prefabricado (modo 'simple'): en Terreno, pestañas por sección (TERR_CATS) y sus terrenos;
+           en Fondo/Líneas, sus colores aplicados a la grilla -->
       <div class="pal-stack">
-      <div id="map-simple" class="sw-grid"></div>
+      <div id="map-simple"><div id="terr-cats"></div><div id="map-swatches" class="sw-grid"></div></div>
       <!-- Completa: selector HSV (en Terreno, pinta con cualquier color) -->
       <div id="map-full">
-        <canvas id="map-sq"  class="pick-sq"  width="192" height="100"></canvas>
+        <canvas id="map-sq"  class="pick-sq"  width="192" height="130"></canvas>
         <canvas id="map-hue" class="pick-hue" width="192" height="12"></canvas>
       </div>
       </div>
@@ -550,7 +558,17 @@ const TERRAIN={
   roof:{name:'Tejado',sw:'#9a3a20'},straw:{name:'Paja',sw:'#d2b04c'},void:{name:'Vacío',sw:'#0a0810'},dirt:{name:'Tierra',sw:'#6b4a2c'},
   rubble:{name:'Escombros',sw:'#7a7066'},wood:{name:'Madera',sw:'#8a5a32'},mud:{name:'Barro',sw:'#4e4a2a'},
   acid:{name:'Ácido / Veneno',sw:'#5ad41e'},cloud:{name:'Nube mágica',sw:'#b4a8dc'},
+  chest:{name:'Cofre',sw:'#7a4a1c'},gold:{name:'Oro',sw:'#e8b923'},rack:{name:'Armero',sw:'#6a4a2a'},
+  chair:{name:'Silla',sw:'#5c361a'},table:{name:'Mesa',sw:'#5a3418'},
 };
+// Secciones de la paleta Prefabricado (orden de las pestañas y de las muestras). Todo terreno de TERRAIN va en una.
+// Hasta 24 por sección (6×4) para que la paleta no crezca.
+const TERR_CATS=[
+  ['nature','Naturaleza',['grass','sand','dirt','snow','mud','straw','tree','void','fire','ice']],
+  ['fluid','Fluidos',['water','lava','acid','blood','cloud']],
+  ['build','Construcción',['wall','door','fence','roof','stone','wood','metal']],
+  ['objects','Objetos',['trap','rubble','chest','gold','rack','chair','table']],
+];
 const isHexColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
 // Paleta simple de personajes: colores vivos y claros
 const TOK_COLORS=[['Rojo','#e53935'],['Naranja','#fb8c00'],['Amarillo','#fdd835'],['Lima','#9ccc65'],['Verde','#43a047'],
@@ -661,14 +679,22 @@ function setMapTarget(t){
   if(palMode.map==='full')mapPicker.set(t==='terrain'?terrCustom:pickerStates[t]);
   renderMapSwatches();
 }
-// Simple: en Terreno, ✕ + terrenos con nombre; en Fondo/Líneas, los mismos colores aplicados a la grilla
+// Prefabricado: en Terreno, pestañas por sección y los terrenos de la elegida; en Fondo/Líneas, los colores de todo
+// menos Objetos, aplicados a la grilla. La pestaña elegida es preferencia local ('terrCat' en localStorage).
+let terrCat='nature';
+try{const v=localStorage.getItem('terrCat');if(TERR_CATS.some(c=>c[0]===v))terrCat=v;}catch(e){}
+function setTerrCat(k){terrCat=k;try{localStorage.setItem('terrCat',k);}catch(e){}renderMapSwatches();}
 function renderMapSwatches(){
-  const box=document.getElementById('map-simple');
+  const box=document.getElementById('map-swatches'),cats=document.getElementById('terr-cats');
+  cats.classList.toggle('off',mapTarget!=='terrain');
   if(mapTarget==='terrain'){
-    box.innerHTML=Object.entries(TERRAIN).map(([k,t])=>`<div class="terr-sw" data-terr="${k}" onclick="selectTerrain('${k}')" data-tip="${t.name}" style="background:${terrBg(k)}"></div>`).join('');
+    cats.innerHTML=TERR_CATS.map(([k,n])=>`<span class="${k===terrCat?'active':''}" onclick="setTerrCat('${k}')">${n}</span>`).join('');
+    const list=TERR_CATS.find(c=>c[0]===terrCat)[2];
+    box.innerHTML=list.map(k=>`<div class="terr-sw" data-terr="${k}" onclick="selectTerrain('${k}')" data-tip="${TERRAIN[k].name}" style="background:${terrBg(k)}"></div>`).join('');
   }else{
     const cur=hsvHex(pickerStates[mapTarget]);
-    box.innerHTML=Object.values(TERRAIN).map(t=>`<div class="terr-sw${t.sw===cur?' active':''}" onclick="setGridColor('${mapTarget}',hexToHsv('${t.sw}'))" data-tip="${t.name}" style="background:${t.sw}"></div>`).join('');
+    const list=TERR_CATS.filter(c=>c[0]!=='objects').flatMap(c=>c[2]).map(k=>TERRAIN[k]);
+    box.innerHTML=list.map(t=>`<div class="terr-sw${t.sw===cur?' active':''}" onclick="setGridColor('${mapTarget}',hexToHsv('${t.sw}'))" data-tip="${t.name}" style="background:${t.sw}"></div>`).join('');
   }
   updateTerrainUI();
 }
@@ -806,7 +832,7 @@ function paintCell(e){
 // Una celda guarda hasta dos capas en un solo valor de /terrain: "piso+encima" (ej. "stone+blood").
 // Piso = terreno con nombre o color libre '#rrggbb'; encima = fuego, sangre, trampa… (TERR_OVER), solo sobre pisos con nombre.
 // "fire", "blood"… solos = sin piso. Un color libre nunca lleva nada encima.
-const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1,trap:1,fence:1};
+const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1,trap:1,fence:1,chest:1,gold:1,rack:1,chair:1,table:1};
 function parseTerr(v){
   if(typeof v!=='string'||!v)return{};
   if(isHexColor(v))return{base:v};
@@ -1119,6 +1145,66 @@ const TERRAIN_TEX={
       if(u>0.8){const k=(u-0.8)/0.2;c.strokeStyle=`rgba(210,255,160,${0.8*(1-k)})`;c.beginPath();c.arc(x,y,br*(1+k),0,6.2832);c.stroke();}
       else{c.fillStyle='rgba(190,255,120,0.75)';disc(c,x,y,br*u/0.8);}
     }
+  },
+  /* Objetos (van encima de otro terreno). nb = {links, rot} con lo que necesitan de sus vecinas (ver objNeighbors);
+     la rotación ya viene aplicada al contexto: se dibujan "mirando hacia abajo" (respaldo/pared arriba). */
+  chest(c,s){ // cofre visto desde arriba: madera, dos flejes de hierro y cerradura dorada
+    const x=s*0.18,y=s*0.26,w=s*0.64,h=s*0.5,sh=Math.max(1,s*0.04);
+    c.fillStyle='rgba(0,0,0,0.4)';c.fillRect(x+sh,y+sh,w,h);
+    c.fillStyle='#6e3f16';c.fillRect(x,y,w,h);
+    c.fillStyle='#8a5222';c.fillRect(x,y,w,h*0.38);                       // tapa
+    c.fillStyle='rgba(40,20,6,0.6)';c.fillRect(x,y+h*0.38,w,Math.max(1,s*0.02));
+    for(const k of[1,2,3])c.fillRect(x,y+h*0.38+(h*0.62)*k/4,w,Math.max(0.6,s*0.01)); // tablas
+    c.fillStyle='#5a5a62';for(const fx of[0.22,0.78])c.fillRect(x+w*fx-s*0.035,y,s*0.07,h);
+    c.fillStyle='rgba(255,255,255,0.18)';c.fillRect(x,y,w,Math.max(1,s*0.025));
+    c.fillStyle='#e8b923';c.fillRect(x+w/2-s*0.05,y+h*0.3,s*0.1,s*0.12);
+    c.fillStyle='#3a2a08';c.fillRect(x+w/2-s*0.012,y+h*0.36,s*0.024,s*0.05);
+  },
+  gold(c,s,R){ // pila de monedas con brillo
+    const n=12;const coins=[];
+    for(let i=0;i<n;i++){const a=R()*6.2832,d=Math.sqrt(R())*s*0.26;coins.push([s/2+Math.cos(a)*d,s/2+Math.sin(a)*d*0.8,s*(0.065+R()*0.025)]);}
+    coins.sort((p,q)=>p[1]-q[1]);
+    c.fillStyle='rgba(0,0,0,0.35)';c.beginPath();c.ellipse(s*0.53,s*0.56,s*0.34,s*0.26,0,0,6.2832);c.fill();
+    for(const[x,y,r]of coins){
+      c.fillStyle='#9a6a0c';disc(c,x,y+r*0.25,r);
+      c.fillStyle='#e8b923';disc(c,x,y,r);
+      c.fillStyle='#f8dc6a';disc(c,x-r*0.25,y-r*0.25,r*0.45);
+    }
+    c.fillStyle='rgba(255,255,240,0.9)';const g=R();c.fillRect(s*(0.35+g*0.3),s*0.35,Math.max(1,s*0.03),Math.max(1,s*0.03));
+  },
+  rack(c,s){ // armero: tabla contra la pared (arriba) y armas colgando: espada, lanza y hacha
+    const sh=Math.max(1,s*0.03);
+    c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(s*0.08+sh,s*0.08+sh,s*0.84,s*0.16);
+    c.fillStyle='#5a3a1c';c.fillRect(s*0.08,s*0.08,s*0.84,s*0.16);
+    c.fillStyle='rgba(255,220,170,0.15)';c.fillRect(s*0.08,s*0.08,s*0.84,Math.max(1,s*0.03));
+    c.lineCap='round';
+    // espada
+    c.strokeStyle='#c8ccd4';c.lineWidth=Math.max(1,s*0.05);c.beginPath();c.moveTo(s*0.28,s*0.3);c.lineTo(s*0.28,s*0.82);c.stroke();
+    c.strokeStyle='#8a6428';c.lineWidth=Math.max(1,s*0.05);c.beginPath();c.moveTo(s*0.19,s*0.3);c.lineTo(s*0.37,s*0.3);c.stroke();
+    c.strokeStyle='#4a2c10';c.beginPath();c.moveTo(s*0.28,s*0.16);c.lineTo(s*0.28,s*0.28);c.stroke();
+    // lanza
+    c.strokeStyle='#7a5226';c.lineWidth=Math.max(1,s*0.04);c.beginPath();c.moveTo(s*0.5,s*0.14);c.lineTo(s*0.5,s*0.8);c.stroke();
+    c.fillStyle='#c8ccd4';c.beginPath();c.moveTo(s*0.5,s*0.92);c.lineTo(s*0.45,s*0.78);c.lineTo(s*0.55,s*0.78);c.closePath();c.fill();
+    // hacha
+    c.strokeStyle='#7a5226';c.beginPath();c.moveTo(s*0.72,s*0.14);c.lineTo(s*0.72,s*0.8);c.stroke();
+    c.fillStyle='#b8bcc4';c.beginPath();c.moveTo(s*0.72,s*0.55);c.quadraticCurveTo(s*0.9,s*0.6,s*0.86,s*0.76);c.lineTo(s*0.72,s*0.7);c.closePath();c.fill();
+  },
+  chair(c,s){ // silla vista desde arriba: asiento y respaldo (arriba, del lado contrario a la mesa)
+    const sh=Math.max(1,s*0.035);
+    c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(s*0.3+sh,s*0.36+sh,s*0.4,s*0.36);c.fillRect(s*0.28+sh,s*0.24+sh,s*0.44,s*0.1);
+    c.fillStyle='#5c361a';c.fillRect(s*0.3,s*0.36,s*0.4,s*0.36);
+    c.fillStyle='rgba(255,220,170,0.18)';c.fillRect(s*0.3,s*0.36,s*0.4,Math.max(1,s*0.03));
+    c.fillStyle='#331c0a';c.fillRect(s*0.28,s*0.24,s*0.44,s*0.1);
+  },
+  table(c,s,R,t,nb){ // mesa: las vecinas (links N=1 E=2 S=4 O=8) se unen en una sola tabla larga
+    const L=nb?nb.links:0,m=s*0.12,x0=L&8?0:m,x1=L&2?s:s-m,y0=L&1?0:m,y1=L&4?s:s-m,sh=Math.max(1,s*0.04);
+    c.fillStyle='rgba(0,0,0,0.45)';c.fillRect(x0+sh,y0+sh,x1-x0,y1-y0);
+    c.fillStyle='#5a3418';c.fillRect(x0,y0,x1-x0,y1-y0); // nogal: más oscuro que el piso de madera
+    c.fillStyle='rgba(20,8,2,0.5)';const vert=(L&5)&&!(L&10); // tablas a lo largo de la mesa
+    for(const k of[1/3,2/3]){if(vert)c.fillRect(s*k,y0,Math.max(0.6,s*0.012),y1-y0);else c.fillRect(x0,s*k,x1-x0,Math.max(0.6,s*0.012));}
+    c.fillStyle='rgba(255,210,160,0.2)';if(!(L&1))c.fillRect(x0,y0,x1-x0,Math.max(1,s*0.025)); // canto iluminado
+    c.fillStyle='rgba(20,8,2,0.7)';const b=Math.max(1,s*0.025); // cantos oscuros abajo y a los costados
+    if(!(L&4))c.fillRect(x0,y1-b,x1-x0,b);if(!(L&8))c.fillRect(x0,y0,b,y1-y0);if(!(L&2))c.fillRect(x1-b,y0,b,y1-y0);
   },
   cloud(c,s,R,t){ // nube mágica: bruma lila semitransparente con destellos, va encima; animada: se desplaza y titila
     c.fillStyle='rgba(175,165,215,0.28)';c.fillRect(0,0,s,s); // velo parejo: sin cortes entre celdas vecinas
@@ -1459,6 +1545,7 @@ function buildTerrScene(){
   for(let sr=0;sr<ROWS;sr++)for(let sc=0;sc<COLS;sc++){
     const col=sc+ox,row=sr+oy,key=col+','+row;if(!S.terrain[key])continue;
     const{base,over}=P(key),e={sc,sr,col,row,base,over,ab:anim.base.has(key),ao:anim.over.has(key)};
+    if(OBJ_NB[over])e.nb=objNeighbors(over,col,row,P);
     // Debajo de un piso líquido: por cuadrante, el terreno vecino no líquido (de costado, de arriba/abajo o en diagonal)
     if(LIQ[base]||base==='tree')e.under=[0,1,2,3].map(q=>{
       const dx=q&1?1:-1,dy=q&2?1:-1;
@@ -1513,12 +1600,25 @@ function buildTerrScene(){
 // líquido, sus vecinos) → pisos líquidos → línea de grilla tenue (arriba e izquierda, como el fondo de #grid, para
 // seguir contando casillas) → obsidiana y vapor → sangre y ácido → lo de encima celda por celda.
 // t = segundos para las celdas animadas, null = todo quieto.
-function terrTex(c,type,x,y,col,row,t,under,clip){
+function terrTex(c,type,x,y,col,row,t,under,clip,nb){
   const f=TERRAIN_TEX[type],s=CS;if(!f)return;
   c.save();c.beginPath();clip?c.rect(clip[0],clip[1],clip[2],clip[3]):c.rect(x,y,s,s);c.clip();c.translate(x,y);
   if(under)under(c,s);
-  f(c,s,cellRng(col,row,terrSalt(type)),t);
+  if(nb&&nb.rot){c.translate(s/2,s/2);c.rotate(nb.rot);c.translate(-s/2,-s/2);}
+  f(c,s,cellRng(col,row,terrSalt(type)),t,nb);
   c.restore();
+}
+// Lo que un objeto necesita de sus vecinas: mesa = con qué mesas se une (N=1 E=2 S=4 O=8); silla = girar para mirar a
+// la mesa de al lado (respaldo del otro lado); armero = apoyar la tabla contra la pared de al lado. Sin vecina: rot 0.
+const OBJ_NB={table:1,chair:1,rack:1};
+function objNeighbors(type,col,row,P){
+  const dirs=[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]]; // N E S O
+  if(type==='table'){let links=0;for(const[dx,dy,b]of dirs)if(P((col+dx)+','+(row+dy)).over==='table')links|=b;return{links,rot:0};}
+  // rot: por defecto el respaldo/la tabla está arriba. Mirar al S = 0, al N = π, al E = -π/2, al O = π/2
+  const rotFor={'0,1':0,'0,-1':Math.PI,'1,0':-Math.PI/2,'-1,0':Math.PI/2};
+  if(type==='chair'){for(const[dx,dy]of[[0,1],[0,-1],[1,0],[-1,0]])if(P((col+dx)+','+(row+dy)).over==='table')return{rot:rotFor[dx+','+dy]};return{rot:0};}
+  if(type==='rack'){for(const[dx,dy]of[[0,-1],[0,1],[1,0],[-1,0]])if(P((col+dx)+','+(row+dy)).base==='wall')return{rot:rotFor[(-dx)+','+(-dy)]};return{rot:0};}
+  return null;
 }
 // Pisos celda por celda. Los que no se animan se dibujan una sola vez en Sc.baseImg (al armar la escena) y cada cuadro
 // de la animación solo copia esa imagen: es lo más caro de dibujar con muchas celdas a la vista.
@@ -1554,7 +1654,7 @@ function drawTerrScene(t){
   for(const e of Sc.cells)if((e.base&&!isHexColor(e.base))||(!e.base&&OVER_BG[e.over])){c.fillRect(e.sc*s,e.sr*s,s,1);c.fillRect(e.sc*s,e.sr*s,1,s);}
   for(const k of Sc.contacts)drawContact(c,k,t);
   for(const Rg of Sc.regions.over)drawLiq(c,Rg,t);
-  for(const e of Sc.cells)if(e.over&&e.over!=='fence'&&!LIQ[e.over]&&!(!e.base&&OVER_BG[e.over]))tex(e.over,e.sc*s,e.sr*s,e.col,e.row,e.ao?t:null);
+  for(const e of Sc.cells)if(e.over&&e.over!=='fence'&&!LIQ[e.over]&&!(!e.base&&OVER_BG[e.over]))terrTex(c,e.over,e.sc*s,e.sr*s,e.col,e.row,e.ao?t:null,null,null,e.nb);
   drawFences(c,Sc.fences);
   for(const Rg of Sc.regions.top)drawLiq(c,Rg,t); // nube mágica: encima de todo
 }
