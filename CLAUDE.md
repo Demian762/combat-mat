@@ -68,6 +68,8 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 - **Jugadores** (resto de `ALLOWED_EMAILS`): pueden crear **un solo personaje a la vez** (`owner` = su uid; el botón "+ Jugador" se deshabilita mientras exista). En el panel de dados, **Nombre** no es un desplegable para ellos: muestra fijo su personaje, y sin personaje no pueden tirar (dados, Porcentaje ni Todo o Nada). Solo el master elige nombre del desplegable, que lista Anónimo, Master y los personajes que creó él (sin `owner`), no los de los jugadores.
 - Si un jugador cambia de escena, **su personaje viaja con él** (se reubica en la celda libre más cercana) y el cambio se registra en `/sala/rolls` como `kind:'scene'` y se muestra en el **Historial** y en `log.html` como "Olbert cambió de escena 1 a 2" (`dice.html` lo ignora: no tiene `rolls`). Solo se registra si el jugador tiene un personaje propio (con `owner`).
 - Un jugador siempre ve la escena donde está su personaje: al cargar, o si el master lo mueve con "Traer personajes acá", su vista lo sigue.
+- **Borrar**: el master borra cualquier ficha; un jugador solo su propio personaje (la ✕ del panel izquierdo y la tecla Supr no aparecen/no actúan sobre las demás).
+- **Solo master** (clase `master-only`, ocultos para jugadores vía `body:not(.is-master)`): **+ Enemigo** y **Limpiar todo**.
 - Fuera de eso no hay permisos: cualquier cliente puede mover cualquier ficha, pintar terreno, ajustar HP, etc.
 
 ### Escenas

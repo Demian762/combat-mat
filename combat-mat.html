@@ -152,6 +152,7 @@ input[type=text]:focus { border-color:var(--amber); }
 /* Account */
 #account-email { display:block; font-family:'EB Garamond',serif; font-size:12px; color:rgba(200,160,80,0.75); letter-spacing:.3px; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
 #logout-section.hidden, #dplayer-fixed.hidden, #dplayer-name.hidden { display:none; }
+body:not(.is-master) .master-only { display:none; }
 
 </style>
 </head>
@@ -309,7 +310,7 @@ input[type=text]:focus { border-color:var(--amber); }
         <button class="hpmax-btn" onclick="adjMaxHp(5)" style="font-size:10px">+5</button>
       </div>
       <button class="btn bp" id="btn-add-player" onclick="addTok('player')">+ Jugador</button>
-      <button class="btn be" onclick="addTok('enemy')">+ Enemigo</button>
+      <button class="btn be master-only" onclick="addTok('enemy')">+ Enemigo</button>
     </div>
 
     <div class="section">
@@ -325,7 +326,7 @@ input[type=text]:focus { border-color:var(--amber); }
 
     <div class="section">
       <button class="btn bd" onclick="clearTerrain()" style="margin-bottom:4px">Limpiar terreno</button>
-      <button class="btn bd" onclick="clearAll()">Limpiar todo</button>
+      <button class="btn bd master-only" onclick="clearAll()">Limpiar todo</button>
     </div>
 
     <div class="section" style="margin-top:auto">
@@ -598,7 +599,10 @@ function myChar(){
   return S.tokens.find(t=>t.type==='player'&&t.owner===me.uid)||null;
 }
 let creatingChar=false;
+// Master borra cualquier ficha; un jugador solo su propio personaje
+const canDelete=t=>isMaster()||(!!me&&t.type==='player'&&t.owner===me.uid);
 function refreshPlayerControls(){
+  document.body.classList.toggle('is-master',isMaster());
   const btn=document.getElementById('btn-add-player');if(!btn)return;
   const locked=!isMaster()&&(creatingChar||!!myChar());
   btn.disabled=locked;
@@ -621,6 +625,7 @@ function rollerName(){
   return document.getElementById('dplayer-name').value.trim()||'Anónimo';
 }
 async function addTok(type){
+  if(type==='enemy'&&!isMaster())return;
   if(type==='player'&&!isMaster()){
     if(creatingChar||myChar())return;
     creatingChar=true;refreshPlayerControls();
@@ -694,7 +699,7 @@ function adjHP(id,d){
   db.ref('sala/players/'+id).update({hp:t.hp});
 }
 function delTok(id){
-  const t=S.tokens.find(t=>t.id===id);if(!t)return;
+  const t=S.tokens.find(t=>t.id===id);if(!t||!canDelete(t))return;
   if(t._el)t._el.remove();
   S.tokens=S.tokens.filter(tk=>tk.id!==id);
   if(S.turn===id){
@@ -720,6 +725,7 @@ function renameTok(id){
   else db.ref('sala/scenes/'+activeScene+'/enemies/'+id).update({name:t.name});
 }
 function clearAll(){
+  if(!isMaster())return;
   S.tokens.forEach(t=>{if(t._el)t._el.remove();});
   S.tokens=[];S.selId=null;S.order=[];S.turn=null;
   grid.classList.remove('measuring');clearArrow();
@@ -760,7 +766,7 @@ function renderLeftPanel(){
           <div class="litem-dot ${ip?'':'enemy'}" style="background:${ip?t.color:'#7a1414'}"></div>
           <span class="litem-name">${t.name}</span>
           ${ip?`<span class="litem-cls">${ICONS[t.cls]||''} ${t.cls||''}</span>`:''}
-          <button class="tdel" onclick="event.stopPropagation();delTok(${t.id})">✕</button>
+          ${canDelete(t)?`<button class="tdel" onclick="event.stopPropagation();delTok(${t.id})">✕</button>`:''}
         </div>
         ${ip?`<div class="lhp-row">
           <button class="lhp-btn" onclick="adjHP(${t.id},-1)">−</button>
