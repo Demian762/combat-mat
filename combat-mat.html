@@ -78,6 +78,10 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .pal-mode span { font-family:'Cinzel',serif; font-size:7px; letter-spacing:.5px; text-transform:uppercase; padding:3px 5px; color:rgba(255,255,255,0.4); cursor:pointer; }
 .pal-mode span:hover { color:rgba(255,255,255,0.7); }
 .pal-mode span.active { background:rgba(200,146,42,0.18); color:var(--amber-lt); }
+/* Simple y Completa superpuestas en la misma celda: la sección mide siempre lo de la más alta */
+.pal-stack { display:grid; }
+.pal-stack > * { grid-area:1/1; align-self:start; }
+.pal-stack > .pal-off { visibility:hidden; pointer-events:none; }
 .pick-sq, .pick-hue { display:block; cursor:crosshair; border-radius:3px; }
 .pick-sq { margin-bottom:5px; }
 .terr-sw { height:28px; border-radius:3px; cursor:pointer; border:2px solid transparent; transition:border-color .12s,transform .1s; }
@@ -292,6 +296,7 @@ body:not(.is-master) .master-only { display:none; }
         <div class="ctbtn" id="ctbtn-line"    onclick="setMapTarget('line')">   <div class="cprev" id="cprev-line"></div>   <span>Líneas</span></div>
       </div>
       <!-- Simple: colores de terreno fijos (en Fondo/Líneas, los mismos colores se aplican a la grilla) -->
+      <div class="pal-stack">
       <div id="map-simple" class="sw-grid"></div>
       <!-- Completa: selector HSV (en Terreno, pinta con cualquier color) -->
       <div id="map-full">
@@ -301,6 +306,7 @@ body:not(.is-master) .master-only { display:none; }
         </div>
         <canvas id="map-sq"  class="pick-sq"  width="192" height="100"></canvas>
         <canvas id="map-hue" class="pick-hue" width="192" height="12"></canvas>
+      </div>
       </div>
       <div id="pan-grid">
         <div></div>
@@ -339,10 +345,12 @@ body:not(.is-master) .master-only { display:none; }
           <span data-m="simple" onclick="setPalMode('tok','simple')">Simple</span><span data-m="full" onclick="setPalMode('tok','full')">Completa</span>
         </div>
       </div>
-      <div id="tok-simple" class="sw-grid tok" style="margin-bottom:8px"></div>
-      <div id="tok-full" style="margin-bottom:8px">
-        <canvas id="tok-sq"  class="pick-sq"  width="192" height="80"></canvas>
-        <canvas id="tok-hue" class="pick-hue" width="192" height="12"></canvas>
+      <div class="pal-stack" style="margin-bottom:8px">
+        <div id="tok-simple" class="sw-grid tok"></div>
+        <div id="tok-full">
+          <canvas id="tok-sq"  class="pick-sq"  width="192" height="80"></canvas>
+          <canvas id="tok-hue" class="pick-hue" width="192" height="12"></canvas>
+        </div>
       </div>
       <button class="btn bp" id="btn-add-player" onclick="addTok('player')">+ Jugador</button>
       <button class="btn be master-only" onclick="addTok('enemy')">+ Enemigo</button>
@@ -545,8 +553,8 @@ function setPalMode(pal,mode){
   palMode[pal]=mode;
   try{localStorage.setItem('palMode',JSON.stringify(palMode));}catch(e){}
   document.querySelectorAll('#mode-'+pal+' span').forEach(s=>s.classList.toggle('active',s.dataset.m===mode));
-  document.getElementById(pal+'-simple').style.display=mode==='simple'?'':'none';
-  document.getElementById(pal+'-full').style.display=mode==='full'?'':'none';
+  document.getElementById(pal+'-simple').classList.toggle('pal-off',mode!=='simple');
+  document.getElementById(pal+'-full').classList.toggle('pal-off',mode!=='full');
   if(pal==='map'){if(mode==='full')mapPicker.set(mapTarget==='terrain'?terrCustom:pickerStates[mapTarget]);renderMapSwatches();}
   else{if(mode==='full')tokPicker.set(pickerStates.player);renderTokSwatches();}
 }
