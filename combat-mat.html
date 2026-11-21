@@ -187,7 +187,6 @@ body:not(.is-master) .master-only { display:none; }
       <span class="sec-title">Nombre</span>
       <div id="dplayer-fixed" class="hidden"></div>
       <select id="dplayer-name" style="margin-bottom:0">
-        <option value="">Anónimo</option>
         <option value="Master">Master</option>
       </select>
     </div>
@@ -642,7 +641,7 @@ const canRoll=()=>isMaster()||!!myChar();
 // Nombre con el que se tira: el master elige del dropdown, el jugador tira siempre como su personaje
 function rollerName(){
   if(!isMaster()){const t=myChar();return t?t.name:null;}
-  return document.getElementById('dplayer-name').value.trim()||'Anónimo';
+  return document.getElementById('dplayer-name').value.trim()||'Master';
 }
 async function addTok(type){
   if(type==='enemy'&&!isMaster())return;
@@ -670,14 +669,16 @@ async function createTok(type){
   const uidSnap=await db.ref(ROOT+'/uid').transaction(cur=>(cur||0)+1);
   const newId=uidSnap.snapshot.val();
   const t={id:newId,type,name,cls:type==='player'?selectedClass:null,hp:type==='player'?S.maxHp:null,maxHp:type==='player'?S.maxHp:null,color,col,row};
+  document.getElementById('iname').value='';
+  // Los personajes del master van directo al baúl (fuera de toda escena); col/row quedan como preferencia al sacarlos
+  if(type==='player'&&isMaster()){db.ref(ROOT+'/chest/'+newId).set(t).catch(chestError);return;}
   if(type==='player'){
     t.sceneId=activeScene;
-    if(!isMaster())t.owner=me.uid;
+    t.owner=me.uid;
     db.ref(ROOT+'/players/'+newId).set(t);
   }else{
     db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+newId).set(t);
   }
-  document.getElementById('iname').value='';
   const newOrder=[...new Set([...getOrdered().map(tk=>tk.id),newId])];
   db.ref(ROOT+'/scenes/'+activeScene+'/order').set(newOrder);
   if(!S.turn)db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(newId);
@@ -1049,14 +1050,14 @@ document.addEventListener('keydown',e=>{
 function updateDiceNameOptions(){
   const sel=document.getElementById('dplayer-name');if(!sel)return;
   const prev=sel.value;
-  sel.innerHTML='<option value="">Anónimo</option><option value="Master">Master</option>';
-  const seen=new Set(['','Master']);
+  sel.innerHTML='<option value="Master">Master</option>';
+  const seen=new Set(['Master']);
   // Solo personajes del master (sin owner): los de los jugadores no se ofrecen
   S.tokens.filter(t=>t.type==='player'&&!t.owner).forEach(t=>{
     if(seen.has(t.name))return;seen.add(t.name);
     const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);
   });
-  sel.value=Array.from(sel.options).some(o=>o.value===prev)?prev:'';
+  sel.value=Array.from(sel.options).some(o=>o.value===prev)?prev:'Master';
 }
 
 /* ── Dice ── */
