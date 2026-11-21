@@ -134,7 +134,7 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 #map-swatches .terr-sw:hover { transform:none; } /* el agrandado se cortaría contra el borde de la grilla con scroll */
 #terr-cats { display:grid; grid-template-columns:1fr 1fr; gap:3px; margin-bottom:3px; }
 #terr-cats.off { display:none; }
-#terr-cats span { text-align:center; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.8px; text-transform:uppercase; padding:4px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.5); cursor:pointer; white-space:nowrap; }
+#terr-cats span { text-align:center; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.8px; text-transform:uppercase; padding:3px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.5); cursor:pointer; white-space:nowrap; }
 #terr-cats span:hover { color:rgba(255,255,255,0.75); }
 #terr-cats span.active { background:rgba(200,146,42,0.18); color:var(--amber-lt); border-color:var(--amber); }
 .pal-head { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
@@ -158,16 +158,23 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 
 /* Pan controls */
 /* Dos mitades iguales: botones de terreno a la izquierda, flechas a la derecha, cada uno centrado en la suya */
-#map-tools { display:grid; grid-template-columns:1fr 1fr; align-items:center; justify-items:center; margin-top:8px; }
+#map-tools { display:grid; grid-template-columns:1fr 1fr; align-items:center; justify-items:center; margin-top:6px; }
 #terr-tools { display:flex; flex-direction:column; gap:6px; width:50px; }
-#terr-tools > .terr-sw, #terr-tools > .tbtn-erase { height:34px; }
+#terr-tools > .terr-sw, #terr-tools > .tbtn-erase { height:30px; }
+/* Tamaño del pincel (1×1 / 3×3 / 5×5), entre las flechas y Limpiar terreno; solo con destino Terreno */
+#brush-size { display:flex; align-items:center; gap:4px; margin-top:6px; }
+#brush-size.off { visibility:hidden; pointer-events:none; }
+#brush-size .bs-label { font-family:'Cinzel',serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--amber-lt); margin-right:2px; }
+#brush-size [data-n] { flex:1; text-align:center; font-family:'Cinzel',serif; font-size:10px; padding:3px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.55); cursor:pointer; }
+#brush-size [data-n]:hover { color:rgba(255,255,255,0.85); }
+#brush-size [data-n].active { background:rgba(200,146,42,0.18); color:var(--amber-lt); border-color:var(--amber); }
 #terr-tools > .tbtn-erase { font-size:15px; }
 #terr-tools > .off { visibility:hidden; pointer-events:none; }
 #pan-grid { display:grid; grid-template-columns:26px 1fr 26px; gap:3px; width:96px; }
-.pan-btn { height:28px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); border-radius:4px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .12s; }
+.pan-btn { height:23px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); border-radius:4px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .12s; }
 .pan-btn:hover { background:rgba(200,146,42,0.2); }
 /* Posición de la vista (ox,oy): ámbar claro sobre recuadro oscuro para que se lea */
-.pan-center { display:flex; align-items:center; justify-content:center; height:28px; font-family:'Cinzel',serif; font-size:11px; font-weight:700; color:var(--amber-lt); background:rgba(0,0,0,0.6); border:1px solid rgba(200,146,42,0.45); border-radius:4px; white-space:nowrap; letter-spacing:-.3px; text-shadow:0 1px 2px #000; cursor:pointer; user-select:none; transition:background .12s; }
+.pan-center { display:flex; align-items:center; justify-content:center; height:23px; font-family:'Cinzel',serif; font-size:11px; font-weight:700; color:var(--amber-lt); background:rgba(0,0,0,0.6); border:1px solid rgba(200,146,42,0.45); border-radius:4px; white-space:nowrap; letter-spacing:-.3px; text-shadow:0 1px 2px #000; cursor:pointer; user-select:none; transition:background .12s; }
 .pan-center:hover { background:rgba(200,146,42,0.25); border-color:var(--amber); }
 
 input[type=text] { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#ddd; padding:4px 7px; border-radius:4px; font-family:'EB Garamond',serif; font-size:13px; margin-bottom:6px; outline:none; }
@@ -387,7 +394,7 @@ body:not(.is-master) .master-only { display:none; }
       <div id="map-simple"><div id="terr-cats"></div><div id="map-swatches" class="sw-grid"></div></div>
       <!-- Completa: selector HSV (en Terreno, pinta con cualquier color) -->
       <div id="map-full">
-        <canvas id="map-sq"  class="pick-sq"  width="192" height="130"></canvas>
+        <canvas id="map-sq"  class="pick-sq"  width="192" height="124"></canvas>
         <canvas id="map-hue" class="pick-hue" width="192" height="12"></canvas>
       </div>
       </div>
@@ -409,7 +416,12 @@ body:not(.is-master) .master-only { display:none; }
         <div></div>
       </div>
       </div>
-      <button class="btn bd" onclick="clearTerrain()" style="margin:8px 0 0">Limpiar terreno</button>
+      <!-- Tamaño del pincel de terreno: cuadrado centrado en la celda clickeada -->
+      <div id="brush-size">
+        <span class="bs-label">Pincel</span>
+        <span data-n="1" class="active" onclick="setBrushSize(1)">1×1</span><span data-n="3" onclick="setBrushSize(3)">3×3</span><span data-n="5" onclick="setBrushSize(5)">5×5</span>
+      </div>
+      <button class="btn bd" onclick="clearTerrain()" style="margin:6px 0 0">Limpiar terreno</button>
     </div>
 
     <div class="section">
@@ -564,14 +576,14 @@ const TERRAIN={
   rubble:{name:'Escombros',sw:'#7a7066'},wood:{name:'Madera',sw:'#8a5a32'},mud:{name:'Barro',sw:'#4e4a2a'},
   acid:{name:'Ácido / Veneno',sw:'#5ad41e'},cloud:{name:'Nube mágica',sw:'#b4a8dc'},
   chest:{name:'Cofre',sw:'#7a4a1c'},gold:{name:'Oro',sw:'#e8b923'},rack:{name:'Armero',sw:'#6a4a2a'},
-  chair:{name:'Silla',sw:'#5c361a'},table:{name:'Mesa',sw:'#5a3418'},
+  chair:{name:'Silla',sw:'#5c361a'},table:{name:'Mesa',sw:'#5a3418'},brick:{name:'Ladrillo',sw:'#9a4a32'},
 };
 // Secciones de la paleta Prefabricado (orden de las pestañas y de las muestras). Todo terreno de TERRAIN va en una.
 // Sin límite: la grilla muestra 5×3 y lo demás se ve con su barra vertical.
 const TERR_CATS=[
   ['nature','Naturaleza',['grass','sand','dirt','snow','mud','straw','tree','void','fire','ice']],
   ['fluid','Fluidos',['water','lava','acid','blood','cloud']],
-  ['build','Construcción',['wall','door','fence','roof','stone','wood','metal']],
+  ['build','Construcción',['wall','brick','door','fence','roof','stone','wood','metal']],
   ['objects','Objetos',['trap','rubble','chest','gold','rack','chair','table']],
 ];
 const isHexColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
@@ -806,6 +818,7 @@ function updateTerrainUI(){
   bc.classList.toggle('active',a===lb);
   // ✕ y terreno actual solo tienen sentido con destino Terreno
   document.querySelector('#terr-tools .tbtn-erase').classList.toggle('off',mapTarget!=='terrain');
+  document.getElementById('brush-size').classList.toggle('off',mapTarget!=='terrain');
   bc.classList.toggle('off',mapTarget!=='terrain');
   document.getElementById('cprev-terrain').style.background=
     !a||a==='eraser'?'transparent':isHexColor(a)?a:TERRAIN[a]?.sw||'transparent';
@@ -818,22 +831,30 @@ function paintCell(e){
   const sc=Math.floor((e.clientX-rect.left)/z);
   const sr=Math.floor((e.clientY-rect.top-2*appZoom)/z);
   if(sc<0||sc>=COLS||sr<0||sr>=ROWS)return;
-  const col=sc+S.ox, row=sr+S.oy;
-  const key=`${col},${row}`;
-  const a=S.activeTerrain,cur=parseTerr(S.terrain[key]);let next;
-  if(a==='eraser'){
-    // Borra una capa por pasada: primero el fuego/sangre de encima, y en otra pasada (otro clic) el piso
-    if(terrStroke.has(key))return;
-    next=cur.over?joinTerr(cur.base,null):null;
-  }else if(TERR_OVER[a])next=joinTerr(isHexColor(cur.base)?null:cur.base,a); // encima de un terreno simple; sobre un color libre lo reemplaza
-  else if(isHexColor(a))next=a;                                             // color libre: reemplaza todo
-  else next=joinTerr(a,cur.over);                                           // piso nuevo: lo de encima se queda
-  terrStroke.add(key);
-  if(next===(S.terrain[key]??null))return; // sin cambios (el mousemove repite la misma celda): ni escritura ni redibujo
-  const ref=db.ref(ROOT+'/scenes/'+activeScene+'/terrain/'+key);
-  if(next){S.terrain[key]=next;ref.set(next);}else{delete S.terrain[key];ref.remove();}
+  // Pincel de brushSize×brushSize celdas con centro en la celda clickeada (también el borrador)
+  const h=(brushSize-1)/2,upd={};
+  for(let dr=-h;dr<=h;dr++)for(let dc=-h;dc<=h;dc++){
+    const key=`${sc+S.ox+dc},${sr+S.oy+dr}`;
+    const a=S.activeTerrain,cur=parseTerr(S.terrain[key]);let next;
+    if(a==='eraser'){
+      // Borra una capa por pasada: primero el fuego/sangre de encima, y en otra pasada (otro clic) el piso
+      if(terrStroke.has(key))continue;
+      next=cur.over?joinTerr(cur.base,null):null;
+    }else if(TERR_OVER[a])next=joinTerr(isHexColor(cur.base)?null:cur.base,a); // encima de un terreno simple; sobre un color libre lo reemplaza
+    else if(isHexColor(a))next=a;                                             // color libre: reemplaza todo
+    else next=joinTerr(a,cur.over);                                           // piso nuevo: lo de encima se queda
+    terrStroke.add(key);
+    if(next===(S.terrain[key]??null))continue; // sin cambios (el mousemove repite la misma celda)
+    if(next)S.terrain[key]=next;else delete S.terrain[key];
+    upd[key]=next; // null = borrar
+  }
+  if(!Object.keys(upd).length)return; // nada cambió: ni escritura ni redibujo
+  db.ref(ROOT+'/scenes/'+activeScene+'/terrain').update(upd); // todo el cuadrado en una sola escritura
   renderTerrain();
 }
+// Tamaño del pincel de terreno (1, 3 o 5 celdas de lado), local a cada cliente; arranca siempre en 1×1
+let brushSize=1;
+function setBrushSize(n){brushSize=n;document.querySelectorAll('#brush-size [data-n]').forEach(b=>b.classList.toggle('active',+b.dataset.n===n));}
 // Una celda guarda hasta dos capas en un solo valor de /terrain: "piso+encima" (ej. "stone+blood").
 // Piso = terreno con nombre o color libre '#rrggbb'; encima = fuego, sangre, trampa… (TERR_OVER), solo sobre pisos con nombre.
 // "fire", "blood"… solos = sin piso. Un color libre nunca lleva nada encima.
@@ -884,6 +905,16 @@ const TERRAIN_TEX={
     for(let i=0;i<4;i++)for(let x=i%2?-w/2:0;x<s;x+=w){
       const v=34+R()*12;c.fillStyle=rgb(v+6,v+3,v);c.fillRect(x+m/2,i*h+m/2,w-m,h-m);
       c.fillStyle='rgba(255,255,255,0.07)';c.fillRect(x+m/2,i*h+m/2,w-m,Math.max(1,m*0.6));
+    }
+  },
+  brick(c,s,R){ // ladrillo rojo a soga (filas desplazadas medio ladrillo) con juntas de mortero claro; continúa entre celdas
+    c.fillStyle='#b8ab98';c.fillRect(0,0,s,s);
+    const h=s/4,w=s/2,m=Math.max(1,s*0.035);
+    for(let i=0;i<4;i++)for(let x=i%2?-w/2:0;x<s;x+=w){
+      const v=R()*26-13;c.fillStyle=rgb(150+v,66+v*0.5,44+v*0.3);c.fillRect(x+m/2,i*h+m/2,w-m,h-m);
+      c.fillStyle='rgba(255,210,180,0.14)';c.fillRect(x+m/2,i*h+m/2,w-m,Math.max(1,m*0.7));
+      c.fillStyle='rgba(60,20,10,0.25)';c.fillRect(x+m/2,i*h+h-m/2-Math.max(1,m*0.7),w-m,Math.max(1,m*0.7));
+      if(R()<0.3){c.fillStyle='rgba(40,14,6,0.25)';c.fillRect(x+m/2+R()*w*0.6,i*h+h*0.3+R()*h*0.3,Math.max(1,s*0.03),Math.max(1,s*0.03));}else{R();R();}
     }
   },
   stone(c,s,R){ // adoquines irregulares con juntas oscuras, sombra y brillo
