@@ -894,7 +894,8 @@ function parseTerr(v){
 // Objetos con variantes (cantidad): cada clic nuevo sobre la celda sortea una; arrastrar sobre la misma no la cambia.
 // TERR_CYCLE: en vez de sortear, la primera vez sale la variante 0 y cada clic sobre uno igual pasa a la siguiente
 // (antorcha: 0 = con el pie abajo, 1 = colgando desde arriba).
-const TERR_VARIANTS={rack:4,furniture:3,torch:2},TERR_CYCLE={torch:1};
+// (cama: 0 = horizontal, 1 = vertical).
+const TERR_VARIANTS={rack:4,furniture:3,torch:2,bed:2},TERR_CYCLE={torch:1,bed:1};
 const joinTerr=(base,over)=>base&&over?base+'+'+over:base||over||null;
 // Celdas ya tocadas en el trazo actual (se vacía en cada mousedown): el borrador saca una sola capa por pasada
 const terrStroke=new Set();
@@ -1348,9 +1349,10 @@ const TERRAIN_TEX={
   },
   /* Objetos de la tanda 3. Los de 2 celdas (cama, ataúd) dibujan el objeto entero de [0,s]×[0,2s] desde la cabecera y
      la celda de los pies lo corre una celda (nb.part); solos (part 2 o sin nb) van en versión chica en su celda. */
-  bed(c,s,R,t,nb){
+  bed(c,s,R,t,nb){ // cama de una celda (no se une): v 0 = horizontal (cabecera a la izquierda), v 1 = vertical
     const p=nb&&nb.part!=null?nb.part:2,L=p===2?s:2*s,x0=s*0.1,w=s*0.8,sh=Math.max(1,s*0.04);
     if(p===1)c.translate(0,-s);
+    if(p===2&&!(nb&&nb.v)){c.translate(s/2,s/2);c.rotate(-Math.PI/2);c.translate(-s/2,-s/2);}
     c.fillStyle='rgba(0,0,0,0.4)';c.fillRect(x0+sh,s*0.04+sh,w,L-s*0.08);
     c.fillStyle='#5a3418';c.fillRect(x0,s*0.04,w,L-s*0.08);                          // armazón
     c.fillStyle='#3e2410';c.fillRect(x0,s*0.04,w,s*0.1);                              // cabecera
@@ -1976,7 +1978,7 @@ function terrTex(c,type,x,y,col,row,t,under,clip,nb){
 // quedan girados al azar (OBJ_SPIN, siempre igual para la misma celda) y los de 2 celdas (OBJ_PAIR, ver objPairs).
 // La biblioteca además se une con las bibliotecas de sus costados (links: 1 = a su izquierda, 2 = a su derecha).
 const OBJ_NB={table:1,chair:1,rack:1,bed:1,coffin:1,furniture:1,shelf:1,throne:1,altar:1,torch:1,corpse:1,bones:1,signpost:1};
-const OBJ_WALL={rack:1,furniture:1,shelf:1,throne:1,altar:1},OBJ_SPIN={corpse:1,bones:1,signpost:1},OBJ_PAIR={bed:1,coffin:1};
+const OBJ_WALL={rack:1,furniture:1,shelf:1,throne:1,altar:1},OBJ_SPIN={corpse:1,bones:1,signpost:1},OBJ_PAIR={coffin:1};
 function objNeighbors(type,col,row,P,pairs){
   const dirs=[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]]; // N E S O
   if(type==='table'){let links=0;for(const[dx,dy,b]of dirs)if(P((col+dx)+','+(row+dy)).over==='table')links|=b;return{links,rot:0};}
@@ -1994,7 +1996,7 @@ function objNeighbors(type,col,row,P,pairs){
   if(OBJ_PAIR[type])return(pairs&&pairs.get(col+','+row))||{part:2,rot:0};
   return null;
 }
-// Cama y ataúd: se emparejan de a 2 recorriendo todo el terreno fila por fila (no depende de la vista): con la de la
+// Ataúd: se empareja de a 2 recorriendo todo el terreno fila por fila (no depende de la vista): con la de la
 // derecha si está libre (cabecera a la izquierda), si no con la de abajo (cabecera arriba); si no, va sola (versión
 // chica). part: 0 = cabecera, 1 = pies, 2 = sola. El dibujo ocupa 2 celdas hacia "abajo" desde la cabecera.
 function objPairs(){
