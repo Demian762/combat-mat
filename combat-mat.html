@@ -267,10 +267,6 @@ body:not(.is-master) .master-only { display:none; }
       <span class="sec-title">Nombre</span>
       <div id="dplayer-fixed"></div>
     </div>
-    <div class="section hidden" id="logout-section">
-      <span id="account-email"></span>
-      <button class="btn bp" id="btn-logout" onclick="signOutUser()" style="margin-bottom:0">Cerrar sesión</button>
-    </div>
     <div class="section">
       <span class="sec-title">Dados</span>
       <div id="dice-rows"></div>
@@ -430,6 +426,10 @@ body:not(.is-master) .master-only { display:none; }
     </div>
 
     <div class="section" style="margin-top:auto">
+      <div class="hidden" id="logout-section" style="margin-bottom:8px">
+        <span id="account-email"></span>
+        <button class="btn bp" id="btn-logout" onclick="signOutUser()" style="margin-bottom:0">Cerrar sesión</button>
+      </div>
       <button class="btn bp" id="btn-fs" onclick="toggleFullscreen()" style="margin-bottom:0">Pantalla completa</button>
     </div>
 
