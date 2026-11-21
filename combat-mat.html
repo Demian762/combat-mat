@@ -380,10 +380,10 @@ body:not(.is-master) .master-only { display:none; }
     <div class="section">
       <span class="sec-title">Nuevo token</span>
       <label class="plabel">Nombre</label>
-      <input type="text" id="iname" placeholder="Nombre..." maxlength="18">
+      <input type="text" id="iname" placeholder="Nombre..." maxlength="18" oninput="updateCharBtn()">
       <div class="cls-size-row">
-        <div><label class="plabel">Clase</label><select id="cls-select" onchange="selectedClass=this.value"></select></div>
-        <div><label class="plabel">Tamaño</label><select id="size-select" onchange="selectedSize=this.value"></select></div>
+        <div><label class="plabel">Clase</label><select id="cls-select" onchange="selectedClass=this.value;updateCharBtn()"></select></div>
+        <div><label class="plabel">Tamaño</label><select id="size-select" onchange="selectedSize=this.value;updateCharBtn()"></select></div>
       </div>
       <label class="plabel">HP Máx</label>
       <div class="hpmax-ctrl">
@@ -407,7 +407,7 @@ body:not(.is-master) .master-only { display:none; }
           <canvas id="tok-hue" class="pick-hue" width="192" height="12"></canvas>
         </div>
       </div>
-      <button class="btn bp" id="btn-add-player" onclick="addTok('player')">+ Jugador</button>
+      <button class="btn bp" id="btn-add-player" onclick="charBtnClick()">Nuevo personaje</button>
       <button class="btn be master-only" onclick="addTok('enemy')">+ Enemigo</button>
     </div>
 
@@ -661,12 +661,14 @@ function setGridColor(t,hsv,fromPicker){
   gridWriteTimers[t]=setTimeout(()=>{db.ref(ROOT+'/scenes/'+activeScene+'/pickerStates/'+t).set(hsv);},200);
 }
 // Color del próximo personaje (local por cliente)
-function setTokColor(hsv,fromSwatch){
+// hex = color exacto a usar (al cargar el de un personaje), así la comparación con su color no depende del redondeo HSV
+function setTokColor(hsv,fromSwatch,hex){
   pickerStates.player=hsv;
-  S.selectedColor=hsvHex(hsv);
+  S.selectedColor=hex||hsvHex(hsv);
   document.getElementById('cprev-player').style.background=S.selectedColor;
   if(fromSwatch&&palMode.tok==='full')tokPicker.set(hsv);
   renderTokSwatches();
+  updateCharBtn();
 }
 function setupPalettes(){
   try{const m=JSON.parse(localStorage.getItem('palMode')||'null');if(m){if(m.map==='full')palMode.map='full';if(m.tok==='full')palMode.tok='full';}}catch(e){}
@@ -820,12 +822,14 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function adjMaxHp(d){
   S.maxHp=Math.max(1,Math.min(999,S.maxHp+d));
   document.getElementById('ihp-val').textContent=S.maxHp;
+  updateCharBtn();
 }
 
 function tokToFb(t){const{_el,...r}=t;return r;}
 
-function uniqueName(base){
-  const names=new Set([...S.tokens,...chest].map(t=>t.name.toLowerCase()));
+// exceptId = ficha que se está renombrando (su nombre actual no cuenta como ocupado)
+function uniqueName(base,exceptId){
+  const names=new Set([...S.tokens,...chest].filter(t=>t.id!==exceptId).map(t=>t.name.toLowerCase()));
   if(!names.has(base.toLowerCase()))return base;
   let n=2;while(names.has(`${base} ${n}`.toLowerCase()))n++;
   return `${base} ${n}`;
@@ -840,15 +844,61 @@ let creatingChar=false;
 const canDelete=t=>isMaster()||(!!me&&t.type==='player'&&t.owner===me.uid);
 // Misma regla para la vida: un jugador solo ajusta la de su propio personaje (la de los demás la ve, sin botones)
 const canEditHp=canDelete;
+/* ── Botón de personaje del jugador: Nuevo / Borrar / Editar ── */
+// El jugador tiene un solo personaje: el formulario "Nuevo token" muestra sus datos. Si coinciden, el botón lo borra;
+// si se tocó algo, lo edita. Sin personaje, lo crea. El master sigue con "+ NPC".
+let charFormSig=null; // datos del personaje cargados por última vez en el formulario (para no pisar lo que el jugador está editando)
+const charSig=t=>JSON.stringify([t.name,t.cls||'Otras',t.size||'medium',t.maxHp,(t.color||'').toLowerCase()]);
+function charFormValues(t){
+  return{name:document.getElementById('iname').value.trim().slice(0,18)||t.name, // vacío = no cambia el nombre
+    cls:selectedClass,size:selectedSize,maxHp:S.maxHp,color:S.selectedColor.toLowerCase()};
+}
+const charFormMatches=t=>charSig(charFormValues(t))===charSig(t);
+function loadCharForm(t){
+  document.getElementById('iname').value=t.name;
+  selectedClass=t.cls||'Otras';document.getElementById('cls-select').value=selectedClass;
+  selectedSize=t.size||'medium';document.getElementById('size-select').value=selectedSize;
+  S.maxHp=t.maxHp;document.getElementById('ihp-val').textContent=S.maxHp;
+  setTokColor(hexToHsv(t.color),true,t.color);
+}
+// Carga el personaje en el formulario solo cuando cambian sus datos (crear, editar, cargar la página),
+// no por moverlo o ajustarle la vida
+function syncCharForm(){
+  if(isMaster())return;
+  const mine=myChar(),sig=mine?charSig(mine):null;
+  if(sig===charFormSig)return;
+  charFormSig=sig;
+  if(mine)loadCharForm(mine);
+}
+function updateCharBtn(){
+  const btn=document.getElementById('btn-add-player');if(!btn)return;
+  if(isMaster()){btn.textContent='+ NPC';btn.className='btn bp';btn.disabled=false;btn.style.opacity='';return;} // los personajes del master son NPCs (van al baúl)
+  const mine=myChar();
+  const mode=!mine?'new':charFormMatches(mine)?'del':'edit';
+  btn.textContent={new:'Nuevo personaje',del:'Borrar personaje',edit:'Editar personaje'}[mode];
+  btn.className='btn '+(mode==='del'?'be':'bp');
+  btn.disabled=creatingChar;
+  btn.style.opacity=creatingChar?'0.4':'';
+}
+function charBtnClick(){
+  const mine=myChar();
+  if(isMaster()||!mine){addTok('player');return;}
+  if(charFormMatches(mine)){if(confirm(`¿Borrar a ${mine.name}?`))delTok(mine.id);}
+  else editChar(mine);
+}
+function editChar(t){
+  const f=charFormValues(t);
+  const upd={name:f.name===t.name?t.name:uniqueName(f.name,t.id),cls:f.cls,size:f.size,maxHp:f.maxHp,hp:Math.min(t.hp,f.maxHp),color:f.color};
+  Object.assign(t,upd);
+  renderTok(t);renderList();
+  refreshPlayerControls(); // recarga el formulario (por si el nombre quedó con número) y el nombre de tirada
+  db.ref(ROOT+'/players/'+t.id).update(upd);
+}
+
 function refreshPlayerControls(){
   document.body.classList.toggle('is-master',isMaster());
-  const btn=document.getElementById('btn-add-player');if(!btn)return;
-  btn.textContent=isMaster()?'+ NPC':'+ Jugador'; // los personajes del master son NPCs (van al baúl)
-  const locked=!isMaster()&&(creatingChar||!!myChar());
-  btn.disabled=locked;
-  btn.style.opacity=locked?'0.4':'';
-  btn.style.cursor=locked?'not-allowed':'';
-  btn.title=locked?'Ya tenés un personaje. Borralo para crear otro.':'';
+  syncCharForm();
+  updateCharBtn();
   // Nombre fijo, sin desplegable. Jugador: su personaje (sin personaje no puede tirar).
   // Master: la ficha que seleccionó (masterSel) o "Master" si no tiene ninguna.
   const fixed=document.getElementById('dplayer-fixed');
