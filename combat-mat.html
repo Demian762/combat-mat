@@ -942,7 +942,8 @@ function updateDiceNameOptions(){
   const prev=sel.value;
   sel.innerHTML='<option value="">Anónimo</option><option value="Master">Master</option>';
   const seen=new Set(['','Master']);
-  S.tokens.filter(t=>t.type==='player').forEach(t=>{
+  // Solo personajes del master (sin owner): los de los jugadores no se ofrecen
+  S.tokens.filter(t=>t.type==='player'&&!t.owner).forEach(t=>{
     if(seen.has(t.name))return;seen.add(t.name);
     const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);
   });
