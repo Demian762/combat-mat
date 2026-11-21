@@ -513,7 +513,7 @@ const CS=44; // tamaño de celda en px, debe coincidir con --cs en CSS
 /* ── Class select ── */
 function initClassGrid(){
   const sel=document.getElementById('cls-select');
-  sel.innerHTML=CLASS_LIST.map(c=>`<option value="${c}">${ICONS[c]}  ${c}</option>`).join('');
+  sel.innerHTML=CLASS_LIST.map(c=>`<option value="${c}">${ICONS[c]}&nbsp;&nbsp;-&nbsp;&nbsp;${c}</option>`).join('');
   sel.value=selectedClass;
 }
 
