@@ -1704,7 +1704,13 @@ LIQ.dirty={w:0.8,amp:0.26,detail:dirtyDetail,bands:[['F',0.5,'rgba(130,120,80,0.
 LIQ.oil={w:0.9,amp:0.26,detail:oilDetail,drops:'rgba(150,108,20,0.9)',bands:[['F',0.55,'rgba(112,78,12,0.92)'],['F',0.66,'rgba(178,134,30,0.9)']]}; // ámbar
 // Pisos con forma, de abajo hacia arriba. El vacío va abajo de todo: el agua que lo toca cae sobre el abismo. El agua
 // poco profunda va debajo del agua: queda como su orilla.
-const LIQ_BASE_ORDER=['void','mud','dirty','shallow','water','ice','lava'], LIQ_OVER=['blood','acid','oil','cloud'], LIQ_DEEP_W=2.2;
+// 'aqua' = agua + agua poco profunda + agua sucia juntas (AQUA): una sola mancha con un solo borde de espuma hacia afuera
+// y, adentro, sus colores mezclados en degradé donde se tocan (aquaRegion/drawAqua). No se superponen.
+const LIQ_BASE_ORDER=['void','mud','aqua','ice','lava'], LIQ_OVER=['blood','acid','oil','cloud'], LIQ_DEEP_W=2.2;
+const AQUA=['dirty','shallow','water']; // orden de pintado del degradé
+const AQUA_RIM={dirty:'rgba(130,120,80,0.8)',shallow:'rgba(215,236,250,0.8)',water:'rgba(200,226,252,0.75)'};
+const AQUA_BODY={dirty:'#4d5a30',shallow:'#7aa2a8',water:'#1f52b8'};
+const AQUA_K=14, AQUA_MIX_W=1.6; // pasos del degradé y ancho de la mezcla (celdas)
 const smooth01=u=>{u=u<0?0:u>1?1:u;return u*u*(3-2*u);};
 const liqK=(d,w)=>smooth01((0.5+w/2-Math.abs(d))/w);
 // Ruido del borde: una onda larga (~1 celda) que hace serpentear la orilla y una corta para el detalle, en [-1,1]
@@ -1790,6 +1796,67 @@ function liqChunk(type,shapeG,G,cx,cy){
   if(liqCache.size>800)liqCache.clear();
   liqCache.set(key,paths);
   return paths;
+}
+/* Mancha acuática por bloques (cacheados como liqChunk). codes por celda: 0 nada, 1..3 = AQUA (sucia, poco profunda,
+   agua), 4 = celda prestada (hielo/lava pegada: solo forma). Devuelve, en px relativos al bloque:
+   rim/body = contorno de toda la mancha (F≥0.5 borde de espuma, F≥0.6 cuerpo; ruido como el agua);
+   mix[tipo] = AQUA_K contornos de su proporción N = G_tipo/G_total (rampa ancha AQUA_MIX_W), para pintar el degradé;
+   deep = agua profunda (solo de las celdas de agua, lejos de las otras). */
+function aquaChunk(codesG,G,cx,cy){
+  const K=LIQ_CHUNK,M=LIQ_M,A=K+2*M,bc0=cx*K-M,br0=cy*K-M,loc=new Uint8Array(A*A);let any=false;
+  for(let j=0;j<A;j++)for(let i=0;i<A;i++){const gc=bc0+i-G.c0,gr=br0+j-G.r0;if(gc>=0&&gr>=0&&gc<G.W&&gr<G.H){const v=codesG[gr*G.W+gc];if(v){loc[j*A+i]=v;any=true;}}}
+  if(!any)return null;
+  const n=Math.max(3,Math.round(CS/6)),key='aqua|'+cx+','+cy+'|'+CS+'|'+occHash(loc);
+  const hit=liqCache.get(key);if(hit)return hit;
+  const st=CS/n,LW=A*n+1,W=LIQ.water,salt=terrSalt('water'),shape=loc.map(v=>v?1:0);
+  const FA=liqConv(shape,A,A,n,W.w);
+  for(let k=0;k<FA.length;k++){const f=FA[k];if(f>1e-6&&f<1-1e-6){const i=k%LW,j=(k-i)/LW;FA[k]=f+W.amp*liqNoise(bc0+i/n,br0+j/n,salt);}}
+  const U=liqConv(shape,A,A,n,AQUA_MIX_W);
+  const proc=[];
+  for(let r=M;r<M+K;r++)for(let c=M;c<M+K;c++){let near=false;for(let a=-1;a<=1&&!near;a++)for(let b=-1;b<=1;b++)if(loc[(r+b)*A+c+a]){near=true;break;}if(near)proc.push([c,r]);}
+  const sx=i=>(i-M*n)*st,sy=j=>(j-M*n)*st,fv=(i,j)=>FA[j*LW+i];
+  const res={rim:liqPath(fv,0.5,proc,n,st,sx,sy),body:liqPath(fv,0.6,proc,n,st,sx,sy),mix:{},deep:null};
+  AQUA.forEach((ty,ti)=>{
+    const occT=loc.map(v=>v===ti+1?1:0);if(!occT.some(x=>x))return;
+    const GT=liqConv(occT,A,A,n,AQUA_MIX_W),NT=new Float32Array(GT.length);
+    for(let k=0;k<NT.length;k++)NT[k]=U[k]>1e-6?GT[k]/U[k]:0;
+    const nv=(i,j)=>NT[j*LW+i];
+    res.mix[ty]=Array.from({length:AQUA_K},(_,k)=>liqPath(nv,(k+0.5)/AQUA_K,proc,n,st,sx,sy));
+    if(ty==='water'){const DA=liqConv(occT,A,A,n,LIQ_DEEP_W),dv=(i,j)=>DA[j*LW+i];res.deep=[0.84,0.97].map(th=>liqPath(dv,th,proc,n,st,sx,sy));}
+  });
+  if(liqCache.size>800)liqCache.clear();
+  liqCache.set(key,res);
+  return res;
+}
+function aquaRegion(codes,G,animSet){
+  const K=LIQ_CHUNK,R={aqua:true,rim:new Path2D(),body:new Path2D(),mix:{},deep:null,cells:[]};
+  for(let cy=G.ky0;cy<=G.ky1;cy++)for(let cx=G.kx0;cx<=G.kx1;cx++){
+    const ch=aquaChunk(codes,G,cx,cy);if(!ch)continue;
+    const m=new DOMMatrix().translateSelf((cx*K-G.ox)*CS,(cy*K-G.oy)*CS);
+    R.rim.addPath(ch.rim,m);R.body.addPath(ch.body,m);
+    for(const ty in ch.mix){if(!R.mix[ty])R.mix[ty]=Array.from({length:AQUA_K},()=>new Path2D());ch.mix[ty].forEach((p,k)=>R.mix[ty][k].addPath(p,m));}
+    if(ch.deep){if(!R.deep)R.deep=[new Path2D(),new Path2D()];ch.deep.forEach((p,k)=>R.deep[k].addPath(p,m));}
+  }
+  // Celdas propias a la vista (±1), con su tipo: para el detalle (olas, piedritas, restos)
+  for(let r=G.oy-1;r<=G.oy+ROWS;r++)for(let c=G.ox-1;c<=G.ox+COLS;c++){
+    const i=c-G.c0,j=r-G.r0;if(i<0||j<0||i>=G.W||j>=G.H)continue;
+    const v=codes[j*G.W+i];if(v>=1&&v<=3)R.cells.push([c,r,animSet.has(c+','+r),AQUA[v-1]]);
+  }
+  return R;
+}
+// Pinta la mancha acuática: el primer tipo presente cubre todo y cada uno de los siguientes va encima en degradé
+// (AQUA_K capas con alfa 1/(K-k): la cobertura sigue a su proporción N). Primero el borde y después el cuerpo.
+function drawAqua(c,Ag,t){
+  const present=AQUA.filter(x=>Ag.mix[x]);if(!present.length)return;
+  const paint=cols=>{
+    c.fillStyle=cols[present[0]];c.fillRect(-CS,-CS,VIEW+2*CS,VIEW+2*CS);
+    for(const ty of present.slice(1)){c.fillStyle=cols[ty];Ag.mix[ty].forEach((p,k)=>{c.globalAlpha=1/(AQUA_K-k);c.fill(p);});c.globalAlpha=1;}
+  };
+  c.save();c.clip(Ag.rim);paint(AQUA_RIM);
+  c.clip(Ag.body);paint(AQUA_BODY);
+  if(Ag.deep){c.fillStyle='#17439f';c.fill(Ag.deep[0]);c.fillStyle='#103486';c.fill(Ag.deep[1]);}
+  for(const[col,row,an,ty]of Ag.cells){c.save();c.translate((col-S.ox)*CS,(row-S.oy)*CS);LIQ[ty].detail(c,CS,cellRng(col,row,terrSalt(ty)),an?t:null);c.restore();}
+  c.restore();
 }
 // Arma la mancha de un líquido: shape = ocupación para la forma, own = sus propias celdas (detalle y gotas).
 // G = área de trabajo (celdas absolutas c0,r0, tamaño W×H: los bloques kx0..kx1 × ky0..ky1 más su margen).
@@ -1913,9 +1980,19 @@ function buildTerrScene(){
     const{base,over}=P(k);
     for(const t of[base,over])if(LIQ[t])(occ[t]||(occ[t]=new Uint8Array(G.W*G.H)))[j*G.W+i]=1;
   }
+  // Agua, agua poco profunda y agua sucia: una sola mancha (aqua) que mezcla sus colores donde se tocan
+  for(const t of AQUA)if(occ[t]){if(!occ.aqua)occ.aqua=new Uint8Array(G.W*G.H);for(let k=0;k<occ.aqua.length;k++)if(occ[t][k])occ.aqua[k]=1;}
   const regions={base:[],over:[],top:[]};
   LIQ_BASE_ORDER.forEach((t,idx)=>{
     if(!occ[t])return;
+    if(t==='aqua'){ // misma extensión debajo de los de arriba, pero con su propio armado
+      const own=occ.aqua,W=G.W,H=G.H,codes=new Uint8Array(W*H);
+      AQUA.forEach((a,ai)=>{if(occ[a])for(let k=0;k<codes.length;k++)if(occ[a][k])codes[k]=ai+1;});
+      const touches=k=>{const i=k%W,j=(k-i)/W;for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++){const x=i+a,y=j+b;if(x>=0&&y>=0&&x<W&&y<H&&own[y*W+x])return true;}return false;};
+      for(const up of LIQ_BASE_ORDER.slice(idx+1))if(occ[up])for(let k=0;k<codes.length;k++)if(occ[up][k]&&!codes[k]&&touches(k))codes[k]=4; // prestada
+      regions.base.push(aquaRegion(codes,G,anim.base));
+      return;
+    }
     // Se extiende debajo de los líquidos de más arriba, pero solo en las celdas pegadas (8 vecinas) a las suyas:
     // alcanza para rellenar las esquinas del otro y no aparece alrededor de líquidos que no lo tocan
     const own=occ[t],shape=own.slice(),W=G.W,H=G.H;
@@ -2063,7 +2140,7 @@ function drawTerrScene(t){
   c.setTransform(terrScale,0,0,terrScale,0,0);
   drawTerrBase(c,Sc.cells.filter(terrCellAnim),t);
   const tex=(type,x,y,col,row,tt,under,clip)=>terrTex(c,type,x,y,col,row,tt,under,clip);
-  for(const Rg of Sc.regions.base)drawLiq(c,Rg,t);
+  for(const Rg of Sc.regions.base)Rg.aqua?drawAqua(c,Rg,t):drawLiq(c,Rg,t);
   if(Sc.crownImg){c.setTransform(1,0,0,1,0,0);c.drawImage(Sc.crownImg,0,0);c.setTransform(terrScale,0,0,terrScale,0,0);} // copas (quietas)
   c.fillStyle=terrLineColor;
   for(const e of Sc.cells)if((e.base&&!isHexColor(e.base))||(!e.base&&OVER_BG[e.over])){c.fillRect(e.sc*s,e.sr*s,s,1);c.fillRect(e.sc*s,e.sr*s,1,s);}
