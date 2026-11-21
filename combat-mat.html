@@ -114,10 +114,6 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 
 input[type=text] { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#ddd; padding:4px 7px; border-radius:4px; font-family:'EB Garamond',serif; font-size:13px; margin-bottom:6px; outline:none; }
 input[type=text]:focus { border-color:var(--amber); }
-#cls-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:3px; margin-bottom:6px; }
-.clsbtn { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.55); font-size:13px; padding:4px 0; cursor:pointer; text-align:center; transition:background .12s,border-color .12s; }
-.clsbtn:hover { background:rgba(255,255,255,0.09); }
-.clsbtn.active { border-color:var(--amber); background:rgba(200,146,42,0.15); color:var(--amber-lt); }
 .plabel { font-family:'Cinzel',serif; font-size:9px; color:rgba(255,255,255,0.4); letter-spacing:1px; text-transform:uppercase; display:block; margin-bottom:3px; }
 .hpmax-ctrl { display:flex; align-items:center; gap:4px; margin-bottom:6px; }
 .hpmax-btn { background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--amber-lt); font-size:13px; width:26px; height:28px; border-radius:4px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -172,9 +168,9 @@ input[type=text]:focus { border-color:var(--amber); }
 #dice .sec-title { font-size:12px; }
 #dice .plabel { font-size:11px; letter-spacing:.5px; }
 #dbounce { width:100%; accent-color:var(--amber); margin:0 0 6px; cursor:pointer; }
-#scene-select, #dplayer-name { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
-#scene-select:focus, #dplayer-name:focus { border-color:var(--amber); }
-#scene-select option, #dplayer-name option { background:#140e04; color:#ddd; }
+#scene-select, #dplayer-name, #cls-select { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
+#scene-select:focus, #dplayer-name:focus, #cls-select:focus { border-color:var(--amber); }
+#scene-select option, #dplayer-name option, #cls-select option { background:#140e04; color:#ddd; }
 
 /* Login overlay */
 #login-overlay { position:fixed; inset:0; background:rgba(8,6,4,0.98); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
@@ -347,11 +343,8 @@ body:not(.is-master) .master-only { display:none; }
       <span class="sec-title">Nuevo token</span>
       <label class="plabel">Nombre</label>
       <input type="text" id="iname" placeholder="Nombre..." maxlength="18">
-      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px">
-        <label class="plabel" style="margin-bottom:0">Clase</label>
-        <span id="cls-name" style="font-family:'Cinzel',serif;font-size:9px;color:var(--amber-lt);letter-spacing:.5px"></span>
-      </div>
-      <div id="cls-grid"></div>
+      <label class="plabel">Clase</label>
+      <select id="cls-select" onchange="selectedClass=this.value"></select>
       <label class="plabel">HP Máx</label>
       <div class="hpmax-ctrl">
         <button class="hpmax-btn" onclick="adjMaxHp(-5)" style="font-size:10px">-5</button>
@@ -508,7 +501,7 @@ const pickerStates={player:hexToHsv('#4a90e2'),bg:{h:20,s:0.55,v:0.04},line:{h:3
 // palMode = Simple/Completa de cada paleta, preferencia local en localStorage ('palMode').
 let mapTarget='terrain', terrCustom={h:30,s:0.5,v:0.5}, palMode={map:'simple',tok:'simple'};
 let mapPicker=null, tokPicker=null;
-let selectedClass='Bárbaro';
+let selectedClass='Otras';
 // Estado global. ox/oy = offset del viewport en el mapa infinito.
 // terrain = {"col,row": tipo}. order = array de ids para orden del panel izquierdo.
 let S={tokens:[],terrain:{},ox:0,oy:0,selId:null,maxHp:10,activeTerrain:null,selectedColor:'#4a90e2',order:[],turn:null};
@@ -517,14 +510,12 @@ let drag=null, terrainPainting=false, uid=0;
 const grid=document.getElementById('grid');
 const CS=44; // tamaño de celda en px, debe coincidir con --cs en CSS
 
-/* ── Class grid ── */
+/* ── Class select ── */
 function initClassGrid(){
-  document.getElementById('cls-grid').innerHTML=CLASS_LIST.map(c=>
-    `<div class="clsbtn ${c===selectedClass?'active':''}" title="${c}" onclick="pickClass('${c}')">${ICONS[c]}</div>`
-  ).join('');
-  document.getElementById('cls-name').textContent=selectedClass;
+  const sel=document.getElementById('cls-select');
+  sel.innerHTML=CLASS_LIST.map(c=>`<option value="${c}">${ICONS[c]}  ${c}</option>`).join('');
+  sel.value=selectedClass;
 }
-function pickClass(c){selectedClass=c;initClassGrid();}
 
 /* ── Color utils ── */
 function hsvToRgb(h,s,v){const i=Math.floor(h/60)%6,f=h/60-Math.floor(h/60),p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);return[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i].map(x=>Math.round(x*255));}
