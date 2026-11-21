@@ -26,7 +26,11 @@ body.show-map #arrow-svg { display:none; }
 #map-toggle { flex-shrink:0; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:rgba(255,255,255,0.45); border-radius:4px; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.5px; text-transform:uppercase; padding:0 7px; cursor:pointer; }
 #map-toggle:hover { color:rgba(255,255,255,0.75); }
 #map-toggle.on { background:rgba(200,146,42,0.18); border-color:var(--amber); color:var(--amber-lt); }
-.token { position:absolute; width:var(--cs); height:var(--cs); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:grab; user-select:none; z-index:10; }
+.token { position:absolute; width:var(--cs); height:var(--cs); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:grab; user-select:none; z-index:var(--z,10); transform-origin:50% 90%; }
+/* Varias fichas en la misma celda: abanico tipo mano de cartas (layoutStacks). Solo el cuerpo recibe el mouse,
+   así la franja visible de cada ficha de abajo sigue siendo clickeable */
+.token.stacked { pointer-events:none; }
+.token.stacked .tbody { pointer-events:auto; }
 .token:hover { filter:brightness(1.35); z-index:20; }
 .token.selected { z-index:30; }
 .token.dragging { cursor:grabbing; z-index:100; opacity:.85; }
@@ -834,7 +838,8 @@ async function createTok(type){
 
 // Crea el DOM del token si no existe, y actualiza su posición/visibilidad según viewport.
 // Los tokens fuera del viewport se ocultan (display:none) pero NO se eliminan del DOM.
-function renderTok(t){
+function renderTok(t){drawTok(t);layoutStacks();}
+function drawTok(t){
   if(t.type==='player'&&t.sceneId!==activeScene){
     if(t._el)t._el.style.display='none';
     return;
@@ -857,7 +862,29 @@ function renderTok(t){
   t._el.innerHTML=`<div class="tbody" style="${bs}">${ip?ICONS[t.cls]||'?':''}</div>`;
 }
 
-function renderAllToks(){S.tokens.forEach(renderTok);renderRemoteArrows();}
+function renderAllToks(){S.tokens.forEach(drawTok);layoutStacks();renderRemoteArrows();}
+
+// Fichas visibles que comparten celda se abren en abanico (corridas y apenas giradas, como una mano de cartas),
+// en orden de iniciativa: la primera queda abajo a la izquierda. Solo visual, las coordenadas no cambian.
+function layoutStacks(){
+  const cells={};
+  S.tokens.forEach(t=>{
+    if(!t._el||t._el.style.display==='none')return;
+    (cells[t.col+','+t.row]||(cells[t.col+','+t.row]=[])).push(t);
+  });
+  const ord=id=>{const i=S.order.indexOf(id);return i<0?1e6+id:i;};
+  Object.values(cells).forEach(g=>{
+    g.sort((a,b)=>ord(a.id)-ord(b.id));
+    const n=g.length;
+    const step=n>1?Math.min(CS*0.24,CS*0.9/(n-1)):0, ang=n>1?Math.min(8,40/(n-1)):0;
+    g.forEach((t,i)=>{
+      const k=i-(n-1)/2;
+      t._el.style.transform=n>1?`translateX(${k*step}px) rotate(${k*ang}deg)`:'';
+      t._el.style.setProperty('--z',10+Math.min(i,9)); // hover (20) y seleccionada (30) siempre quedan arriba
+      t._el.classList.toggle('stacked',n>1);
+    });
+  });
+}
 
 function selectTok(id){
   if(S.turn===id)return;
@@ -876,6 +903,7 @@ function delTok(id){
   const t=S.tokens.find(t=>t.id===id);if(!t||!canDelete(t))return;
   if(t._el)t._el.remove();
   S.tokens=S.tokens.filter(tk=>tk.id!==id);
+  layoutStacks();
   if(S.turn===id){
     const next=getOrdered()[0]||null;
     db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(next?next.id:null);
@@ -1695,7 +1723,7 @@ function attachSceneListeners(sceneId){
     renderAllToks();renderList();
   });
   sceneRefs.order=db.ref(base+'/order');
-  sceneRefs.order.on('value',snap=>{S.order=snap.val()||[];renderList();});
+  sceneRefs.order.on('value',snap=>{S.order=snap.val()||[];layoutStacks();renderList();});
   sceneRefs.arrows=db.ref(base+'/arrows');
   sceneRefs.arrows.on('value',snap=>{remoteArrows=snap.val()||{};renderRemoteArrows();});
   sceneRefs.turn=db.ref(base+'/turn');
@@ -1829,8 +1857,9 @@ function initFirebase(){
       let t=S.tokens.find(t=>t.id===p.id);
       if(!t){t={...p,_el:null};S.tokens.push(t);}
       else if(!drag||drag.id!==t.id){Object.assign(t,p);}
-      renderTok(t);
+      drawTok(t);
     });
+    layoutStacks();
     renderList();
     updateDiceNameOptions();
     refreshPlayerControls();

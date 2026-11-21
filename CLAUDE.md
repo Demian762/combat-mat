@@ -177,6 +177,7 @@ Tiradas especiales (botones **Porcentaje** y **Todo o Nada**):
 - Tamaño del mat: `--view:880px` en CSS ↔ `VIEW=880` en JS. Tamaño de celda: `CS = VIEW/COLS` según el zoom; `setZoomLevel` actualiza `--cs` — no fijar 44px a mano ni usar `20*var(--cs)` para alturas (usar `--view`).
 - Coordenadas siempre enteras. Nunca almacenar posiciones fraccionarias.
 - Enemigos: fondo `rgba(90,8,8,0.88)`, borde rojizo. Jugadores: círculo con color configurable.
+- Fichas en la misma celda: se abren en abanico tipo mano de cartas (`layoutStacks`: corridas y apenas giradas, en orden de iniciativa), solo visual — `col/row` no cambian. En una pila solo el cuerpo (`.tbody`) recibe el mouse, así cada ficha se puede clickear/arrastrar por su franja visible. Para redibujar una ficha usar `renderTok` (recalcula el abanico); `drawTok` solo dentro de bucles que después llaman `layoutStacks()`.
 
 ---
 
