@@ -87,6 +87,13 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 .litem-cb { width:16px; height:16px; border-radius:50%; border:1.5px solid rgba(200,146,42,0.4); background:rgba(255,255,255,0.04); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s, border-color .15s; flex-shrink:0; }
 .litem-cb:hover { border-color:var(--amber); }
 .litem-cb.on { background:var(--amber); border-color:var(--amber-lt); box-shadow:0 0 6px rgba(200,146,42,0.6); }
+/* Master: dos pelotitas por ficha — la suya (ámbar, clickeable) y la del turno que ven todos (celeste, informativa) */
+.litem-cbs { display:flex; gap:3px; }
+.litem-cbs .litem-cb { width:13px; height:13px; }
+.litem-cb.none { visibility:hidden; }
+.litem-cb.info { cursor:default; border-color:rgba(110,170,230,0.45); }
+.litem-cb.info:hover { border-color:rgba(110,170,230,0.45); }
+.litem-cb.info.on { background:#6aa8e8; border-color:#b8d8ff; box-shadow:0 0 6px rgba(110,170,230,0.7); }
 .litem-body { flex:1; min-width:0; }
 .litem-header { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
 .litem-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
@@ -204,9 +211,9 @@ input[type=text]:focus { border-color:var(--amber); }
 #dice .sec-title { font-size:12px; }
 #dice .plabel { font-size:11px; letter-spacing:.5px; }
 #dbounce { width:100%; accent-color:var(--amber); margin:0 0 6px; cursor:pointer; }
-#scene-select, #dplayer-name, #cls-select, #size-select { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
-#scene-select:focus, #dplayer-name:focus, #cls-select:focus, #size-select:focus { border-color:var(--amber); }
-#scene-select option, #dplayer-name option, #cls-select option, #size-select option { background:#140e04; color:#ddd; }
+#scene-select, #cls-select, #size-select { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
+#scene-select:focus, #cls-select:focus, #size-select:focus { border-color:var(--amber); }
+#scene-select option, #cls-select option, #size-select option { background:#140e04; color:#ddd; }
 
 /* Login overlay */
 #login-overlay { position:fixed; inset:0; background:rgba(8,6,4,0.98); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
@@ -219,7 +226,7 @@ input[type=text]:focus { border-color:var(--amber); }
 
 /* Account */
 #account-email { display:block; font-family:'EB Garamond',serif; font-size:12px; color:rgba(200,160,80,0.75); letter-spacing:.3px; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
-#logout-section.hidden, #dplayer-fixed.hidden, #dplayer-name.hidden { display:none; }
+#logout-section.hidden, #dplayer-fixed.hidden { display:none; }
 body:not(.is-master) .master-only { display:none; }
 
 </style>
@@ -247,10 +254,7 @@ body:not(.is-master) .master-only { display:none; }
   <div id="dice">
     <div class="section">
       <span class="sec-title">Nombre</span>
-      <div id="dplayer-fixed" class="hidden"></div>
-      <select id="dplayer-name" style="margin-bottom:0">
-        <option value="Master">Master</option>
-      </select>
+      <div id="dplayer-fixed"></div>
     </div>
     <div class="section hidden" id="logout-section">
       <span id="account-email"></span>
@@ -847,20 +851,26 @@ function refreshPlayerControls(){
   btn.style.opacity=locked?'0.4':'';
   btn.style.cursor=locked?'not-allowed':'';
   btn.title=locked?'Ya tenés un personaje. Borralo para crear otro.':'';
-  // Jugadores: Nombre fijo = su personaje; sin personaje no pueden tirar
-  const master=isMaster(),mine=myChar();
-  document.getElementById('dplayer-name').classList.toggle('hidden',!master);
+  // Nombre fijo, sin desplegable. Jugador: su personaje (sin personaje no puede tirar).
+  // Master: la ficha que seleccionó (masterSel) o "Master" si no tiene ninguna.
   const fixed=document.getElementById('dplayer-fixed');
-  fixed.classList.toggle('hidden',master);
-  fixed.classList.toggle('empty',!mine);
-  fixed.textContent=mine?mine.name:'Creá un personaje para tirar';
+  if(isMaster()){
+    const t=masterTok();
+    fixed.classList.remove('empty');
+    fixed.textContent=t?t.name:'Master';
+  }else{
+    const mine=myChar();
+    fixed.classList.toggle('empty',!mine);
+    fixed.textContent=mine?mine.name:'Creá un personaje para tirar';
+  }
   document.querySelectorAll('.roll-gate').forEach(b=>b.classList.toggle('roll-locked',!canRoll()));
 }
 const canRoll=()=>isMaster()||!!myChar();
-// Nombre con el que se tira: el master elige del dropdown, el jugador tira siempre como su personaje
+// Ficha con la que se tira: jugador = su personaje; master = su selección (null = tira como "Master")
+const rollerTok=()=>isMaster()?masterTok():myChar();
 function rollerName(){
   if(!isMaster()){const t=myChar();return t?t.name:null;}
-  return document.getElementById('dplayer-name').value.trim()||'Master';
+  const t=masterTok();return t?t.name:'Master';
 }
 async function addTok(type){
   if(type==='enemy'&&!isMaster())return;
@@ -968,18 +978,42 @@ function layoutStacks(){
   });
 }
 
-// Círculo de turno del panel izquierdo: sobre la ficha activa la deselecciona y no queda ninguna (turn = null)
-function toggleTurn(id){
-  if(S.turn!==id){selectTok(id);return;}
+/* Selección / turno.
+   /turn = el turno que ven todos (latido en el mat, pelotita del panel). Los jugadores lo pasan a cualquier ficha.
+   masterSel = la ficha que eligió el master en ESTE cliente (local, se pierde al refrescar): solo enemigos y NPCs
+   (sin owner). Elegirla también pasa el turno a ella, y el master tira como esa ficha. Siempre es === S.turn o null:
+   si el turno se va a otra ficha (lo cambia un jugador, se borra, va al baúl), masterSel se limpia y tira como Master. */
+let masterSel=null;
+const masterTok=()=>masterSel==null?null:S.tokens.find(t=>t.id===masterSel)||null;
+function setMasterSel(id){
+  if(masterSel===id)return;
+  masterSel=id; refreshPlayerControls();
+}
+function clearTurn(){
   S.turn=null; S.selId=null;
   db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(null);
   grid.classList.remove('measuring'); clearArrow();
+}
+// Pelotita del panel: jugador = la del turno; master = la suya. Sobre la ya elegida, deselecciona (turn = null).
+function toggleTurn(id){
+  const cur=isMaster()?masterSel:S.turn;
+  if(cur!==id){selectTok(id);return;}
+  if(isMaster())setMasterSel(null);
+  if(S.turn===id)clearTurn();
   renderAllToks(); renderList();
 }
+// Clic en una ficha del mat, en su pelotita o empezar a arrastrarla.
+// El master no selecciona personajes de jugadores (los puede mover igual).
 function selectTok(id){
-  if(S.turn===id)return;
-  S.turn=id; S.selId=id;
-  db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(id);
+  if(isMaster()){
+    const t=S.tokens.find(x=>x.id===id);
+    if(!t||t.owner||masterSel===id)return;
+    setMasterSel(id);
+  }else if(S.turn===id)return;
+  if(S.turn!==id){
+    S.turn=id; S.selId=id;
+    db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(id);
+  }
   grid.classList.add('measuring');
   renderAllToks(); renderList();
 }
@@ -995,11 +1029,8 @@ function delTok(id){
   S.tokens=S.tokens.filter(tk=>tk.id!==id);
   layoutStacks();
   // Si era la activa no se elige otra: queda sin selección
-  if(S.turn===id){
-    S.turn=null;S.selId=null;
-    db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(null);
-    grid.classList.remove('measuring');clearArrow();
-  }
+  if(masterSel===id)setMasterSel(null);
+  if(S.turn===id)clearTurn();
   if(t.type==='player'){
     db.ref(ROOT+'/players/'+id).remove();
   }else{
@@ -1014,8 +1045,9 @@ function renameTok(id){
   const n=prompt('Nuevo nombre:',t.name);if(!n||!n.trim())return;
   t.name=n.trim().slice(0,18);
   renderTok(t);renderList();
-  if(t.type==='player'){db.ref(ROOT+'/players/'+id).update({name:t.name});updateDiceNameOptions();}
+  if(t.type==='player')db.ref(ROOT+'/players/'+id).update({name:t.name});
   else db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+id).update({name:t.name});
+  refreshPlayerControls(); // el nombre de tirada puede ser esta ficha
 }
 
 /* ── Left panel ── */
@@ -1048,7 +1080,12 @@ function renderLeftPanel(){
     return `<div class="litem ${isTurn?'litem-turn':''}" data-id="${t.id}">
       <div class="litem-left">
         <span class="litem-num">${i+1}</span>
-        <div class="litem-cb ${isTurn?'on':''}" onmousedown="event.stopPropagation()" onclick="toggleTurn(${t.id})"></div>
+        ${isMaster()?`<div class="litem-cbs">
+          ${t.owner?'<div class="litem-cb none"></div>'
+            :`<div class="litem-cb ${masterSel===t.id?'on':''}" title="Tu selección: tirás como esta ficha" onmousedown="event.stopPropagation()" onclick="toggleTurn(${t.id})"></div>`}
+          <div class="litem-cb info ${isTurn?'on':''}" title="Turno actual (lo que ven los jugadores)" onmousedown="event.stopPropagation()"></div>
+        </div>`
+        :`<div class="litem-cb ${isTurn?'on':''}" onmousedown="event.stopPropagation()" onclick="toggleTurn(${t.id})"></div>`}
       </div>
       <div class="litem-body">
         <div class="litem-header">
@@ -1196,7 +1233,7 @@ function startDrag(e,id){
   if(S.activeTerrain)selectTerrain(S.activeTerrain);
   e.preventDefault();e.stopPropagation();
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
-  if(S.turn!==id){S.turn=id;S.selId=id;db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(id);}
+  selectTok(id); // no-op si ya estaba elegida, o si el master agarra el personaje de un jugador
   // dc,dr = casilla de la ficha por la que se la agarró (fichas grandes): se mantiene bajo el cursor al soltar
   const gr=grid.getBoundingClientRect(),z=CS*appZoom,n=tokN(t);
   const dc=clamp(Math.floor((e.clientX-gr.left)/z)-(t.col-S.ox),0,n-1);
@@ -1345,21 +1382,9 @@ grid.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape')clearArrow();
-  if(e.key==='Delete'&&S.selId)delTok(S.selId);
+  const target=isMaster()?masterSel:S.selId;
+  if(e.key==='Delete'&&target!=null)delTok(target);
 });
-
-function updateDiceNameOptions(){
-  const sel=document.getElementById('dplayer-name');if(!sel)return;
-  const prev=sel.value;
-  sel.innerHTML='<option value="Master">Master</option>';
-  const seen=new Set(['Master']);
-  // Solo personajes del master (sin owner): los de los jugadores no se ofrecen
-  S.tokens.filter(t=>t.type==='player'&&!t.owner).forEach(t=>{
-    if(seen.has(t.name))return;seen.add(t.name);
-    const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);
-  });
-  sel.value=Array.from(sel.options).some(o=>o.value===prev)?prev:'Master';
-}
 
 /* ── Dice ── */
 const DSIDES={d4:4,d6:6,d8:8,d10:10,d12:12,d20:20};
@@ -1752,8 +1777,8 @@ function rollDice(){
 // Returns {dieColor, ref}.
 function pushRoll(diceStr,rolls,modifier,total){
   const dPlayerName=rollerName();
-  const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
-  const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
+  const rt=rollerTok();
+  const dieColor=rt&&rt.type==='player'?parseInt(rt.color.replace('#',''),16):null; // enemigos y "Master": colores por defecto
   const ref=db.ref(ROOT+'/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,duration:dDuration,hidden:true});
   pruneList(ROOT+'/rolls');
   return {dieColor,ref};
@@ -1844,6 +1869,7 @@ function attachSceneListeners(sceneId){
   sceneRefs.turn.on('value',snap=>{
     S.turn=snap.val()||null;
     S.selId=S.turn;
+    if(masterSel!=null&&masterSel!==S.turn)setMasterSel(null); // el turno se fue a otra ficha: el master vuelve a tirar como Master
     grid.classList.toggle('measuring',!!S.selId);
     renderAllToks(); renderList();
     if(!S.selId)clearArrow();
@@ -1862,6 +1888,7 @@ function switchScene(id){
   activeScene=id;
   clearEnemies();
   S.terrain={};S.order=[];S.turn=null;S.selId=null;
+  setMasterSel(null);
   grid.classList.remove('measuring');
   clearArrow();remoteArrows={};
   renderTerrain();renderAllToks();renderList();
@@ -1975,7 +2002,6 @@ function initFirebase(){
     });
     layoutStacks();
     renderList();
-    updateDiceNameOptions();
     refreshPlayerControls();
     followMyChar();
   });

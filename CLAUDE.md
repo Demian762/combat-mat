@@ -57,7 +57,8 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | `zoomLevel` | Rueda sobre el mat: 3 niveles sin animación — 1 = 10×10 celdas de 88px, 2 = 20×20 de 44px (default), 3 = 40×40 de 22px. El mat sigue midiendo `VIEW`=880px; cambian `COLS/ROWS` y `CS`, y las fichas escalan con `--cs`. La celda bajo el cursor queda fija. No se guarda |
 | `activeScene` | Cada cliente elige qué escena ver |
 | mapa on/off | Botón **Mapa**: tapa el mat con `mapa.jpg` (clase `show-map` en `body`); los dados siguen visibles encima y las flechas se ocultan. Rueda = zoom hacia el cursor (1× = imagen entera, máx. `MAP_ZMAX`), arrastrar = mover; vista en `mapView`, nunca sale del borde |
-| `selId` | Copia local de `/turn` (la ficha seleccionada); la escribe el listener de `/turn`, no es una selección aparte |
+| `selId` | Copia local de `/turn` (la ficha del turno); la escribe el listener de `/turn`, no es una selección aparte |
+| `masterSel` | Ficha que eligió el master para tirar (ver Selección / turno). Local a su pestaña: al refrescar o cambiar de escena arranca vacía |
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |
 | `pickerStates.player` | Color del picker de nuevo jugador — elección individual, no debe imponerse a otros clientes |
@@ -72,7 +73,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 
 ### Roles y permisos
 - **Master**: la cuenta `MASTER_EMAIL` (hardcodeada en JS). Puede crear personajes sin límite y cambiar de escena libremente.
-- **Jugadores** (resto de `ALLOWED_EMAILS`): pueden crear **un solo personaje a la vez** (`owner` = su uid; el botón "+ Jugador" se deshabilita mientras exista). En el panel de dados, **Nombre** no es un desplegable para ellos: muestra fijo su personaje, y sin personaje no pueden tirar (dados, Porcentaje ni Todo o Nada). Solo el master elige nombre del desplegable, que arranca en **Master** y lista Master y los personajes que creó él (sin `owner`) presentes en la escena, no los de los jugadores. No existe "Anónimo".
+- **Jugadores** (resto de `ALLOWED_EMAILS`): pueden crear **un solo personaje a la vez** (`owner` = su uid; el botón "+ Jugador" se deshabilita mientras exista). En el panel de dados, **Nombre** es fijo (no hay desplegable para nadie): el jugador tira como su personaje, y sin personaje no puede tirar (dados, Porcentaje ni Todo o Nada). El master tira como la ficha que tiene seleccionada (`masterSel`, ver Selección / turno) o como **Master** si no tiene ninguna; el nombre cambia solo. El dado toma el color de la ficha si es jugador/NPC; enemigos y Master usan los colores por defecto. No existe "Anónimo".
 - Si un jugador cambia de escena, **su personaje viaja con él** (se reubica en la celda libre más cercana) y el cambio se registra en `/sala/rolls` como `kind:'scene'` y se muestra en el **Historial** y en `log.html` como "Olbert cambió de escena 1 a 2" (`dice.html` lo ignora: no tiene `rolls`). Solo se registra si el jugador tiene un personaje propio (con `owner`).
 - Un jugador siempre ve la escena donde está su personaje: al cargar, o si su `sceneId` cambia desde otro cliente, su vista lo sigue.
 - **Borrar**: el master borra cualquier ficha; un jugador solo su propio personaje (la ✕ del panel izquierdo y la tecla Supr no aparecen/no actúan sobre las demás).
@@ -85,11 +86,15 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 - Fuera de eso no hay permisos: cualquier cliente puede pintar terreno, cambiar colores de la grilla, etc.
 
 ### Selección / turno
-- La ficha seleccionada **es** el turno: `/scenes/{escena}/turn`, compartido por todos los clientes de esa escena. Se marca con el círculo del panel izquierdo y con el brillo que late en el mat.
-- Seleccionar: clic en la ficha del mat, en su círculo, o empezar a arrastrarla.
+- **Turno** = `/scenes/{escena}/turn`: una sola ficha por escena, compartida por todos. Todos la ven igual: brillo que late en el mat y pelotita del panel izquierdo. Así el turno "avanza" por la lista de Combatientes, sea de un jugador o de un NPC/enemigo.
+- **Jugadores**: seleccionan cualquier ficha (clic en el mat, en su pelotita, o al empezar a arrastrarla) y con eso pasan el turno.
+- **Master**: tiene una selección propia, `masterSel`, **local a su pestaña** (se pierde al refrescar o cambiar de escena). Solo puede elegir fichas sin `owner` (enemigos y NPCs). Elegir una también pasa el turno a ella, así los jugadores la ven marcada, y el master tira los dados como esa ficha. Los personajes de jugadores **no** los selecciona (clic no hace nada), pero sí los puede mover.
+- `masterSel` siempre es igual a `turn` o `null`: si el turno se va a otra ficha (un jugador elige otra, o la ficha se borra o va al baúl), se limpia y el master vuelve a tirar como **Master**. Si un jugador elige un NPC, el turno pasa a ese NPC pero no se vuelve la selección del master.
+- **Panel izquierdo del master**: dos pelotitas por ficha. Ámbar = la suya (clickeable; no aparece en personajes de jugadores). Celeste = el turno actual, solo informativa.
 - **Puede no haber ninguna seleccionada** (`turn = null`), y es un estado normal. Ya no rige la vieja regla de "siempre tiene que haber una".
-- Deseleccionar: clic en el círculo de la ficha activa (`toggleTurn`). Clic en la ficha activa en el mat no la deselecciona.
+- Deseleccionar: clic en la pelotita de la ficha elegida (`toggleTurn`; en el master, la ámbar), que deja `turn = null`. Clic en la ficha ya elegida en el mat no la deselecciona.
 - Nada elige una ficha automáticamente: crear un token no lo selecciona, y borrar la activa o guardarla en el baúl deja `turn = null` (no pasa a la siguiente).
+- Tecla Supr: el jugador borra la ficha del turno si es suya; el master borra su `masterSel` (nunca la que eligió un jugador).
 
 ### Modo prueba
 `combat-mat.html?prueba` (como jugador) o `?prueba=master` (como master) usa `ROOT = 'sala/prueba'` en vez de `sala`: misma estructura, datos aparte, cartel "MODO PRUEBA" arriba. El rol sale de la URL, no del email, y solo dentro de la prueba. Todas las rutas de Firebase en `combat-mat.html` se arman con `ROOT` — no escribir `'sala/...'` literal. `log.html` y `dice.html` siguen leyendo solo `sala/rolls`.
