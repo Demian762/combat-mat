@@ -361,6 +361,18 @@ const db = firebase.database();
 const auth = firebase.auth();
 const CLIENT_ID = Math.random().toString(36).slice(2);
 
+// Modo prueba: ?prueba (como jugador) o ?prueba=master (como master) usa datos aparte en
+// sala/prueba, sin tocar la partida real ni log.html/dice.html (que leen sala/rolls)
+const TEST_MODE = new URLSearchParams(location.search).get('prueba'); // null = partida real
+const ROOT = TEST_MODE === null ? 'sala' : 'sala/prueba';
+if (TEST_MODE !== null) {
+  const tag = document.createElement('div');
+  tag.textContent = 'MODO PRUEBA · ' + (TEST_MODE === 'master' ? 'MASTER' : 'JUGADOR');
+  tag.style.cssText = "position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9999;background:#7a1414;color:#fff;font:600 11px 'Cinzel',serif;letter-spacing:2px;padding:3px 12px;border-radius:0 0 4px 4px;pointer-events:none";
+  document.body.appendChild(tag);
+  document.title = '[PRUEBA] ' + document.title;
+}
+
 // ── Auth ──────────────────────────────────────────────────
 const ALLOWED_EMAILS = [
   'godoydemian@gmail.com',
@@ -387,7 +399,7 @@ function signInWithGoogle() {
 // La cuenta del master puede crear personajes sin límite; el resto, uno a la vez (owner = su uid)
 const MASTER_EMAIL = 'juanalbarracin92@gmail.com';
 let me = null;
-const isMaster = () => !!me && me.email === MASTER_EMAIL;
+const isMaster = () => !!me && (TEST_MODE === null ? me.email === MASTER_EMAIL : TEST_MODE === 'master');
 
 function signOutUser() {
   auth.signOut();
@@ -491,7 +503,7 @@ function drawPicker(){
   applyGridColors();
   clearTimeout(pickerWriteTimer);
   pickerWriteTimer=setTimeout(()=>{
-    db.ref('sala/scenes/'+activeScene+'/pickerStates/'+pickerTarget).set({h:cpH,s:cpS,v:cpV});
+    db.ref(ROOT+'/scenes/'+activeScene+'/pickerStates/'+pickerTarget).set({h:cpH,s:cpS,v:cpV});
   },200);
 }
 function openPicker(target){
@@ -548,10 +560,10 @@ function paintCell(e){
   const key=`${col},${row}`;
   if(S.activeTerrain==='eraser'){
     delete S.terrain[key];
-    db.ref('sala/scenes/'+activeScene+'/terrain/'+key).remove();
+    db.ref(ROOT+'/scenes/'+activeScene+'/terrain/'+key).remove();
   }else{
     S.terrain[key]=S.activeTerrain;
-    db.ref('sala/scenes/'+activeScene+'/terrain/'+key).set(S.activeTerrain);
+    db.ref(ROOT+'/scenes/'+activeScene+'/terrain/'+key).set(S.activeTerrain);
   }
   renderTerrain();
 }
@@ -570,7 +582,7 @@ function renderTerrain(){
 }
 function clearTerrain(){
   S.terrain={};
-  db.ref('sala/scenes/'+activeScene+'/terrain').remove();
+  db.ref(ROOT+'/scenes/'+activeScene+'/terrain').remove();
   renderTerrain();
 }
 
@@ -655,20 +667,20 @@ async function createTok(type){
   const name=uniqueName(base);
   const color=type==='player'?S.selectedColor:'#7a1414';
   const {col,row}=freeCellInView();
-  const uidSnap=await db.ref('sala/uid').transaction(cur=>(cur||0)+1);
+  const uidSnap=await db.ref(ROOT+'/uid').transaction(cur=>(cur||0)+1);
   const newId=uidSnap.snapshot.val();
   const t={id:newId,type,name,cls:type==='player'?selectedClass:null,hp:type==='player'?S.maxHp:null,maxHp:type==='player'?S.maxHp:null,color,col,row};
   if(type==='player'){
     t.sceneId=activeScene;
     if(!isMaster())t.owner=me.uid;
-    db.ref('sala/players/'+newId).set(t);
+    db.ref(ROOT+'/players/'+newId).set(t);
   }else{
-    db.ref('sala/scenes/'+activeScene+'/enemies/'+newId).set(t);
+    db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+newId).set(t);
   }
   document.getElementById('iname').value='';
   const newOrder=[...new Set([...getOrdered().map(tk=>tk.id),newId])];
-  db.ref('sala/scenes/'+activeScene+'/order').set(newOrder);
-  if(!S.turn)db.ref('sala/scenes/'+activeScene+'/turn').set(newId);
+  db.ref(ROOT+'/scenes/'+activeScene+'/order').set(newOrder);
+  if(!S.turn)db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(newId);
 }
 
 // Crea el DOM del token si no existe, y actualiza su posición/visibilidad según viewport.
@@ -701,7 +713,7 @@ function renderAllToks(){S.tokens.forEach(renderTok);renderRemoteArrows();}
 function selectTok(id){
   if(S.turn===id)return;
   S.turn=id; S.selId=id;
-  db.ref('sala/scenes/'+activeScene+'/turn').set(id);
+  db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(id);
   grid.classList.add('measuring');
   renderAllToks(); renderList();
 }
@@ -709,7 +721,7 @@ function adjHP(id,d){
   const t=S.tokens.find(t=>t.id===id);if(!t)return;
   t.hp=clamp(t.hp+d,0,t.maxHp);
   renderTok(t);renderList();
-  db.ref('sala/players/'+id).update({hp:t.hp});
+  db.ref(ROOT+'/players/'+id).update({hp:t.hp});
 }
 function delTok(id){
   const t=S.tokens.find(t=>t.id===id);if(!t||!canDelete(t))return;
@@ -717,16 +729,16 @@ function delTok(id){
   S.tokens=S.tokens.filter(tk=>tk.id!==id);
   if(S.turn===id){
     const next=getOrdered()[0]||null;
-    db.ref('sala/scenes/'+activeScene+'/turn').set(next?next.id:null);
+    db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(next?next.id:null);
     if(!next){S.selId=null;grid.classList.remove('measuring');clearArrow();}
   }
   if(t.type==='player'){
-    db.ref('sala/players/'+id).remove();
+    db.ref(ROOT+'/players/'+id).remove();
   }else{
-    db.ref('sala/scenes/'+activeScene+'/enemies/'+id).remove();
+    db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+id).remove();
   }
   const newOrder=S.order.filter(i=>i!==id);
-  db.ref('sala/scenes/'+activeScene+'/order').set(newOrder.length?newOrder:null);
+  db.ref(ROOT+'/scenes/'+activeScene+'/order').set(newOrder.length?newOrder:null);
   renderList();
 }
 function renameTok(id){
@@ -734,18 +746,18 @@ function renameTok(id){
   const n=prompt('Nuevo nombre:',t.name);if(!n||!n.trim())return;
   t.name=n.trim().slice(0,18);
   renderTok(t);renderList();
-  if(t.type==='player'){db.ref('sala/players/'+id).update({name:t.name});updateDiceNameOptions();}
-  else db.ref('sala/scenes/'+activeScene+'/enemies/'+id).update({name:t.name});
+  if(t.type==='player'){db.ref(ROOT+'/players/'+id).update({name:t.name});updateDiceNameOptions();}
+  else db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+id).update({name:t.name});
 }
 function clearAll(){
   if(!isMaster())return;
   S.tokens.forEach(t=>{if(t._el)t._el.remove();});
   S.tokens=[];S.selId=null;S.order=[];S.turn=null;
   grid.classList.remove('measuring');clearArrow();
-  db.ref('sala/players').remove();
-  db.ref('sala/scenes/'+activeScene+'/enemies').remove();
-  db.ref('sala/scenes/'+activeScene+'/order').remove();
-  db.ref('sala/scenes/'+activeScene+'/turn').set(null);
+  db.ref(ROOT+'/players').remove();
+  db.ref(ROOT+'/scenes/'+activeScene+'/enemies').remove();
+  db.ref(ROOT+'/scenes/'+activeScene+'/order').remove();
+  db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(null);
   clearTerrain();renderList();
 }
 
@@ -841,15 +853,15 @@ function renderChest(){
 }
 // La escritura es atómica: si Firebase la rechaza (p. ej. reglas sin sala/chest) no se pierde nada
 const chestError=err=>alert('No se pudo mover la ficha ('+err.code+'). Revisá que las reglas de Firebase permitan sala/chest.');
-function delChest(id){if(isMaster())db.ref('sala/chest/'+id).remove();}
+function delChest(id){if(isMaster())db.ref(ROOT+'/chest/'+id).remove();}
 
 // Combatientes → Baúl: sale de la escena activa (y de su orden/turno) en una sola escritura
 function storeInChest(id){
   const t=S.tokens.find(x=>x.id===id);if(!chestable(t))return;
   const {sceneId,...data}=tokToFb(t);
-  const base='sala/scenes/'+activeScene;
-  const upd={['sala/chest/'+id]:data};
-  upd[t.type==='player'?'sala/players/'+id:base+'/enemies/'+id]=null;
+  const base=ROOT+'/scenes/'+activeScene;
+  const upd={[ROOT+'/chest/'+id]:data};
+  upd[t.type==='player'?ROOT+'/players/'+id:base+'/enemies/'+id]=null;
   const rest=getOrdered().filter(x=>x.id!==id);
   upd[base+'/order']=rest.length?rest.map(x=>x.id):null;
   if(S.turn===id)upd[base+'/turn']=rest.length?rest[0].id:null;
@@ -859,9 +871,9 @@ function storeInChest(id){
 function takeFromChest(id,beforeId){
   const c=chest.find(x=>x.id===id);if(!c||!isMaster())return;
   const t={...c,...freeCellInView(c)};
-  const base='sala/scenes/'+activeScene;
-  const upd={['sala/chest/'+id]:null};
-  if(t.type==='player'){t.sceneId=activeScene;upd['sala/players/'+id]=t;}
+  const base=ROOT+'/scenes/'+activeScene;
+  const upd={[ROOT+'/chest/'+id]:null};
+  if(t.type==='player'){t.sceneId=activeScene;upd[ROOT+'/players/'+id]=t;}
   else upd[base+'/enemies/'+id]=t;
   const order=getOrdered().map(x=>x.id);
   const bi=beforeId!=null?order.indexOf(beforeId):-1;
@@ -889,7 +901,7 @@ function startDrag(e,id){
   if(S.activeTerrain)selectTerrain(S.activeTerrain);
   e.preventDefault();e.stopPropagation();
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
-  if(S.turn!==id){S.turn=id;S.selId=id;db.ref('sala/scenes/'+activeScene+'/turn').set(id);}
+  if(S.turn!==id){S.turn=id;S.selId=id;db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(id);}
   drag={id,fbSet:false,lastFbCol:null,lastFbRow:null};
   myArrowRef().onDisconnect().remove();
   t._el.classList.add('dragging');
@@ -938,7 +950,7 @@ document.addEventListener('mouseup',e=>{
       const fi=cur.indexOf(id), ti=cur.indexOf(itemId);
       if(fi!==-1&&ti!==-1){cur.splice(fi,1);cur.splice(ti,0,id);}
       S.order=cur;
-      db.ref('sala/scenes/'+activeScene+'/order').set(S.order);
+      db.ref(ROOT+'/scenes/'+activeScene+'/order').set(S.order);
     }else if(from==='combat'&&zone==='chest')storeInChest(id);
     else if(from==='chest'&&zone==='combat')takeFromChest(id,itemId);
     clearLdragMarks();
@@ -951,8 +963,8 @@ document.addEventListener('mouseup',e=>{
     document.body.classList.remove('tok-dragging');
     if(arrowTarget){
       t.col=arrowTarget.sc+S.ox; t.row=arrowTarget.sr+S.oy;
-      if(t.type==='player')db.ref('sala/players/'+t.id).update({col:t.col,row:t.row});
-      else db.ref('sala/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
+      if(t.type==='player')db.ref(ROOT+'/players/'+t.id).update({col:t.col,row:t.row});
+      else db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
     }
     clearArrow();
     myArrowRef().onDisconnect().cancel();
@@ -971,7 +983,7 @@ let arrowTarget=null; // destino del arrastre LOCAL {sc,sr} en coords de pantall
 let remoteArrows={};  // {clientId: {fromId,toCol,toRow}} de la escena activa
 
 // Cada cliente escribe solo su propia flecha → dos arrastres simultáneos no se borran entre sí.
-function myArrowRef(){return db.ref('sala/scenes/'+activeScene+'/arrows/'+CLIENT_ID);}
+function myArrowRef(){return db.ref(ROOT+'/scenes/'+activeScene+'/arrows/'+CLIENT_ID);}
 
 function clearArrow(){
   arrowLocal.innerHTML='';arrowTarget=null;
@@ -1022,8 +1034,8 @@ grid.addEventListener('dblclick',e=>{
   t.col=arrowTarget.sc+S.ox; t.row=arrowTarget.sr+S.oy;
   clearArrow();
   renderTok(t);
-  if(t.type==='player')db.ref('sala/players/'+t.id).update({col:t.col,row:t.row});
-  else db.ref('sala/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
+  if(t.type==='player')db.ref(ROOT+'/players/'+t.id).update({col:t.col,row:t.row});
+  else db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
 });
 grid.addEventListener('click',e=>{
   if(e.target.closest('.token'))return;
@@ -1440,8 +1452,8 @@ function pushRoll(diceStr,rolls,modifier,total){
   const dPlayerName=rollerName();
   const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
   const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
-  const ref=db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,duration:dDuration,hidden:true});
-  pruneList('sala/rolls');
+  const ref=db.ref(ROOT+'/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,duration:dDuration,hidden:true});
+  pruneList(ROOT+'/rolls');
   return {dieColor,ref};
 }
 // Keeps only the last 20 entries of a push list
@@ -1505,7 +1517,7 @@ function clearEnemies(){
 
 function attachSceneListeners(sceneId){
   Object.values(sceneRefs).forEach(r=>r.off());sceneRefs={};
-  const base='sala/scenes/'+sceneId;
+  const base=ROOT+'/scenes/'+sceneId;
   sceneRefs.terrain=db.ref(base+'/terrain');
   sceneRefs.terrain.on('value',snap=>{S.terrain=snap.val()||{};renderTerrain();});
   sceneRefs.enemies=db.ref(base+'/enemies');
@@ -1564,16 +1576,16 @@ function onSceneSelect(id){
   if(!t||from===id)return;
   moveCharToScene(t,id);
   // Va en sala/rolls (mismas reglas de Firebase que las tiradas); sin `rolls`, nadie anima dados
-  db.ref('sala/rolls').push({kind:'scene',player:t.name,from:sceneNum(from),to:sceneNum(id),timestamp:Date.now(),_cid:CLIENT_ID});
-  pruneList('sala/rolls');
+  db.ref(ROOT+'/rolls').push({kind:'scene',player:t.name,from:sceneNum(from),to:sceneNum(id),timestamp:Date.now(),_cid:CLIENT_ID});
+  pruneList(ROOT+'/rolls');
 }
 
 // sceneId se escribe al instante (el listener de players ya ve al personaje en la escena nueva);
 // la posición se ajusta después, a la celda libre más cercana a la que tenía
 async function moveCharToScene(t,sceneId){
   t.sceneId=sceneId;
-  db.ref('sala/players/'+t.id+'/sceneId').set(sceneId);
-  const snap=await db.ref('sala/scenes/'+sceneId+'/enemies').once('value');
+  db.ref(ROOT+'/players/'+t.id+'/sceneId').set(sceneId);
+  const snap=await db.ref(ROOT+'/scenes/'+sceneId+'/enemies').once('value');
   const taken=new Set(Object.values(snap.val()||{}).map(e=>e.col+','+e.row));
   S.tokens.forEach(o=>{if(o.type==='player'&&o.id!==t.id&&o.sceneId===sceneId)taken.add(o.col+','+o.row);});
   let col=t.col,row=t.row;
@@ -1582,7 +1594,7 @@ async function moveCharToScene(t,sceneId){
       if(!taken.has(c+','+r)){col=c;row=r;break outer;}
     }
   }
-  db.ref('sala/players/'+t.id).update({col,row});
+  db.ref(ROOT+'/players/'+t.id).update({col,row});
 }
 
 // Un jugador siempre ve la escena donde está su personaje (al cargar o si el master lo trae a otra)
@@ -1594,7 +1606,7 @@ function followMyChar(){
 }
 
 function initFirebase(){
-  db.ref('sala/players').on('value',snap=>{
+  db.ref(ROOT+'/players').on('value',snap=>{
     const data=snap.val()||{};
     S.tokens.filter(t=>t.type==='player').forEach(t=>{if(!data[t.id]&&t._el)t._el.remove();});
     S.tokens=S.tokens.filter(t=>t.type!=='player'||!!data[t.id]);
@@ -1617,7 +1629,7 @@ function initFirebase(){
     if(dLog.length>20)dLog.length=20;
     renderDiceLog();
   };
-  const rollsRef=db.ref('sala/rolls').limitToLast(20);
+  const rollsRef=db.ref(ROOT+'/rolls').limitToLast(20);
   rollsRef.on('child_added',snap=>{
     const r=snap.val();
     addToLog(snap.key,r);
@@ -1629,7 +1641,7 @@ function initFirebase(){
   rollsRef.on('child_changed',snap=>addToLog(snap.key,snap.val()));
   attachSceneListeners(activeScene);
   if(isMaster()){
-    db.ref('sala/chest').on('value',snap=>{
+    db.ref(ROOT+'/chest').on('value',snap=>{
       chest=Object.values(snap.val()||{}).sort((a,b)=>a.name.localeCompare(b.name));
       renderChest();
     });

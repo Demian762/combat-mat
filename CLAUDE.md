@@ -75,6 +75,9 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 - **Baúl** (solo master): el panel izquierdo se divide a la mitad, **Combatientes** arriba y **Baúl** abajo, cada uno con su scroll. El master arrastra fichas entre ambos: al guardar, la ficha sale de la escena activa (y de su orden/turno) a `/sala/chest`, invisible para todos; al sacarla, entra en la escena activa (en su celda anterior si está libre y visible) y en el orden donde se soltó. El baúl es global: sirve para pasar enemigos y personajes del master entre escenas. Los personajes de jugadores (con `owner`) no van al baúl. Los jugadores solo ven Combatientes, a altura completa.
 - Fuera de eso no hay permisos: cualquier cliente puede mover cualquier ficha, pintar terreno, ajustar HP, etc.
 
+### Modo prueba
+`combat-mat.html?prueba` (como jugador) o `?prueba=master` (como master) usa `ROOT = 'sala/prueba'` en vez de `sala`: misma estructura, datos aparte, cartel "MODO PRUEBA" arriba. El rol sale de la URL, no del email, y solo dentro de la prueba. Todas las rutas de Firebase en `combat-mat.html` se arman con `ROOT` — no escribir `'sala/...'` literal. `log.html` y `dice.html` siguen leyendo solo `sala/rolls`.
+
 ### Escenas
 - 10 escenas fijas pre-creadas: **"Escena 1"** … **"Escena 10"** (nombres no editables desde UI).
 - Cada escena tiene su propio terreno, enemigos, orden de turno y colores de grilla.
