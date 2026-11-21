@@ -151,7 +151,13 @@ Cada cliente genera un `CLIENT_ID` aleatorio al cargar. Cada escritura a Firebas
 2. Se guardan en Firebase **antes** de iniciar la animación, con `hidden:true`.
 3. La animación 3D local termina mostrando el número ya registrado (easing out).
 4. Los demás clientes (y `dice.html`) reciben la tirada desde Firebase y reproducen la misma animación con esos resultados.
-5. Al asentarse los dados, el cliente que tiró borra `hidden` y el valor aparece en resultado, historial y `log.html`.
+5. Al asentarse los dados, el cliente que tiró borra `hidden` y el valor aparece en resultado, historial y `log.html`. Si cierra la pestaña antes, un `onDisconnect` borra `hidden` igual.
+
+`timestamp` es `ServerValue.TIMESTAMP` (hora del servidor). Para saber qué tiradas son nuevas y hay que animar, `combat-mat` y `dice.html` no comparan relojes: ignoran las que llegan antes del primer evento `value` y las de clave push ≤ la última vista al cargar.
+
+Las texturas de los dados se cachean por número+color (`dNumTex`/`dCoinTex`) y al desaparecer cada dado se libera su geometría y materiales (`dDisposeMesh`): no crear texturas sueltas por dado.
+
+Todo texto que venga de Firebase y vaya a `innerHTML` pasa por `esc()`.
 
 ### Rebote por persona
 Deslizador **Rebote** en el panel de dados: elige la **duración exacta** de la tirada, 1.5–100 s en escala logarítmica (default 6 s). Se guarda en `localStorage` y se escribe en la tirada (`duration`), así los demás clientes y `dice.html` animan lo mismo; tiradas sin `duration` usan el default.

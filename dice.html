@@ -35,7 +35,6 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const PAGE_LOAD_TS = Date.now();
 
 /* ── Dice (misma lógica 3D que combat-mat.html) ── */
 const DSIDES={d4:4,d6:6,d8:8,d10:10,d12:12,d20:20};
@@ -58,6 +57,13 @@ function makeNumTex(num,baseColor){
   ctx.fillText(String(num),128,128);
   return new THREE.CanvasTexture(c);
 }
+// Texturas cacheadas por número+color (y caras de la moneda): se reusan entre tiradas y no se liberan nunca,
+// así la memoria de GPU queda acotada aunque el overlay quede abierto horas
+const _dTex={};
+const dNumTex=(num,col)=>_dTex[num+'|'+col]||(_dTex[num+'|'+col]=makeNumTex(num,col));
+const dCoinTex=face=>_dTex['coin|'+face]||(_dTex['coin|'+face]=makeCoinTex(face));
+// Saca un dado de la escena liberando geometría y materiales (las texturas son del caché)
+function dDisposeMesh(mesh){dScene.remove(mesh);mesh.geometry.dispose();[].concat(mesh.material).forEach(m=>m.dispose());}
 
 function setupFaceGroups(geom,numFaces,triPerFace){
   geom.clearGroups();
@@ -142,7 +148,7 @@ function initDiceScene(){
         }
         m.fadeAlpha=Math.max(0,1-(a-m.fadeAt)/.75);
         m.mesh.traverse(c=>{if(c.isMesh)[].concat(c.material).forEach(mat=>mat.opacity=m.fadeAlpha);});
-        if(m.fadeAlpha<=0){dScene.remove(m.mesh);m.dead=true;anyDead=true;}
+        if(m.fadeAlpha<=0){dDisposeMesh(m.mesh);m.dead=true;anyDead=true;}
       }
     });
     if(anyDead)dMeshes=dMeshes.filter(m=>!m.dead);
@@ -204,8 +210,8 @@ function makeCoinMesh(result){
   const mats=[
     new THREE.MeshPhongMaterial({color:0xc8961e,...gold}),
     // Faces matte: a specular highlight would wash out the symbol when the coin faces the camera
-    new THREE.MeshLambertMaterial({map:makeCoinTex(result==='Nada'?'Nada':'Todo')}),
-    new THREE.MeshLambertMaterial({map:makeCoinTex(other)}),
+    new THREE.MeshLambertMaterial({map:dCoinTex(result==='Nada'?'Nada':'Todo')}),
+    new THREE.MeshLambertMaterial({map:dCoinTex(other)}),
   ];
   const mesh=new THREE.Mesh(geom,mats);
   mesh._faceNormals=[new THREE.Vector3(0,1,0)]; // top cap shows the result
@@ -234,7 +240,7 @@ function dMakeMesh(dt,result,dieColor){
     geom=gmap[dt]();
     faceNormals=setupFaceGroups(geom,nf,tpf);
   }
-  const mats=nums.map(n=>new THREE.MeshLambertMaterial({map:makeNumTex(n,col)}));
+  const mats=nums.map(n=>new THREE.MeshLambertMaterial({map:dNumTex(n,col)}));
   const mesh=new THREE.Mesh(geom,mats);
   mesh._faceNormals=faceNormals;
   return mesh;
@@ -336,15 +342,22 @@ function spawnDiceMeshes(rolls, meshList, dieColor, duration){
   });
 }
 
-/* ── Firebase: solo tiradas nuevas desde que carga el overlay ── */
+/* ── Firebase: solo tiradas nuevas desde que carga el overlay ──
+   Sin depender del reloj de esta máquina: las que ya estaban al cargar llegan antes del evento 'value'
+   (Firebase lo garantiza); las claves push son cronológicas, así que una vieja que reingrese a la
+   ventana tampoco se anima (lastKey = la más nueva vista al cargar). */
+let rollsReady = false, lastKey = '';
 const seenKeys = new Set();
-db.ref('sala/rolls').orderByChild('timestamp').startAt(PAGE_LOAD_TS).on('child_added', snap => {
+const rollsRef = db.ref('sala/rolls').limitToLast(20);
+rollsRef.on('child_added', snap => {
   const r = snap.val();
-  if (!r || seenKeys.has(snap.key)) return;
+  if (!rollsReady) { if (snap.key > lastKey) lastKey = snap.key; return; }
+  if (!r || snap.key <= lastKey || seenKeys.has(snap.key)) return;
   seenKeys.add(snap.key);
   const meshList = Object.entries(r.rolls || {}).flatMap(([dt, arr]) => Array(arr.length).fill(dt));
   spawnDiceMeshes(r.rolls || {}, meshList, r.color ?? null, r.duration);
 });
+rollsRef.once('value', () => { rollsReady = true; });
 
 initDiceScene();
 </script>

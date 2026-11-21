@@ -478,8 +478,10 @@ const MASTER_EMAIL = 'juanalbarracin92@gmail.com';
 let me = null;
 const isMaster = () => !!me && (TEST_MODE === null ? me.email === MASTER_EMAIL : TEST_MODE === 'master');
 
+// Al cerrar sesión Firebase cancela los listeners (las reglas piden auth) y initFirebase no se vuelve a correr:
+// recargar deja todo limpio para la próxima cuenta (incluido el listener del baúl si entra el master)
 function signOutUser() {
-  auth.signOut();
+  auth.signOut().finally(() => location.reload());
 }
 
 let appReady = false;
@@ -509,9 +511,8 @@ function handleAuthUser(user) {
 
 auth.onAuthStateChanged(user => handleAuthUser(user));
 
-// ─────────────────────────────────────────────────────────
-const PAGE_LOAD_TS = Date.now();
-// ─────────────────────────────────────────────────────────
+// Escapa texto que viene de Firebase antes de meterlo en innerHTML (nombres, clases, tiradas)
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // Iconos por clase para mostrar en fichas y panel izquierdo
 const ICONS={'Bárbaro':'⚔','Bardo':'♪','Clérigo':'†','Druida':'✿','Guerrero':'⛊','Monje':'○','Paladín':'✦','Pícaro':'◈','Hechicero':'⬡','Brujo':'◉','Mago':'✧','Explorador':'◎','Artífice':'⚙','Otras':'?'};
@@ -936,7 +937,7 @@ function drawTok(t){
   t._el.classList.toggle('selected',S.selId===t.id);
   const ip=t.type==='player';
   const iconColor=contrastColor(t.color);
-  const bs=ip?`background:${t.color};border-color:${t.color};color:${iconColor};outline:1.5px solid ${iconColor};outline-offset:1px`:'';
+  const bs=ip?`background:${esc(t.color)};border-color:${esc(t.color)};color:${iconColor};outline:1.5px solid ${iconColor};outline-offset:1px`:'';
   // Fase del latido atada al reloj: al redibujar, la animación sigue donde iba en vez de arrancar de cero
   const ad=`animation-delay:-${Date.now()%1200}ms`;
   t._el.innerHTML=`<div class="tbody" style="${bs?bs+';':''}${ad}">${ip?ICONS[t.cls]||'?':''}</div>`;
@@ -1083,9 +1084,9 @@ function renderLeftPanel(){
       </div>
       <div class="litem-body">
         <div class="litem-header">
-          <div class="litem-dot ${ip?'':'enemy'}" style="background:${ip?t.color:'#7a1414'}"></div>
-          <span class="litem-name">${t.name}</span>
-          ${ip?`<span class="litem-cls">${ICONS[t.cls]||''} ${t.cls||''}</span>`:''}
+          <div class="litem-dot ${ip?'':'enemy'}" style="background:${ip?esc(t.color):'#7a1414'}"></div>
+          <span class="litem-name">${esc(t.name)}</span>
+          ${ip?`<span class="litem-cls">${ICONS[t.cls]||''} ${esc(t.cls)}</span>`:''}
           ${canDelete(t)?`<button class="tdel" onclick="event.stopPropagation();delTok(${t.id})">✕</button>`:''}
         </div>
         ${ip&&hpHidden(t)?`<div class="lhp-row">${hpWord(t)}</div>`:ip&&!canEditHp(t)?`<div class="lhp-row">
@@ -1161,12 +1162,12 @@ function renderChest(){
     return `<div class="litem chest-item" data-id="${t.id}">
       <div class="litem-body">
         <div class="litem-header" style="margin-bottom:${ip?3:0}px">
-          <div class="litem-dot ${ip?'':'enemy'}" style="background:${ip?t.color:'#7a1414'}"></div>
-          <span class="litem-name">${t.name}</span>
-          ${ip?`<span class="litem-cls">${ICONS[t.cls]||''} ${t.cls||''}</span>`:''}
+          <div class="litem-dot ${ip?'':'enemy'}" style="background:${ip?esc(t.color):'#7a1414'}"></div>
+          <span class="litem-name">${esc(t.name)}</span>
+          ${ip?`<span class="litem-cls">${ICONS[t.cls]||''} ${esc(t.cls)}</span>`:''}
           <button class="tdel" onclick="event.stopPropagation();delChest(${t.id})">✕</button>
         </div>
-        ${ip?`<div class="chest-hp">HP ${t.hp} / ${t.maxHp}</div>`:''}
+        ${ip?`<div class="chest-hp">HP ${esc(t.hp)} / ${esc(t.maxHp)}</div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -1288,17 +1289,22 @@ document.addEventListener('mouseup',e=>{
     ldragActive=null; renderLeftPanel(); renderChest(); return;
   }
   if(!drag)return;
+  // La ficha pudo desaparecer durante el arrastre (otro cliente la borró o la mandó al baúl):
+  // el cursor y la flecha compartida se limpian igual
+  document.body.classList.remove('tok-dragging');
   const t=S.tokens.find(t=>t.id===drag.id);
-  if(t&&t._el){
+  const alive=!!(t&&t._el);
+  if(alive){
     t._el.classList.remove('dragging');
-    document.body.classList.remove('tok-dragging');
     if(arrowTarget){
       t.col=arrowTarget.sc+S.ox; t.row=arrowTarget.sr+S.oy;
       if(t.type==='player')db.ref(ROOT+'/players/'+t.id).update({col:t.col,row:t.row});
       else db.ref(ROOT+'/scenes/'+activeScene+'/enemies/'+t.id).update({col:t.col,row:t.row});
     }
-    clearArrow();
-    myArrowRef().onDisconnect().cancel();
+  }
+  clearArrow();
+  myArrowRef().onDisconnect().cancel();
+  if(alive){
     if(S.selId)grid.classList.add('measuring');
     renderTok(t);renderList();
   }
@@ -1376,6 +1382,8 @@ grid.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape')clearArrow();
+  // Escribiendo en un campo (p. ej. Nombre de Nuevo token), Supr borra texto, no la ficha
+  if(e.target.closest&&e.target.closest('input:not([type=range]),textarea,[contenteditable]'))return;
   const target=isMaster()?masterSel:S.selId;
   if(e.key==='Delete'&&target!=null)delTok(target);
 });
@@ -1414,7 +1422,7 @@ function clearDice(){
   document.getElementById('dmod-val').textContent='0';
   document.getElementById('droll-result').textContent='';
   updateDiceDisplay();
-  if(dScene){dMeshes.forEach(m=>dScene.remove(m.mesh));dMeshes=[];}
+  if(dScene){dMeshes.forEach(m=>dDisposeMesh(m.mesh));dMeshes=[];}
 }
 function updateDiceDisplay(){
   Object.keys(DSIDES).forEach(dt=>{
@@ -1455,6 +1463,13 @@ function makeNumTex(num,baseColor){
   ctx.fillText(String(num),128,128);
   return new THREE.CanvasTexture(c);
 }
+// Texturas cacheadas por número+color (y caras de la moneda): se reusan entre tiradas y no se liberan nunca,
+// así la memoria de GPU queda acotada aunque la sesión dure horas
+const _dTex={};
+const dNumTex=(num,col)=>_dTex[num+'|'+col]||(_dTex[num+'|'+col]=makeNumTex(num,col));
+const dCoinTex=face=>_dTex['coin|'+face]||(_dTex['coin|'+face]=makeCoinTex(face));
+// Saca un dado de la escena liberando geometría y materiales (las texturas son del caché)
+function dDisposeMesh(mesh){dScene.remove(mesh);mesh.geometry.dispose();[].concat(mesh.material).forEach(m=>m.dispose());}
 
 function setupFaceGroups(geom,numFaces,triPerFace){
   geom.clearGroups();
@@ -1541,7 +1556,7 @@ function initDiceScene(){
         }
         m.fadeAlpha=Math.max(0,1-(a-m.fadeAt)/.75);
         m.mesh.traverse(c=>{if(c.isMesh)[].concat(c.material).forEach(mat=>mat.opacity=m.fadeAlpha);});
-        if(m.fadeAlpha<=0){dScene.remove(m.mesh);m.dead=true;anyDead=true;}
+        if(m.fadeAlpha<=0){dDisposeMesh(m.mesh);m.dead=true;anyDead=true;}
       }
     });
     if(anyDead)dMeshes=dMeshes.filter(m=>!m.dead);
@@ -1603,8 +1618,8 @@ function makeCoinMesh(result){
   const mats=[
     new THREE.MeshPhongMaterial({color:0xc8961e,...gold}),
     // Faces matte: a specular highlight would wash out the symbol when the coin faces the camera
-    new THREE.MeshLambertMaterial({map:makeCoinTex(result==='Nada'?'Nada':'Todo')}),
-    new THREE.MeshLambertMaterial({map:makeCoinTex(other)}),
+    new THREE.MeshLambertMaterial({map:dCoinTex(result==='Nada'?'Nada':'Todo')}),
+    new THREE.MeshLambertMaterial({map:dCoinTex(other)}),
   ];
   const mesh=new THREE.Mesh(geom,mats);
   mesh._faceNormals=[new THREE.Vector3(0,1,0)]; // top cap shows the result
@@ -1633,7 +1648,7 @@ function dMakeMesh(dt,result,dieColor){
     geom=gmap[dt]();
     faceNormals=setupFaceGroups(geom,nf,tpf);
   }
-  const mats=nums.map(n=>new THREE.MeshLambertMaterial({map:makeNumTex(n,col)}));
+  const mats=nums.map(n=>new THREE.MeshLambertMaterial({map:dNumTex(n,col)}));
   const mesh=new THREE.Mesh(geom,mats);
   mesh._faceNormals=faceNormals;
   return mesh;
@@ -1773,7 +1788,9 @@ function pushRoll(diceStr,rolls,modifier,total){
   const dPlayerName=rollerName();
   const rt=rollerTok();
   const dieColor=rt&&rt.type==='player'?parseInt(rt.color.replace('#',''),16):null; // enemigos y "Master": colores por defecto
-  const ref=db.ref(ROOT+'/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,duration:dDuration,hidden:true});
+  const ref=db.ref(ROOT+'/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:firebase.database.ServerValue.TIMESTAMP,_cid:CLIENT_ID,color:dieColor,duration:dDuration,hidden:true});
+  // Si esta pestaña se cierra antes de revelar, el servidor la revela igual (si no, quedaría oculta para siempre)
+  ref.onDisconnect().update({hidden:null});
   pruneList(ROOT+'/rolls');
   return {dieColor,ref};
 }
@@ -1798,6 +1815,7 @@ function rollAnimated(diceStr,rolls,modifier,total){
     if(revealed)return;revealed=true;
     document.getElementById('droll-result').textContent=String(total);
     ref.update({hidden:null});
+    ref.onDisconnect().cancel();
   };
   const meshList=Object.entries(rolls).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
   spawnDiceMeshes(rolls,meshList,dieColor,duration,reveal);
@@ -1815,14 +1833,14 @@ function renderDiceLog(){
   const el=document.getElementById('dlog-list');
   if(!dLog.length){el.innerHTML=`<div style="padding:8px 0;font-family:'Cinzel',serif;font-size:9px;color:rgba(180,110,30,0.5);text-align:center;letter-spacing:1px">SIN TIRADAS</div>`;return;}
   el.innerHTML=dLog.map(e=>{
-    if(e.kind==='scene')return`<div class="dlog-entry dlog-detail-str"><span class="dlog-name">${e.player||'?'}</span> cambió de escena ${e.from} a ${e.to}</div>`;
-    const det=Object.entries(e.rolls||{}).filter(([dt])=>dt!=='coin').map(([dt,arr])=>`${dt}:[${arr.join(',')}]`).join(' ');
+    if(e.kind==='scene')return`<div class="dlog-entry dlog-detail-str"><span class="dlog-name">${esc(e.player||'?')}</span> cambió de escena ${esc(e.from)} a ${esc(e.to)}</div>`;
+    const det=Object.entries(e.rolls||{}).filter(([dt])=>dt!=='coin').map(([dt,arr])=>`${dt}:[${[].concat(arr).join(',')}]`).join(' ');
     return`<div class="dlog-entry">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <span class="dlog-name">${e.player||'?'}</span><span class="dlog-total-val">${e.total}</span>
+        <span class="dlog-name">${esc(e.player||'?')}</span><span class="dlog-total-val">${esc(e.total)}</span>
       </div>
-      <div class="dlog-dice-str">${e.dice}</div>
-      <div class="dlog-detail-str">${det}${e.modifier?` mod:${e.modifier>0?'+':''}${e.modifier}`:''}</div>
+      <div class="dlog-dice-str">${esc(e.dice)}</div>
+      <div class="dlog-detail-str">${esc(det)}${e.modifier?` mod:${e.modifier>0?'+':''}${esc(e.modifier)}`:''}</div>
     </div>`;
   }).join('');
 }
@@ -1954,7 +1972,7 @@ function onSceneSelect(id){
   if(!t||from===id)return;
   moveCharToScene(t,id);
   // Va en sala/rolls (mismas reglas de Firebase que las tiradas); sin `rolls`, nadie anima dados
-  db.ref(ROOT+'/rolls').push({kind:'scene',player:t.name,from:sceneNum(from),to:sceneNum(id),timestamp:Date.now(),_cid:CLIENT_ID});
+  db.ref(ROOT+'/rolls').push({kind:'scene',player:t.name,from:sceneNum(from),to:sceneNum(id),timestamp:firebase.database.ServerValue.TIMESTAMP,_cid:CLIENT_ID});
   pruneList(ROOT+'/rolls');
 }
 
@@ -2007,16 +2025,22 @@ function initFirebase(){
     if(dLog.length>20)dLog.length=20;
     renderDiceLog();
   };
+  // Animar solo tiradas nuevas, sin depender del reloj de cada máquina: las que ya estaban al cargar llegan
+  // antes del evento 'value' (Firebase lo garantiza); las claves push son cronológicas, así que una vieja que
+  // reingrese a la ventana de 20 tampoco se anima (lastKey = la más nueva vista al cargar)
+  let rollsReady=false,lastKey='';
   const rollsRef=db.ref(ROOT+'/rolls').limitToLast(20);
   rollsRef.on('child_added',snap=>{
     const r=snap.val();
     addToLog(snap.key,r);
-    if(r.timestamp>PAGE_LOAD_TS&&r._cid!==CLIENT_ID){
+    if(!rollsReady){if(snap.key>lastKey)lastKey=snap.key;return;}
+    if(snap.key>lastKey&&r._cid!==CLIENT_ID){
       const ml=Object.entries(r.rolls||{}).flatMap(([dt,arr])=>Array(arr.length).fill(dt));
       if(ml.length)spawnDiceMeshes(r.rolls,ml,r.color??null,r.duration);
     }
   });
   rollsRef.on('child_changed',snap=>addToLog(snap.key,snap.val()));
+  rollsRef.once('value',()=>{rollsReady=true;});
   attachSceneListeners(activeScene);
   if(isMaster()){
     db.ref(ROOT+'/chest').on('value',snap=>{

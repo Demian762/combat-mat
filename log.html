@@ -115,6 +115,8 @@ const MAX_VISIBLE = 8;
 const wrap = document.getElementById('log-wrap');
 const entries = [];
 const seenKeys = new Set();
+// Escapa texto que viene de Firebase antes de meterlo en innerHTML
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 
 // Hidden rolls (animation still running on the roller's side) are shown once revealed
 function showRoll(snap) {
@@ -126,7 +128,7 @@ function showRoll(snap) {
   el.className = 'roll-entry';
 
   if (r.kind === 'scene') {
-    el.innerHTML = `<div class="roll-info"><div class="roll-detail"><span class="roll-player">${r.player || '?'}</span> cambió de escena ${r.from} a ${r.to}</div></div>`;
+    el.innerHTML = `<div class="roll-info"><div class="roll-detail"><span class="roll-player">${esc(r.player || '?')}</span> cambió de escena ${esc(r.from)} a ${esc(r.to)}</div></div>`;
     wrap.appendChild(el);
     entries.push({ el });
     if (entries.length > MAX_VISIBLE) removeEntry(entries[0]);
@@ -135,15 +137,15 @@ function showRoll(snap) {
 
   const det = Object.entries(r.rolls || {})
     .filter(([dt]) => dt !== 'coin')
-    .map(([dt, arr]) => `${dt}:[${arr.join(',')}]`).join('  ');
+    .map(([dt, arr]) => `${dt}:[${[].concat(arr).join(',')}]`).join('  ');
   const modStr = r.modifier ? ` mod:${r.modifier > 0 ? '+' : ''}${r.modifier}` : '';
 
   el.innerHTML = `
-    <div class="roll-total">${r.total}</div>
+    <div class="roll-total">${esc(r.total)}</div>
     <div class="roll-info">
-      <div class="roll-player">${r.player || '?'}</div>
-      <div class="roll-dice">${r.dice}</div>
-      <div class="roll-detail">${det}${modStr}</div>
+      <div class="roll-player">${esc(r.player || '?')}</div>
+      <div class="roll-dice">${esc(r.dice)}</div>
+      <div class="roll-detail">${esc(det + modStr)}</div>
     </div>`;
 
   wrap.appendChild(el);
