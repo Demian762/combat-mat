@@ -46,8 +46,10 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
     /{id}             → token completo (enemy o player sin owner, sin sceneId)   // baúl del master: fuera de toda escena
   /uid                → number              // contador global de ids
   /rolls
-    /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, duration, hidden?}
-                      | {kind:'scene', player, from, to, timestamp}   // cambio de escena de un jugador ("Olbert cambió de escena 1 a 2")
+    /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, duration, by, hidden?}
+                      | {kind:'scene', player, from, to, timestamp, by}   // cambio de escena de un jugador ("Olbert cambió de escena 1 a 2")
+                      // by = quién tiró: uid, con prefijo 'master:' si era el master. En el Historial de combat-mat
+                      // cada uno ve sus propias entradas en blanco (isOwnRoll); log.html las muestra todas iguales
 ```
 
 ### Lo que NO va a Firebase (estado cliente-local)

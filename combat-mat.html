@@ -200,6 +200,9 @@ input[type=text]:focus { border-color:var(--amber); }
 .dlog-total-val { font-family:'Cinzel',serif; font-size:18px; color:var(--amber-lt); }
 .dlog-dice-str { font-family:'Cinzel',serif; font-size:10px; color:var(--amber); }
 .dlog-detail-str { font-size:11px; color:rgba(180,110,30,0.75); font-family:'EB Garamond',serif; }
+/* Tiradas propias (isOwnRoll) en blanco; las de los demás siguen en ámbar */
+.dlog-entry.own .dlog-name, .dlog-entry.own .dlog-total-val, .dlog-entry.own .dlog-dice-str { color:#fff; }
+.dlog-entry.own.dlog-detail-str, .dlog-entry.own .dlog-detail-str { color:rgba(255,255,255,0.7); }
 .vd-btn { flex:1; font-family:'Cinzel',serif; font-size:11px; letter-spacing:.5px; padding:7px 2px; border-radius:3px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.2); cursor:default; text-transform:uppercase; transition:all .12s; text-align:center; }
 #btn-vent:not([disabled]) { border-color:rgba(80,180,80,0.6); background:rgba(30,90,30,0.22); color:#90e090; cursor:pointer; }
 #btn-desv:not([disabled]) { border-color:rgba(210,90,70,0.6); background:rgba(110,35,25,0.22); color:#e09078; cursor:pointer; }
@@ -1865,7 +1868,7 @@ function pushRoll(diceStr,rolls,modifier,total){
   const dPlayerName=rollerName();
   const rt=rollerTok();
   const dieColor=rt&&rt.type==='player'?parseInt(rt.color.replace('#',''),16):null; // enemigos y "Master": colores por defecto
-  const ref=db.ref(ROOT+'/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:firebase.database.ServerValue.TIMESTAMP,_cid:CLIENT_ID,color:dieColor,duration:dDuration,hidden:true});
+  const ref=db.ref(ROOT+'/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:firebase.database.ServerValue.TIMESTAMP,_cid:CLIENT_ID,by:myRollTag(),color:dieColor,duration:dDuration,hidden:true});
   // Si esta pestaña se cierra antes de revelar, el servidor la revela igual (si no, quedaría oculta para siempre)
   ref.onDisconnect().update({hidden:null});
   pruneList(ROOT+'/rolls');
@@ -1906,13 +1909,18 @@ function rollPercent(){
 }
 function rollCoin(){if(!canRoll())return;const r=Math.random()<.5?'Todo':'Nada';rollAnimated('Todo o Nada',{coin:[r]},0,r);}
 
+// Quién tiró, para que cada uno vea sus tiradas en blanco en el Historial. Incluye el rol porque en modo prueba
+// la misma cuenta puede ser master en una pestaña y jugador en otra. Entradas viejas sin `by`: se compara la pestaña.
+const myRollTag=()=>me?(isMaster()?'master:':'')+me.uid:null;
+const isOwnRoll=e=>e.by?e.by===myRollTag():e._cid===CLIENT_ID;
 function renderDiceLog(){
   const el=document.getElementById('dlog-list');
   if(!dLog.length){el.innerHTML=`<div style="padding:8px 0;font-family:'Cinzel',serif;font-size:9px;color:rgba(180,110,30,0.5);text-align:center;letter-spacing:1px">SIN TIRADAS</div>`;return;}
   el.innerHTML=dLog.map(e=>{
-    if(e.kind==='scene')return`<div class="dlog-entry dlog-detail-str"><span class="dlog-name">${esc(e.player||'?')}</span> cambió de escena ${esc(e.from)} a ${esc(e.to)}</div>`;
+    const own=isOwnRoll(e)?' own':'';
+    if(e.kind==='scene')return`<div class="dlog-entry dlog-detail-str${own}"><span class="dlog-name">${esc(e.player||'?')}</span> cambió de escena ${esc(e.from)} a ${esc(e.to)}</div>`;
     const det=Object.entries(e.rolls||{}).filter(([dt])=>dt!=='coin').map(([dt,arr])=>`${dt}:[${[].concat(arr).join(',')}]`).join(' ');
-    return`<div class="dlog-entry">
+    return`<div class="dlog-entry${own}">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <span class="dlog-name">${esc(e.player||'?')}</span><span class="dlog-total-val">${esc(e.total)}</span>
       </div>
@@ -2049,7 +2057,7 @@ function onSceneSelect(id){
   if(!t||from===id)return;
   moveCharToScene(t,id);
   // Va en sala/rolls (mismas reglas de Firebase que las tiradas); sin `rolls`, nadie anima dados
-  db.ref(ROOT+'/rolls').push({kind:'scene',player:t.name,from:sceneNum(from),to:sceneNum(id),timestamp:firebase.database.ServerValue.TIMESTAMP,_cid:CLIENT_ID});
+  db.ref(ROOT+'/rolls').push({kind:'scene',player:t.name,from:sceneNum(from),to:sceneNum(id),timestamp:firebase.database.ServerValue.TIMESTAMP,_cid:CLIENT_ID,by:myRollTag()});
   pruneList(ROOT+'/rolls');
 }
 
