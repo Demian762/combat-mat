@@ -12,6 +12,7 @@ Herramientas para sesiones de D&D, hosteadas en GitHub Pages con Firebase Realti
 | `combat-mat.html` | App principal: mat de combate 20×20 + dados 3D integrados |
 | `log.html` | Overlay OBS: log de tiradas en tiempo real, fondo transparente |
 | `dice.html` | Overlay OBS: solo dados 3D animados, fondo transparente |
+| `mapa.jpg` | Mapa del mundo que muestra el botón **Mapa** (junto al desplegable de escenas) en lugar del mat |
 
 Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autocontenido con librerías via CDN.
 
@@ -54,6 +55,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 |---|---|
 | `ox`, `oy` | Cada cliente navega el mapa independientemente |
 | `activeScene` | Cada cliente elige qué escena ver |
+| mapa on/off | Botón **Mapa**: tapa el mat con `mapa.jpg` (clase `show-map` en `body`); los dados siguen visibles encima y las flechas se ocultan |
 | `selId` | Selección local para medir distancias |
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |

@@ -16,6 +16,15 @@ body { background:#141414; overflow:hidden; width:100vw; height:100vh; font-fami
 #grid-wrap { position:relative; flex-shrink:0; }
 #grid { position:relative; display:grid; box-sizing:content-box; grid-template-columns:repeat(20,var(--cs)); grid-template-rows:repeat(20,var(--cs)); width:calc(20*var(--cs)); height:calc(20*var(--cs)); border:2px solid var(--amber); border-left:none; border-right:none; }
 #grid.painting { cursor:crosshair; }
+/* Mapa del mundo: tapa el mat (por debajo de los dados), local por cliente */
+#world-map { position:absolute; top:2px; left:0; width:calc(20*var(--cs)); height:calc(20*var(--cs)); z-index:35; background:#0a0805 url('mapa.jpg') center/contain no-repeat; display:none; }
+body.show-map #world-map { display:block; }
+body.show-map #arrow-svg { display:none; }
+.scene-row { display:flex; gap:4px; align-items:stretch; }
+.scene-row #scene-select { flex:1; min-width:0; }
+#map-toggle { flex-shrink:0; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:rgba(255,255,255,0.45); border-radius:4px; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.5px; text-transform:uppercase; padding:0 7px; cursor:pointer; }
+#map-toggle:hover { color:rgba(255,255,255,0.75); }
+#map-toggle.on { background:rgba(200,146,42,0.18); border-color:var(--amber); color:var(--amber-lt); }
 .token { position:absolute; width:var(--cs); height:var(--cs); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:grab; user-select:none; z-index:10; }
 .token:hover { filter:brightness(1.35); z-index:20; }
 .token.selected { z-index:30; }
@@ -260,6 +269,7 @@ body:not(.is-master) .master-only { display:none; }
   <!-- Grid -->
   <div id="grid-wrap" style="position:relative;flex-shrink:0;">
     <div id="grid"></div>
+    <div id="world-map"></div>
     <canvas id="dice-canvas" width="880" height="880" style="position:absolute;top:2px;left:2px;pointer-events:none;z-index:40;"></canvas>
     <svg id="arrow-svg" style="position:absolute;top:2px;left:2px;pointer-events:none;z-index:50;" width="880" height="880"><defs><filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g id="arrows-remote"></g><g id="arrow-local"></g></svg>
   </div>
@@ -269,6 +279,7 @@ body:not(.is-master) .master-only { display:none; }
 
     <div class="section">
       <span class="sec-title">Escena</span>
+      <div class="scene-row">
       <select id="scene-select" onchange="onSceneSelect(this.value)" style="margin-bottom:0">
         <option value="escena1">Escena 1</option>
         <option value="escena2">Escena 2</option>
@@ -281,6 +292,8 @@ body:not(.is-master) .master-only { display:none; }
         <option value="escena9">Escena 9</option>
         <option value="escena10">Escena 10</option>
       </select>
+      <button id="map-toggle" onclick="toggleWorldMap()" title="Mostrar/ocultar el mapa del mundo">Mapa</button>
+      </div>
     </div>
 
     <div class="section">
@@ -1680,6 +1693,11 @@ function switchScene(id){
 const sceneNum=id=>id.replace('escena','');
 
 // Cambio de escena elegido en el dropdown: el personaje del jugador viaja con él y queda en el historial
+// Mapa del mundo on/off: estado local de cada cliente, no va a Firebase
+function toggleWorldMap(){
+  const on=document.body.classList.toggle('show-map');
+  document.getElementById('map-toggle').classList.toggle('on',on);
+}
 function onSceneSelect(id){
   const from=activeScene;
   switchScene(id);
