@@ -48,6 +48,13 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 #left { width:260px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-right:2px solid var(--amber); display:flex; flex-direction:column; overflow:hidden; height:calc(var(--view) + 4px); }
 /* Combatientes y (solo master) Baúl: mitades iguales, cada lista con su propio scroll */
 .left-half { flex:1 1 0; min-height:0; display:flex; flex-direction:column; }
+/* Divisor arrastrable Combatientes / Baúl de personajes (solo master); la proporción se guarda en localStorage ('leftSplit') */
+#left-split { flex:0 0 7px; cursor:row-resize; display:flex; align-items:center; justify-content:center; border-top:1px solid var(--border); border-bottom:1px solid var(--border); background:rgba(255,255,255,0.02); }
+#left-split::before { content:''; width:36px; height:3px; border-radius:2px; background:rgba(200,146,42,0.45); }
+#left-split:hover, #left-split.dragging { background:rgba(200,146,42,0.15); }
+#left-split:hover::before, #left-split.dragging::before { background:var(--amber-lt); }
+body.split-dragging, body.split-dragging * { cursor:row-resize !important; user-select:none; }
+body.is-master #combat-section { border-bottom:none; }
 #left-list, #chest-list { flex:1; min-height:0; overflow-y:auto; }
 #left-list::-webkit-scrollbar, #chest-list::-webkit-scrollbar { width:3px; }
 #left-list::-webkit-scrollbar-thumb, #chest-list::-webkit-scrollbar-thumb { background:var(--amber-dim); border-radius:2px; }
@@ -274,8 +281,9 @@ body:not(.is-master) .master-only { display:none; }
       <span class="sec-title">Combatientes</span>
       <div id="left-list"></div>
     </div>
+    <div id="left-split" class="master-only" title="Arrastrar para cambiar el tamaño"></div>
     <div class="section left-half master-only" id="chest-section" style="border-bottom:none">
-      <span class="sec-title">Baúl</span>
+      <span class="sec-title">Baúl de personajes</span>
       <div id="chest-list"></div>
     </div>
   </div>
@@ -1033,7 +1041,36 @@ function setupLeftDrag(){
 // Alias para compatibilidad interna
 function renderList(){renderLeftPanel();}
 
-/* ── Baúl (solo master) ──
+/* ── Divisor Combatientes / Baúl de personajes ──
+   leftSplit = fracción del alto para Combatientes (0.15–0.85), preferencia local en localStorage. */
+(()=>{
+  const left=document.getElementById('left'), bar=document.getElementById('left-split');
+  const combat=document.getElementById('combat-section'), chestSec=document.getElementById('chest-section');
+  const apply=r=>{combat.style.flex=`${r} 1 0`;chestSec.style.flex=`${1-r} 1 0`;};
+  let r=0.5;
+  try{const v=parseFloat(localStorage.getItem('leftSplit'));if(v>=0.15&&v<=0.85)r=v;}catch(e){}
+  apply(r);
+  let dragging=false;
+  bar.addEventListener('mousedown',e=>{
+    if(e.button!==0)return;
+    e.preventDefault();dragging=true;
+    bar.classList.add('dragging');document.body.classList.add('split-dragging');
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const rc=left.getBoundingClientRect(); // incluye el zoom de #app; la proporción no depende de él
+    r=clamp((e.clientY-rc.top)/rc.height,0.15,0.85);
+    apply(r);
+  });
+  document.addEventListener('mouseup',()=>{
+    if(!dragging)return;
+    dragging=false;
+    bar.classList.remove('dragging');document.body.classList.remove('split-dragging');
+    try{localStorage.setItem('leftSplit',String(Math.round(r*1000)/1000));}catch(e){}
+  });
+})();
+
+/* ── Baúl de personajes (solo master) ──
    sala/chest/{id} guarda fichas fuera de toda escena: nadie las ve en la grilla.
    Sirve para mover enemigos y personajes del master (sin owner) entre escenas. */
 let chest=[];
