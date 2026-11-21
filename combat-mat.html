@@ -41,9 +41,19 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 /* Ficha = 9/11 de la celda (36px a 44px), escala con el nivel de zoom */
 .tbody { width:calc(var(--cs)*var(--b,1)*9/11); height:calc(var(--cs)*var(--b,1)*9/11); display:flex; align-items:center; justify-content:center; font-size:calc(var(--cs)*var(--b,1)*4/11); position:relative; }
 .token-player .tbody { border-radius:50%; border:2px solid; }
-.token-player.selected .tbody { box-shadow:0 0 0 2px var(--amber-lt),0 0 14px var(--amber); }
+/* Ficha seleccionada: el brillo late (sel-pulse-*) para ubicarla rápido. drawTok fija animation-delay según el reloj
+   para que el latido no se reinicie cada vez que la ficha se vuelve a dibujar. */
+@keyframes sel-pulse-player {
+  0%,100% { box-shadow:0 0 0 2px var(--amber-lt),0 0 6px 1px rgba(200,146,42,0.55); }
+  50%     { box-shadow:0 0 0 3px #fff3c4,0 0 22px 8px rgba(240,192,96,0.95); }
+}
+@keyframes sel-pulse-enemy {
+  0%,100% { box-shadow:0 0 0 2px rgba(255,85,85,0.8),0 0 6px 1px rgba(255,60,60,0.45); }
+  50%     { box-shadow:0 0 0 3px #ffb0b0,0 0 22px 8px rgba(255,60,60,0.95); }
+}
+.token-player.selected .tbody { animation:sel-pulse-player 1.2s ease-in-out infinite; }
 .token-enemy .tbody { border-radius:4px; background:rgba(90,8,8,0.88); border:2px solid rgba(180,40,40,0.75); box-shadow:0 0 10px rgba(180,30,30,0.4); }
-.token-enemy.selected .tbody { border-color:#ff5555; box-shadow:0 0 14px rgba(255,60,60,0.6); }
+.token-enemy.selected .tbody { border-color:#ff5555; animation:sel-pulse-enemy 1.2s ease-in-out infinite; }
 .tcell { position:absolute; width:var(--cs); height:var(--cs); z-index:5; pointer-events:none; }
 
 /* Left panel */
@@ -917,7 +927,9 @@ function drawTok(t){
   const ip=t.type==='player';
   const iconColor=contrastColor(t.color);
   const bs=ip?`background:${t.color};border-color:${t.color};color:${iconColor};outline:1.5px solid ${iconColor};outline-offset:1px`:'';
-  t._el.innerHTML=`<div class="tbody" style="${bs}">${ip?ICONS[t.cls]||'?':''}</div>`;
+  // Fase del latido atada al reloj: al redibujar, la animación sigue donde iba en vez de arrancar de cero
+  const ad=`animation-delay:-${Date.now()%1200}ms`;
+  t._el.innerHTML=`<div class="tbody" style="${bs?bs+';':''}${ad}">${ip?ICONS[t.cls]||'?':''}</div>`;
 }
 
 function renderAllToks(){S.tokens.forEach(drawTok);layoutStacks();renderRemoteArrows();}
