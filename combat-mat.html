@@ -69,7 +69,17 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .section { padding:10px 12px; border-bottom:1px solid var(--border); }
 .section:last-child { border-bottom:none; }
 .sec-title { font-family:'Cinzel',serif; font-size:10px; color:var(--amber-lt); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; display:block; }
-#terrain-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
+.sw-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
+.sw-grid.tok .terr-sw { height:22px; }
+.brush-custom { grid-column:span 4; }
+.pal-head { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+.pal-head .sec-title, .pal-head .plabel { margin-bottom:0; }
+.pal-mode { display:flex; margin-left:auto; border:1px solid var(--border); border-radius:3px; overflow:hidden; }
+.pal-mode span { font-family:'Cinzel',serif; font-size:7px; letter-spacing:.5px; text-transform:uppercase; padding:3px 5px; color:rgba(255,255,255,0.4); cursor:pointer; }
+.pal-mode span:hover { color:rgba(255,255,255,0.7); }
+.pal-mode span.active { background:rgba(200,146,42,0.18); color:var(--amber-lt); }
+.pick-sq, .pick-hue { display:block; cursor:crosshair; border-radius:3px; }
+.pick-sq { margin-bottom:5px; }
 .terr-sw { height:28px; border-radius:3px; cursor:pointer; border:2px solid transparent; transition:border-color .12s,transform .1s; }
 .terr-sw:hover { border-color:rgba(255,255,255,0.35); transform:scale(1.06); }
 .terr-sw.active { border-color:#fff; box-shadow:0 0 6px rgba(255,255,255,0.25); }
@@ -270,23 +280,27 @@ body:not(.is-master) .master-only { display:none; }
     </div>
 
     <div class="section">
-      <span class="sec-title">Terreno</span>
-      <div id="terrain-grid">
-        <div class="tbtn-erase" id="tbtn-eraser" onclick="selectTerrain('eraser')" title="Borrar">✕</div>
-        <div class="terr-sw" id="tbtn-wall"  onclick="selectTerrain('wall')"  title="Pared"   style="background:#161412"></div>
-        <div class="terr-sw" id="tbtn-stone" onclick="selectTerrain('stone')" title="Piedra"  style="background:#64646e"></div>
-        <div class="terr-sw" id="tbtn-door"  onclick="selectTerrain('door')"  title="Puerta"  style="background:#5a300c"></div>
-        <div class="terr-sw" id="tbtn-fence" onclick="selectTerrain('fence')" title="Cerca"   style="background:#b48c3c"></div>
-        <div class="terr-sw" id="tbtn-tree"  onclick="selectTerrain('tree')"  title="Árbol"   style="background:#10340e"></div>
-        <div class="terr-sw" id="tbtn-grass" onclick="selectTerrain('grass')" title="Hierba"  style="background:#3a6e22"></div>
-        <div class="terr-sw" id="tbtn-water" onclick="selectTerrain('water')" title="Agua"    style="background:#123aa0"></div>
-        <div class="terr-sw" id="tbtn-ice"   onclick="selectTerrain('ice')"   title="Hielo"   style="background:#78c8dc"></div>
-        <div class="terr-sw" id="tbtn-fire"  onclick="selectTerrain('fire')"  title="Fuego"   style="background:#be3c08"></div>
-        <div class="terr-sw" id="tbtn-lava"  onclick="selectTerrain('lava')"  title="Lava"    style="background:#c81400"></div>
-        <div class="terr-sw" id="tbtn-trap"  onclick="selectTerrain('trap')"  title="Trampa"  style="background:#640606"></div>
-        <div class="terr-sw" id="tbtn-sand"  onclick="selectTerrain('sand')"  title="Arena"   style="background:#bea564"></div>
-        <div class="terr-sw" id="tbtn-snow"  onclick="selectTerrain('snow')"  title="Nieve"   style="background:#eef2f8"></div>
-        <div class="terr-sw" id="tbtn-metal" onclick="selectTerrain('metal')" title="Metal"   style="background:#7a8490"></div>
+      <div class="pal-head">
+        <span class="sec-title">Mapa</span>
+        <div class="pal-mode" id="mode-map">
+          <span data-m="simple" onclick="setPalMode('map','simple')">Simple</span><span data-m="full" onclick="setPalMode('map','full')">Completa</span>
+        </div>
+      </div>
+      <div class="ctrow" id="map-targets" style="margin-bottom:6px">
+        <div class="ctbtn" id="ctbtn-terrain" onclick="setMapTarget('terrain')"><div class="cprev" id="cprev-terrain"></div><span>Terreno</span></div>
+        <div class="ctbtn" id="ctbtn-bg"      onclick="setMapTarget('bg')">     <div class="cprev" id="cprev-bg"></div>     <span>Fondo</span></div>
+        <div class="ctbtn" id="ctbtn-line"    onclick="setMapTarget('line')">   <div class="cprev" id="cprev-line"></div>   <span>Líneas</span></div>
+      </div>
+      <!-- Simple: colores de terreno fijos (en Fondo/Líneas, los mismos colores se aplican a la grilla) -->
+      <div id="map-simple" class="sw-grid"></div>
+      <!-- Completa: selector HSV (en Terreno, pinta con cualquier color) -->
+      <div id="map-full">
+        <div class="sw-grid" id="map-brush" style="margin-bottom:5px">
+          <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar">✕</div>
+          <div class="terr-sw brush-custom" id="brush-custom" onclick="selectTerrain(hsvToHex(terrCustom.h,terrCustom.s,terrCustom.v))" title="Pintar con este color"></div>
+        </div>
+        <canvas id="map-sq"  class="pick-sq"  width="192" height="100"></canvas>
+        <canvas id="map-hue" class="pick-hue" width="192" height="12"></canvas>
       </div>
       <div id="pan-grid">
         <div></div>
@@ -318,19 +332,20 @@ body:not(.is-master) .master-only { display:none; }
         <button class="hpmax-btn" onclick="adjMaxHp(1)">+</button>
         <button class="hpmax-btn" onclick="adjMaxHp(5)" style="font-size:10px">+5</button>
       </div>
+      <div class="pal-head" style="margin-bottom:4px">
+        <label class="plabel">Color</label>
+        <div class="cprev" id="cprev-player"></div>
+        <div class="pal-mode" id="mode-tok">
+          <span data-m="simple" onclick="setPalMode('tok','simple')">Simple</span><span data-m="full" onclick="setPalMode('tok','full')">Completa</span>
+        </div>
+      </div>
+      <div id="tok-simple" class="sw-grid tok" style="margin-bottom:8px"></div>
+      <div id="tok-full" style="margin-bottom:8px">
+        <canvas id="tok-sq"  class="pick-sq"  width="192" height="80"></canvas>
+        <canvas id="tok-hue" class="pick-hue" width="192" height="12"></canvas>
+      </div>
       <button class="btn bp" id="btn-add-player" onclick="addTok('player')">+ Jugador</button>
       <button class="btn be master-only" onclick="addTok('enemy')">+ Enemigo</button>
-    </div>
-
-    <div class="section">
-      <span class="sec-title">Colores</span>
-      <div class="ctrow" style="margin-bottom:6px">
-        <div class="ctbtn" id="ctbtn-player" onclick="openPicker('player')"><div class="cprev" id="cprev-player"></div><span>Jugador</span></div>
-        <div class="ctbtn" id="ctbtn-bg"     onclick="openPicker('bg')">    <div class="cprev" id="cprev-bg"></div>    <span>Fondo</span></div>
-        <div class="ctbtn" id="ctbtn-line"   onclick="openPicker('line')">  <div class="cprev" id="cprev-line"></div>  <span>Líneas</span></div>
-      </div>
-      <canvas id="cpick-sq"  width="196" height="120" style="display:block;cursor:crosshair;border-radius:3px;margin-bottom:5px"></canvas>
-      <canvas id="cpick-hue" width="196" height="12"  style="display:block;cursor:crosshair;border-radius:3px"></canvas>
     </div>
 
     <div class="section">
@@ -439,21 +454,30 @@ const PAGE_LOAD_TS = Date.now();
 // Iconos por clase para mostrar en fichas y panel izquierdo
 const ICONS={'Bárbaro':'⚔','Bardo':'♪','Clérigo':'†','Druida':'✿','Guerrero':'⛊','Monje':'○','Paladín':'✦','Pícaro':'◈','Hechicero':'⬡','Brujo':'◉','Mago':'✧','Explorador':'◎','Artífice':'⚙','Otras':'?'};
 const CLASS_LIST=['Bárbaro','Bardo','Clérigo','Druida','Guerrero','Monje','Paladín','Pícaro','Hechicero','Brujo','Mago','Explorador','Artífice','Otras'];
+// Terrenos con nombre: name = tooltip, sw = color de la muestra en la paleta, bg = color en el mat.
+// En /terrain también puede guardarse un hex '#rrggbb' (pintado con la paleta Completa).
 const TERRAIN={
-  wall:{bg:'rgba(22,20,18,0.92)'},stone:{bg:'rgba(100,100,110,0.82)'},door:{bg:'rgba(90,48,12,0.88)'},
-  fence:{bg:'rgba(180,140,60,0.78)'},tree:{bg:'rgba(16,52,14,0.90)'},grass:{bg:'rgba(58,110,34,0.72)'},
-  water:{bg:'rgba(18,58,160,0.78)'},ice:{bg:'rgba(120,200,220,0.72)'},
-  fire:{bg:'rgba(190,60,8,0.82)'},lava:{bg:'rgba(200,20,0,0.88)'},trap:{bg:'rgba(100,6,6,0.86)'},sand:{bg:'rgba(190,165,100,0.72)'},
-  snow:{bg:'rgba(230,238,248,0.88)'},metal:{bg:'rgba(100,112,126,0.88)'},
+  wall:{name:'Pared',sw:'#161412',bg:'rgba(22,20,18,0.92)'},stone:{name:'Piedra',sw:'#64646e',bg:'rgba(100,100,110,0.82)'},door:{name:'Puerta',sw:'#5a300c',bg:'rgba(90,48,12,0.88)'},
+  fence:{name:'Cerca',sw:'#b48c3c',bg:'rgba(180,140,60,0.78)'},tree:{name:'Árbol',sw:'#10340e',bg:'rgba(16,52,14,0.90)'},grass:{name:'Hierba',sw:'#3a6e22',bg:'rgba(58,110,34,0.72)'},
+  water:{name:'Agua',sw:'#123aa0',bg:'rgba(18,58,160,0.78)'},ice:{name:'Hielo',sw:'#78c8dc',bg:'rgba(120,200,220,0.72)'},
+  fire:{name:'Fuego',sw:'#be3c08',bg:'rgba(190,60,8,0.82)'},lava:{name:'Lava',sw:'#c81400',bg:'rgba(200,20,0,0.88)'},trap:{name:'Trampa',sw:'#640606',bg:'rgba(100,6,6,0.86)'},sand:{name:'Arena',sw:'#bea564',bg:'rgba(190,165,100,0.72)'},
+  snow:{name:'Nieve',sw:'#eef2f8',bg:'rgba(230,238,248,0.88)'},metal:{name:'Metal',sw:'#7a8490',bg:'rgba(100,112,126,0.88)'},
 };
+const isHexColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
+// Paleta simple de personajes: colores vivos y claros
+const TOK_COLORS=[['Rojo','#e53935'],['Naranja','#fb8c00'],['Amarillo','#fdd835'],['Lima','#9ccc65'],['Verde','#43a047'],
+  ['Celeste','#4fc3f7'],['Azul','#4a90e2'],['Violeta','#9c5bd6'],['Rosa','#f06292'],['Blanco','#f5f5f5']];
 // Viewport fijo 20x20 celdas. Para cambiar tamaño, modificar COLS/ROWS y el CSS --cs
 const COLS=20, ROWS=20;
 // Dimensiones naturales de #app (usadas para escalar al tamaño de ventana)
 const APP_W=1572, APP_H=884;
 let appZoom=1;
 // Estado HSV de cada picker de color. 'player' = color activo para nuevos jugadores, local por cliente (no sincroniza)
-const pickerStates={player:{h:211,s:0.59,v:0.89},bg:{h:20,s:0.55,v:0.04},line:{h:35,s:0.65,v:0.72}};
-let pickerTarget=null, cpH=211, cpS=0.59, cpV=0.89;
+const pickerStates={player:hexToHsv('#4a90e2'),bg:{h:20,s:0.55,v:0.04},line:{h:35,s:0.65,v:0.72}};
+// mapTarget = qué pinta la paleta de arriba (terrain|bg|line). terrCustom = color del pincel de terreno en modo Completa.
+// palMode = Simple/Completa de cada paleta, preferencia local en localStorage ('palMode').
+let mapTarget='terrain', terrCustom={h:30,s:0.5,v:0.5}, palMode={map:'simple',tok:'simple'};
+let mapPicker=null, tokPicker=null;
 let selectedClass='Bárbaro';
 // Estado global. ox/oy = offset del viewport en el mapa infinito.
 // terrain = {"col,row": tipo}. order = array de ids para orden del panel izquierdo.
@@ -476,56 +500,111 @@ function pickClass(c){selectedClass=c;initClassGrid();}
 function hsvToRgb(h,s,v){const i=Math.floor(h/60)%6,f=h/60-Math.floor(h/60),p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);return[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i].map(x=>Math.round(x*255));}
 function rgbToHex(r,g,b){return'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function hsvToHex(h,s,v){return rgbToHex(...hsvToRgb(h,s,v));}
+function hexToHsv(hex){
+  const n=parseInt(hex.slice(1),16),r=(n>>16&255)/255,g=(n>>8&255)/255,b=(n&255)/255;
+  const mx=Math.max(r,g,b),d=mx-Math.min(r,g,b);
+  let h=0;
+  if(d){h=mx===r?((g-b)/d+6)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;}
+  return{h,s:mx?d/mx:0,v:mx};
+}
+const hsvHex=p=>hsvToHex(p.h,p.s,p.v);
+function hexToRgba(hex,a){const n=parseInt(hex.slice(1),16);return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
 
-/* ── Color picker ── */
-let pickerWriteTimer=null;
-function drawPicker(){
-  const sq=document.getElementById('cpick-sq'),hc=document.getElementById('cpick-hue');
-  if(!sq||!hc)return;
-  const W=sq.width,H=sq.height,ctx=sq.getContext('2d');
-  const[r,g,b]=hsvToRgb(cpH,1,1);
-  ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fillRect(0,0,W,H);
-  const wg=ctx.createLinearGradient(0,0,W,0);wg.addColorStop(0,'rgba(255,255,255,1)');wg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=wg;ctx.fillRect(0,0,W,H);
-  const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(1,'rgba(0,0,0,1)');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-  const cx=cpS*W,cy=(1-cpV)*H;
-  ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
-  ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=1;ctx.stroke();
-  const hctx=hc.getContext('2d'),hg=hctx.createLinearGradient(0,0,hc.width,0);
-  for(let i=0;i<=360;i+=30)hg.addColorStop(i/360,`hsl(${i},100%,50%)`);
-  hctx.fillStyle=hg;hctx.fillRect(0,0,hc.width,hc.height);
-  const hx=cpH/360*hc.width;
-  hctx.beginPath();hctx.arc(hx,hc.height/2,5,0,Math.PI*2);hctx.strokeStyle='#fff';hctx.lineWidth=2;hctx.stroke();
-  if(!pickerTarget)return;
-  pickerStates[pickerTarget]={h:cpH,s:cpS,v:cpV};
-  const hex=hsvToHex(cpH,cpS,cpV);
-  document.getElementById('cprev-'+pickerTarget).style.background=hex;
-  if(pickerTarget==='player'){S.selectedColor=hex;return;}
-  applyGridColors();
-  clearTimeout(pickerWriteTimer);
-  pickerWriteTimer=setTimeout(()=>{
-    db.ref(ROOT+'/scenes/'+activeScene+'/pickerStates/'+pickerTarget).set({h:cpH,s:cpS,v:cpV});
-  },200);
-}
-function openPicker(target){
-  pickerTarget=target;
-  const ps=pickerStates[target];cpH=ps.h;cpS=ps.s;cpV=ps.v;
-  document.querySelectorAll('.ctbtn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('ctbtn-'+target).classList.add('active');
-  drawPicker();
-}
-function setupPicker(){
-  const sq=document.getElementById('cpick-sq'),hc=document.getElementById('cpick-hue');
+/* ── Selector HSV (cuadrado saturación/brillo + barra de tono) ── */
+// Una instancia por paleta. onPick(hsv) se llama cuando el usuario lo mueve; set(hsv) lo posiciona sin avisar.
+function makeHsvPicker(sqId,hueId,onPick){
+  const sq=document.getElementById(sqId),hc=document.getElementById(hueId);
+  const p={h:0,s:0,v:0};
+  function draw(){
+    const W=sq.width,H=sq.height,ctx=sq.getContext('2d');
+    const[r,g,b]=hsvToRgb(p.h,1,1);
+    ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fillRect(0,0,W,H);
+    const wg=ctx.createLinearGradient(0,0,W,0);wg.addColorStop(0,'rgba(255,255,255,1)');wg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=wg;ctx.fillRect(0,0,W,H);
+    const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(1,'rgba(0,0,0,1)');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+    const cx=p.s*W,cy=(1-p.v)*H;
+    ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=1;ctx.stroke();
+    const hctx=hc.getContext('2d'),hg=hctx.createLinearGradient(0,0,hc.width,0);
+    for(let i=0;i<=360;i+=30)hg.addColorStop(i/360,`hsl(${i},100%,50%)`);
+    hctx.fillStyle=hg;hctx.fillRect(0,0,hc.width,hc.height);
+    hctx.beginPath();hctx.arc(p.h/360*hc.width,hc.height/2,5,0,Math.PI*2);hctx.strokeStyle='#fff';hctx.lineWidth=2;hctx.stroke();
+  }
+  // getBoundingClientRect ya incluye el zoom de #app; se normaliza a 0..1
+  function onSq(e){const r=sq.getBoundingClientRect();p.s=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));p.v=Math.max(0,Math.min(1,1-(e.clientY-r.top)/r.height));draw();onPick({...p});}
+  function onH(e){const r=hc.getBoundingClientRect();p.h=Math.max(0,Math.min(359,(e.clientX-r.left)/r.width*360));draw();onPick({...p});}
   let sqD=false,hD=false;
-  function onSq(e){const r=sq.getBoundingClientRect();cpS=Math.max(0,Math.min(1,(e.clientX-r.left)/sq.width));cpV=Math.max(0,Math.min(1,1-(e.clientY-r.top)/sq.height));drawPicker();}
-  function onH(e){const r=hc.getBoundingClientRect();cpH=Math.max(0,Math.min(359,(e.clientX-r.left)/hc.width*360));drawPicker();}
   sq.addEventListener('mousedown',e=>{sqD=true;onSq(e);e.stopPropagation();});
   hc.addEventListener('mousedown',e=>{hD=true;onH(e);e.stopPropagation();});
   document.addEventListener('mousemove',e=>{if(sqD)onSq(e);if(hD)onH(e);});
   document.addEventListener('mouseup',()=>{sqD=false;hD=false;});
-  Object.keys(pickerStates).forEach(k=>{document.getElementById('cprev-'+k).style.background=hsvToHex(pickerStates[k].h,pickerStates[k].s,pickerStates[k].v);});
-  S.selectedColor=hsvToHex(pickerStates.player.h,pickerStates.player.s,pickerStates.player.v);
+  return{set(hsv){p.h=hsv.h;p.s=hsv.s;p.v=hsv.v;draw();}};
+}
+
+/* ── Paletas: Mapa (terreno/fondo/líneas) arriba, Personaje abajo ── */
+function setPalMode(pal,mode){
+  palMode[pal]=mode;
+  try{localStorage.setItem('palMode',JSON.stringify(palMode));}catch(e){}
+  document.querySelectorAll('#mode-'+pal+' span').forEach(s=>s.classList.toggle('active',s.dataset.m===mode));
+  document.getElementById(pal+'-simple').style.display=mode==='simple'?'':'none';
+  document.getElementById(pal+'-full').style.display=mode==='full'?'':'none';
+  if(pal==='map'){if(mode==='full')mapPicker.set(mapTarget==='terrain'?terrCustom:pickerStates[mapTarget]);renderMapSwatches();}
+  else{if(mode==='full')tokPicker.set(pickerStates.player);renderTokSwatches();}
+}
+function setMapTarget(t){
+  mapTarget=t;
+  document.querySelectorAll('#map-targets .ctbtn').forEach(b=>b.classList.toggle('active',b.id==='ctbtn-'+t));
+  if(t!=='terrain'&&S.activeTerrain)selectTerrain(S.activeTerrain); // apaga el pincel al pasar a Fondo/Líneas
+  if(palMode.map==='full')mapPicker.set(t==='terrain'?terrCustom:pickerStates[t]);
+  renderMapSwatches();
+}
+// Simple: en Terreno, ✕ + terrenos con nombre; en Fondo/Líneas, los mismos colores aplicados a la grilla
+function renderMapSwatches(){
+  const box=document.getElementById('map-simple');
+  if(mapTarget==='terrain'){
+    box.innerHTML=`<div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar">✕</div>`+
+      Object.entries(TERRAIN).map(([k,t])=>`<div class="terr-sw" data-terr="${k}" onclick="selectTerrain('${k}')" title="${t.name}" style="background:${t.sw}"></div>`).join('');
+  }else{
+    const cur=hsvHex(pickerStates[mapTarget]);
+    box.innerHTML=Object.values(TERRAIN).map(t=>`<div class="terr-sw${t.sw===cur?' active':''}" onclick="setGridColor('${mapTarget}',hexToHsv('${t.sw}'))" title="${t.name}" style="background:${t.sw}"></div>`).join('');
+  }
+  updateTerrainUI();
+}
+function renderTokSwatches(){
+  const cur=S.selectedColor;
+  document.getElementById('tok-simple').innerHTML=TOK_COLORS.map(([n,c])=>
+    `<div class="terr-sw${c===cur?' active':''}" onclick="setTokColor(hexToHsv('${c}'),true)" title="${n}" style="background:${c}"></div>`).join('');
+}
+// Color de la grilla (fondo o líneas) de la escena activa: se aplica al instante y se escribe en Firebase con debounce
+const gridWriteTimers={};
+function setGridColor(t,hsv,fromPicker){
+  pickerStates[t]=hsv;
+  document.getElementById('cprev-'+t).style.background=hsvHex(hsv);
   applyGridColors();
-  openPicker('player');
+  if(!fromPicker){if(palMode.map==='full'&&mapTarget===t)mapPicker.set(hsv);renderMapSwatches();}
+  clearTimeout(gridWriteTimers[t]);
+  gridWriteTimers[t]=setTimeout(()=>{db.ref(ROOT+'/scenes/'+activeScene+'/pickerStates/'+t).set(hsv);},200);
+}
+// Color del próximo personaje (local por cliente)
+function setTokColor(hsv,fromSwatch){
+  pickerStates.player=hsv;
+  S.selectedColor=hsvHex(hsv);
+  document.getElementById('cprev-player').style.background=S.selectedColor;
+  if(fromSwatch&&palMode.tok==='full')tokPicker.set(hsv);
+  renderTokSwatches();
+}
+function setupPalettes(){
+  try{const m=JSON.parse(localStorage.getItem('palMode')||'null');if(m){if(m.map==='full')palMode.map='full';if(m.tok==='full')palMode.tok='full';}}catch(e){}
+  mapPicker=makeHsvPicker('map-sq','map-hue',hsv=>{
+    if(mapTarget==='terrain'){terrCustom=hsv;S.activeTerrain=hsvHex(hsv);updateTerrainUI();}
+    else setGridColor(mapTarget,hsv,true);
+  });
+  tokPicker=makeHsvPicker('tok-sq','tok-hue',hsv=>setTokColor(hsv,false));
+  ['bg','line'].forEach(k=>{document.getElementById('cprev-'+k).style.background=hsvHex(pickerStates[k]);});
+  setTokColor(pickerStates.player,false);
+  applyGridColors();
+  setMapTarget('terrain');
+  setPalMode('map',palMode.map);
+  setPalMode('tok',palMode.tok);
 }
 function applyGridColors(){
   const{h:bh,s:bs,v:bv}=pickerStates.bg,{h:lh,s:ls,v:lv}=pickerStates.line;
@@ -543,11 +622,21 @@ function pan(dx,dy){
 }
 
 /* ── Terrain ── */
+// type = nombre de TERRAIN, 'eraser' o un hex '#rrggbb'. Volver a elegir el mismo apaga el pincel.
 function selectTerrain(type){
   S.activeTerrain=S.activeTerrain===type?null:type;
-  document.querySelectorAll('.tbtn-erase,.terr-sw').forEach(el=>el.classList.remove('active'));
-  if(S.activeTerrain)document.getElementById('tbtn-'+S.activeTerrain)?.classList.add('active');
-  grid.classList.toggle('painting',!!S.activeTerrain);
+  updateTerrainUI();
+}
+function updateTerrainUI(){
+  const a=S.activeTerrain;
+  document.querySelectorAll('[data-terr]').forEach(el=>el.classList.toggle('active',el.dataset.terr===a));
+  const custom=hsvHex(terrCustom);
+  const bc=document.getElementById('brush-custom');
+  bc.style.background=custom;
+  bc.classList.toggle('active',isHexColor(a));
+  document.getElementById('cprev-terrain').style.background=
+    !a||a==='eraser'?'transparent':isHexColor(a)?a:TERRAIN[a]?.sw||'transparent';
+  grid.classList.toggle('painting',!!a);
 }
 // Convierte coordenadas de mouse a celda absoluta (col+ox, row+oy) y pinta/borra terreno
 function paintCell(e){
@@ -571,12 +660,12 @@ function paintCell(e){
 function renderTerrain(){
   document.querySelectorAll('.tcell').forEach(el=>el.remove());
   Object.entries(S.terrain).forEach(([key,type])=>{
-    const t=TERRAIN[type];if(!t)return;
+    const bg=TERRAIN[type]?.bg||(isHexColor(type)?hexToRgba(type,0.85):null);if(!bg)return;
     const[ac,ar]=key.split(',').map(Number);
     const sc=ac-S.ox, sr=ar-S.oy;
     if(sc<0||sc>=COLS||sr<0||sr>=ROWS)return;
     const el=document.createElement('div');el.className='tcell';
-    el.style.cssText=`left:${sc*CS}px;top:${sr*CS}px;background:${t.bg}`;
+    el.style.cssText=`left:${sc*CS}px;top:${sr*CS}px;background:${bg}`;
     grid.appendChild(el);
   });
 }
@@ -1561,7 +1650,7 @@ function attachSceneListeners(sceneId){
     if(v.bg){pickerStates.bg=v.bg;document.getElementById('cprev-bg').style.background=hsvToHex(v.bg.h,v.bg.s,v.bg.v);}
     if(v.line){pickerStates.line=v.line;document.getElementById('cprev-line').style.background=hsvToHex(v.line.h,v.line.s,v.line.v);}
     applyGridColors();
-    if(pickerTarget==='bg'||pickerTarget==='line'){const ps=pickerStates[pickerTarget];cpH=ps.h;cpS=ps.s;cpV=ps.v;drawPicker();}
+    if(mapTarget!=='terrain'){if(palMode.map==='full')mapPicker.set(pickerStates[mapTarget]);renderMapSwatches();}
   });
 }
 
@@ -1655,7 +1744,7 @@ function initFirebase(){
       renderChest();
     });
   }
-  setupPicker();
+  setupPalettes();
   initClassGrid();
   initGrid();
   initDiceRows();

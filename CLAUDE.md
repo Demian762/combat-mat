@@ -31,7 +31,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 /sala
   /scenes
     /escena1
-      /terrain        → {"col,row": terrainType}
+      /terrain        → {"col,row": terrainType | "#rrggbb"}   // tipo con nombre (paleta Simple) o color libre (paleta Completa)
       /enemies        → {id: {id, name, col, row}}
       /order          → [id, id, ...]        // orden de iniciativa
       /turn           → id | null
@@ -59,6 +59,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | `drag` | Estado de arrastre en curso |
 | `pickerStates.player` | Color del picker de nuevo jugador — elección individual, no debe imponerse a otros clientes |
 | `maxHp` | HP Máx para el próximo token — cada persona arranca en **10** al cargar (antes `/sala/maxHp`, ya no se usa) |
+| `palMode` | Simple/Completa de cada paleta del panel derecho — preferencia de cada persona, en `localStorage` (`palMode`) |
 | `dDuration` | Duración de la tirada en segundos (barra "Rebote") — preferencia de cada persona, en `localStorage` (`diceDuration`); viaja en cada tirada como `duration` |
 
 ---
@@ -86,6 +87,11 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 - El **color picker de fondo y líneas** (`pickerStates.bg` y `pickerStates.line`) es **por escena**.
 - El **color de nuevo jugador** (`pickerStates.player`) es **estado local por cliente**, no se sincroniza vía Firebase — cada jugador elige su propio color independientemente.
 - Cambiar de escena es **independiente por cliente** — cada uno elige qué escena ver via dropdown. No hay "escena activa global".
+
+### Paletas del panel derecho
+Dos paletas separadas, cada una con modo **Simple** (muestras fijas) y **Completa** (selector HSV):
+- **Mapa** (arriba): destino Terreno / Fondo / Líneas. Simple = los 14 terrenos de `TERRAIN` (+ ✕ borrar en Terreno; en Fondo/Líneas esos mismos colores se aplican a la grilla). Completa en Terreno = pincel de color libre (se guarda el hex en `/terrain`) + ✕.
+- **Color** del nuevo personaje (dentro de Nuevo token): Simple = 10 colores vivos (`TOK_COLORS`), sin borrar. Completa = selector HSV.
 
 ### Movimiento de jugadores entre escenas
 - Los tokens `type:'player'` tienen un campo `sceneId` que indica en qué escena están físicamente.
