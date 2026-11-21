@@ -45,8 +45,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
   /maxHp              → number              // valor por defecto nuevos tokens
   /rolls
     /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, duration, hidden?}
-  /events
-    /{pushId}         → {kind:'scene', player, scene, from, timestamp, color}   // cambios de escena de jugadores; últimas 20
+                      | {kind:'scene', player, from, to, timestamp}   // cambio de escena de un jugador ("Olbert cambió de escena 1 a 2")
 ```
 
 ### Lo que NO va a Firebase (estado cliente-local)
@@ -67,7 +66,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 ### Roles y permisos
 - **Master**: la cuenta `MASTER_EMAIL` (hardcodeada en JS). Puede crear personajes sin límite y cambiar de escena libremente.
 - **Jugadores** (resto de `ALLOWED_EMAILS`): pueden crear **un solo personaje a la vez** (`owner` = su uid; el botón "+ Jugador" se deshabilita mientras exista). En el panel de dados, **Nombre** no es un desplegable para ellos: muestra fijo su personaje, y sin personaje no pueden tirar (dados, Porcentaje ni Todo o Nada). Solo el master elige nombre del desplegable, que lista Anónimo, Master y los personajes que creó él (sin `owner`), no los de los jugadores.
-- Si un jugador cambia de escena, **su personaje viaja con él** (se reubica en la celda libre más cercana) y el cambio se registra en `/sala/events`, que se muestra en el **Historial** junto con las tiradas (no aparece en `log.html` ni `dice.html`).
+- Si un jugador cambia de escena, **su personaje viaja con él** (se reubica en la celda libre más cercana) y el cambio se registra en `/sala/rolls` como `kind:'scene'` y se muestra en el **Historial** y en `log.html` como "Olbert cambió de escena 1 a 2" (`dice.html` lo ignora: no tiene `rolls`). Solo se registra si el jugador tiene un personaje propio (con `owner`).
 - Un jugador siempre ve la escena donde está su personaje: al cargar, o si el master lo mueve con "Traer personajes acá", su vista lo sigue.
 - Fuera de eso no hay permisos: cualquier cliente puede mover cualquier ficha, pintar terreno, ajustar HP, etc.
 

@@ -1385,11 +1385,7 @@ function renderDiceLog(){
   const el=document.getElementById('dlog-list');
   if(!dLog.length){el.innerHTML=`<div style="padding:8px 0;font-family:'Cinzel',serif;font-size:9px;color:rgba(180,110,30,0.5);text-align:center;letter-spacing:1px">SIN TIRADAS</div>`;return;}
   el.innerHTML=dLog.map(e=>{
-    if(e.kind==='scene')return`<div class="dlog-entry">
-      <span class="dlog-name">${e.player||'?'}</span>
-      <div class="dlog-dice-str">→ ${e.scene}</div>
-      ${e.from?`<div class="dlog-detail-str">desde ${e.from}</div>`:''}
-    </div>`;
+    if(e.kind==='scene')return`<div class="dlog-entry dlog-detail-str"><span class="dlog-name">${e.player||'?'}</span> cambió de escena ${e.from} a ${e.to}</div>`;
     const det=Object.entries(e.rolls||{}).filter(([dt])=>dt!=='coin').map(([dt,arr])=>`${dt}:[${arr.join(',')}]`).join(' ');
     return`<div class="dlog-entry">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
@@ -1461,7 +1457,7 @@ function switchScene(id){
   attachSceneListeners(id);
 }
 
-const sceneName=id=>{const o=document.querySelector(`#scene-select option[value="${id}"]`);return o?o.textContent:id;};
+const sceneNum=id=>id.replace('escena','');
 
 // Cambio de escena elegido en el dropdown: el personaje del jugador viaja con él y queda en el historial
 function onSceneSelect(id){
@@ -1470,8 +1466,9 @@ function onSceneSelect(id){
   const t=myChar();
   if(!t||from===id)return;
   moveCharToScene(t,id);
-  db.ref('sala/events').push({kind:'scene',player:t.name,scene:sceneName(id),from:sceneName(from),timestamp:Date.now(),color:t.color});
-  pruneList('sala/events');
+  // Va en sala/rolls (mismas reglas de Firebase que las tiradas); sin `rolls`, nadie anima dados
+  db.ref('sala/rolls').push({kind:'scene',player:t.name,from:sceneNum(from),to:sceneNum(id),timestamp:Date.now(),_cid:CLIENT_ID});
+  pruneList('sala/rolls');
 }
 
 // sceneId se escribe al instante (el listener de players ya ve al personaje en la escena nueva);
@@ -1549,8 +1546,6 @@ function initFirebase(){
     }
   });
   rollsRef.on('child_changed',snap=>addToLog(snap.key,snap.val()));
-  // Cambios de escena de los jugadores: mismo historial, lista aparte para no tocar log.html ni dice.html
-  db.ref('sala/events').limitToLast(20).on('child_added',snap=>addToLog(snap.key,snap.val()));
   attachSceneListeners(activeScene);
   setupPicker();
   initClassGrid();

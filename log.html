@@ -125,6 +125,14 @@ function showRoll(snap) {
   const el = document.createElement('div');
   el.className = 'roll-entry';
 
+  if (r.kind === 'scene') {
+    el.innerHTML = `<div class="roll-info"><div class="roll-detail"><span class="roll-player">${r.player || '?'}</span> cambió de escena ${r.from} a ${r.to}</div></div>`;
+    wrap.appendChild(el);
+    entries.push({ el });
+    if (entries.length > MAX_VISIBLE) removeEntry(entries[0]);
+    return;
+  }
+
   const det = Object.entries(r.rolls || {})
     .filter(([dt]) => dt !== 'coin')
     .map(([dt, arr]) => `${dt}:[${arr.join(',')}]`).join('  ');
