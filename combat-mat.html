@@ -103,7 +103,9 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 /* Pan controls */
 /* Dos mitades iguales: botones de terreno a la izquierda, flechas a la derecha, cada uno centrado en la suya */
 #map-tools { display:grid; grid-template-columns:1fr 1fr; align-items:center; justify-items:center; margin-top:8px; }
-#terr-tools { display:flex; flex-direction:column; gap:4px; width:36px; }
+#terr-tools { display:flex; flex-direction:column; gap:6px; width:50px; }
+#terr-tools > .terr-sw, #terr-tools > .tbtn-erase { height:34px; }
+#terr-tools > .tbtn-erase { font-size:15px; }
 #terr-tools > .off { visibility:hidden; pointer-events:none; }
 #pan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:3px; width:90px; }
 .pan-btn { height:28px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); border-radius:4px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .12s; }
