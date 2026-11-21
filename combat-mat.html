@@ -123,13 +123,13 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 .sw-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
 .sw-grid.tok .terr-sw { height:22px; }
 /* El panel derecho está medido para la vista del master (la más alta) sin espacio sobrante ni scroll: el selector
-   Completa del Mapa mide 130+5+12 = 147px y Prefabricado ocupa lo mismo: pestañas (~23px) + 4 filas de 28px (hasta 24
-   terrenos por sección). Fondo/Líneas, sin pestañas, entra igual. Si se agrega algo al panel, achicar #map-sq. */
+   Completa del Mapa mide 130+5+12 = 147px y Prefabricado no lo pasa: pestañas en 2×2 (~48px) + 3 filas de 28px (hasta
+   18 terrenos por sección). Fondo/Líneas, sin pestañas, usa hasta 4 filas. Si se agrega algo al panel, achicar #map-sq. */
 #map-swatches { grid-template-columns:repeat(6,1fr); }
 #map-swatches .terr-sw { height:28px; }
-#terr-cats { display:flex; gap:3px; margin-bottom:5px; }
+#terr-cats { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:6px; }
 #terr-cats.off { display:none; }
-#terr-cats span { flex:1 1 auto; text-align:center; font-family:'Cinzel',serif; font-size:7px; letter-spacing:.3px; text-transform:uppercase; padding:3px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.45); cursor:pointer; white-space:nowrap; }
+#terr-cats span { text-align:center; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.8px; text-transform:uppercase; padding:4px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.5); cursor:pointer; white-space:nowrap; }
 #terr-cats span:hover { color:rgba(255,255,255,0.75); }
 #terr-cats span.active { background:rgba(200,146,42,0.18); color:var(--amber-lt); border-color:var(--amber); }
 .pal-head { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
@@ -562,7 +562,7 @@ const TERRAIN={
   chair:{name:'Silla',sw:'#5c361a'},table:{name:'Mesa',sw:'#5a3418'},
 };
 // Secciones de la paleta Prefabricado (orden de las pestañas y de las muestras). Todo terreno de TERRAIN va en una.
-// Hasta 24 por sección (6×4) para que la paleta no crezca.
+// Hasta 18 por sección (6×3) para que la paleta no crezca.
 const TERR_CATS=[
   ['nature','Naturaleza',['grass','sand','dirt','snow','mud','straw','tree','void','fire','ice']],
   ['fluid','Fluidos',['water','lava','acid','blood','cloud']],
