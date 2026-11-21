@@ -205,6 +205,15 @@ input[type=text]:focus { border-color:var(--amber); }
 #btn-desv:not([disabled]) { border-color:rgba(210,90,70,0.6); background:rgba(110,35,25,0.22); color:#e09078; cursor:pointer; }
 .vd-btn:not([disabled]):hover { filter:brightness(1.25); }
 #btn-vent.active, #btn-desv.active { border-color:var(--amber-lt); background:rgba(200,146,42,0.18); color:var(--amber-lt); box-shadow:0 0 8px rgba(200,146,42,0.35); }
+/* Efecto con Ventaja/Desventaja activa: brillitos que suben (Ventaja) y gotitas rojas que caen (Desventaja). Partículas en initAdvFx */
+#btn-vent, #btn-desv { position:relative; }
+.vd-fx { position:absolute; inset:0; pointer-events:none; display:none; }
+.vd-btn.active .vd-fx { display:block; }
+.vd-spark { position:absolute; bottom:3px; font-size:8px; line-height:1; color:#fff3c4; text-shadow:0 0 3px #f0c060,0 0 6px rgba(240,192,96,0.8); opacity:0; animation:vd-rise 1.8s ease-out infinite; }
+@keyframes vd-rise { 0%{transform:translateY(0) scale(.3) rotate(0deg);opacity:0} 20%{opacity:1} 100%{transform:translateY(-22px) scale(1) rotate(90deg);opacity:0} }
+.vd-drop { position:absolute; top:4px; width:4px; height:4px; border-radius:0 50% 50% 50%; background:radial-gradient(circle at 60% 60%,#ff6a5a 0,#c01414 55%,#6a0606 100%); box-shadow:0 0 3px rgba(200,20,20,0.6); opacity:0; animation:vd-fall 1.6s ease-in infinite; }
+@keyframes vd-fall { 0%{transform:translateY(0) rotate(45deg) scale(.4);opacity:0} 15%{opacity:1} 80%{opacity:.9} 100%{transform:translateY(22px) rotate(45deg) scale(1);opacity:0} }
+@media (prefers-reduced-motion:reduce) { .vd-fx { display:none !important; } }
 #dice .sec-title { font-size:12px; }
 #dice .plabel { font-size:11px; letter-spacing:.5px; }
 #dbounce { width:100%; accent-color:var(--amber); margin:0 0 6px; cursor:pointer; }
@@ -1496,6 +1505,24 @@ function setAdvMode(type){
   dAdvMode=dAdvMode===type?null:type;
   updateDiceDisplay();
 }
+// Partículas de Ventaja (brillitos que suben) y Desventaja (gotitas que caen); el CSS solo las muestra con .active
+(function initAdvFx(){
+  const mk=(btnId,cls,n,html)=>{
+    const fx=document.createElement('span');fx.className='vd-fx';
+    for(let i=0;i<n;i++){
+      const p=document.createElement('span');p.className=cls;p.innerHTML=html;
+      const dur=1.3+Math.random()*0.9;
+      p.style.left=(6+i*(88/(n-1))+(Math.random()*6-3))+'%';
+      p.style.animationDuration=dur.toFixed(2)+'s';
+      p.style.animationDelay=(-Math.random()*dur).toFixed(2)+'s'; // negativo: arrancan desfasadas, sin esperar
+      if(cls==='vd-spark')p.style.fontSize=(6+Math.random()*5).toFixed(1)+'px';
+      fx.appendChild(p);
+    }
+    document.getElementById(btnId).appendChild(fx);
+  };
+  mk('btn-vent','vd-spark',7,'✦');
+  mk('btn-desv','vd-drop',6,'');
+})();
 
 const DCAM_DIR=new THREE.Vector3(0,18,14).normalize();
 
