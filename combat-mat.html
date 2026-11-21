@@ -67,7 +67,10 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 #left-split:hover::before, #left-split.dragging::before { background:var(--amber-lt); }
 body:not(.is-master) #left-split { display:none; } /* el id le gana a .master-only: ocultarlo explícitamente */
 body.split-dragging, body.split-dragging * { cursor:row-resize !important; user-select:none; }
-body.is-master #combat-section { border-bottom:none; }
+#combat-section { border-bottom:none; }
+/* La proporción (--split en #left) solo aplica al master; los jugadores tienen Combatientes a altura completa */
+body.is-master #combat-section { flex:var(--split,0.5) 1 0; }
+body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 #left-list, #chest-list { flex:1; min-height:0; overflow-y:auto; }
 #left-list::-webkit-scrollbar, #chest-list::-webkit-scrollbar { width:3px; }
 #left-list::-webkit-scrollbar-thumb, #chest-list::-webkit-scrollbar-thumb { background:var(--amber-dim); border-radius:2px; }
@@ -1089,8 +1092,7 @@ function renderList(){renderLeftPanel();}
    leftSplit = fracción del alto para Combatientes (0.15–0.85), preferencia local en localStorage. */
 (()=>{
   const left=document.getElementById('left'), bar=document.getElementById('left-split');
-  const combat=document.getElementById('combat-section'), chestSec=document.getElementById('chest-section');
-  const apply=r=>{combat.style.flex=`${r} 1 0`;chestSec.style.flex=`${1-r} 1 0`;};
+  const apply=r=>left.style.setProperty('--split',r); // el CSS lo usa solo con body.is-master
   let r=0.5;
   try{const v=parseFloat(localStorage.getItem('leftSplit'));if(v>=0.15&&v<=0.85)r=v;}catch(e){}
   apply(r);
