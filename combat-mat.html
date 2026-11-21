@@ -778,7 +778,7 @@ function getOrdered(){
 const hpHidden=t=>!isMaster()&&t.type==='player'&&!t.owner;
 function hpWord(t){
   const pct=t.maxHp?t.hp/t.maxHp*100:0;
-  const [w,c]=pct>=90?['Entero','#f0c060']:pct>50?['Golpeado','#c8922a']:pct>=20?['Herido','#e2884a']:['En las últimas','#e24a4a'];
+  const [w,c]=pct>=90?['Entero','#f0c060']:pct>50?['Golpeado','#c8922a']:pct>=20?['Herido','#e2884a']:t.hp>0?['En las últimas','#e24a4a']:['Caído','#8c8c8c'];
   return `<span class="lhp-word" style="color:${c}">${w}</span>`;
 }
 function renderLeftPanel(){
