@@ -578,12 +578,14 @@ const TERRAIN={
   acid:{name:'Ácido / Veneno',sw:'#5ad41e'},cloud:{name:'Nube mágica',sw:'#b4a8dc'},
   chest:{name:'Cofre',sw:'#7a4a1c'},gold:{name:'Oro',sw:'#e8b923'},rack:{name:'Armero',sw:'#6a4a2a'},
   chair:{name:'Silla',sw:'#5c361a'},table:{name:'Mesa',sw:'#5a3418'},brick:{name:'Ladrillo',sw:'#9a4a32'},
+  bush:{name:'Arbustos',sw:'#3f7a2a'},vines:{name:'Enredaderas',sw:'#4c8a2e'},crack:{name:'Grieta',sw:'#2a211a'},
+  oil:{name:'Aceite',sw:'#2a2016'},dirty:{name:'Agua sucia',sw:'#556238'},shallow:{name:'Agua poco profunda',sw:'#5aa6c8'},
 };
 // Secciones de la paleta Prefabricado (orden de las pestañas y de las muestras). Todo terreno de TERRAIN va en una.
 // Sin límite: la grilla muestra 5×3 y lo demás se ve con su barra vertical.
 const TERR_CATS=[
-  ['nature','Naturaleza',['grass','sand','dirt','snow','mud','straw','tree','void','fire','ice']],
-  ['fluid','Fluidos',['water','lava','acid','blood','cloud']],
+  ['nature','Naturaleza',['grass','sand','dirt','snow','mud','straw','tree','bush','vines','crack','void','fire','ice']],
+  ['fluid','Fluidos',['water','shallow','dirty','lava','acid','oil','blood','cloud']],
   ['build','Construcción',['wall','brick','door','fence','roof','stone','wood','metal']],
   ['objects','Objetos',['trap','rubble','chest','gold','rack','chair','table']],
 ];
@@ -859,7 +861,7 @@ function setBrushSize(n){brushSize=n;document.querySelectorAll('#brush-size [dat
 // Una celda guarda hasta dos capas en un solo valor de /terrain: "piso+encima" (ej. "stone+blood").
 // Piso = terreno con nombre o color libre '#rrggbb'; encima = fuego, sangre, trampa… (TERR_OVER), solo sobre pisos con nombre.
 // "fire", "blood"… solos = sin piso. Un color libre nunca lleva nada encima.
-const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1,trap:1,fence:1,chest:1,gold:1,rack:1,chair:1,table:1};
+const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1,trap:1,fence:1,chest:1,gold:1,rack:1,chair:1,table:1,bush:1,vines:1,crack:1,oil:1};
 function parseTerr(v){
   if(typeof v!=='string'||!v)return{};
   if(isHexColor(v))return{base:v};
@@ -1243,6 +1245,40 @@ const TERRAIN_TEX={
     c.fillStyle='rgba(20,8,2,0.7)';const b=Math.max(1,s*0.025); // cantos oscuros abajo y a los costados
     if(!(L&4))c.fillRect(x0,y1-b,x1-x0,b);if(!(L&8))c.fillRect(x0,y0,b,y1-y0);if(!(L&2))c.fillRect(x1-b,y0,b,y1-y0);
   },
+  bush(c,s,R){ // arbustos (encima): matas redondas con hojas y a veces bayas; terreno difícil
+    const n=4,cl=[];
+    for(let i=0;i<n;i++)cl.push([s*(0.28+R()*0.44),s*(0.28+R()*0.44),s*(0.2+R()*0.1),R(),R(),R()]);
+    c.fillStyle='rgba(0,0,0,0.4)';for(const[x,y,r]of cl)disc(c,x+r*0.25,y+r*0.3,r);
+    c.fillStyle='#16300c';for(const[x,y,r]of cl)disc(c,x,y,r+Math.max(1,s*0.02)); // contorno oscuro: se distingue de la hierba
+    for(const[x,y,r,a,b,d]of cl){
+      c.fillStyle=rgb(70+a*30,130+b*40,40+d*20);disc(c,x,y,r);
+      const L=cellRng(Math.round(x*7),Math.round(y*7),31);
+      for(let k=0;k<5;k++){const ang=L()*6.2832,dd=L()*r*0.7;c.fillStyle=L()<0.5?'rgba(120,190,80,0.35)':'rgba(10,40,8,0.3)';disc(c,x+Math.cos(ang)*dd,y+Math.sin(ang)*dd,r*0.3);}
+      if(d>0.6){c.fillStyle='#b8202a';for(let k=0;k<3;k++)disc(c,x+(L()-0.5)*r,y+(L()-0.5)*r,Math.max(0.8,s*0.022));}
+    }
+  },
+  vines(c,s,R,t,nb){ // enredaderas (encima): tallos que llegan a las enredaderas vecinas por el mismo punto del borde
+    const col=nb?nb.col:0,row=nb?nb.row:0,L=nb?nb.links:0;
+    const h=(a,b,salt)=>cellRng(a,b,salt)();
+    // punto de cada borde, en px de la celda (sale de la coordenada del borde: la vecina usa el mismo)
+    const A={1:[s*(0.2+0.6*h(col,row,51)),0],4:[s*(0.2+0.6*h(col,row+1,51)),s],8:[0,s*(0.2+0.6*h(col,row,52))],2:[s,s*(0.2+0.6*h(col+1,row,52))]};
+    const hub=[s*(0.35+R()*0.3),s*(0.35+R()*0.3)],ends=L?[1,2,4,8].filter(b=>L&b):[8,2,1,4];
+    c.lineCap='round';
+    for(const b of ends){
+      const[ax,ay]=A[b],mx=(ax+hub[0])/2+(R()-0.5)*s*0.25,my=(ay+hub[1])/2+(R()-0.5)*s*0.25;
+      c.strokeStyle='rgba(0,0,0,0.45)';c.lineWidth=Math.max(1.5,s*0.07);c.beginPath();c.moveTo(ax+1,ay+1);c.quadraticCurveTo(mx+1,my+1,hub[0]+1,hub[1]+1);c.stroke();
+      c.strokeStyle='#5c3a1a';c.lineWidth=Math.max(1,s*0.05);c.beginPath();c.moveTo(ax,ay);c.quadraticCurveTo(mx,my,hub[0],hub[1]);c.stroke(); // tallo leñoso
+      for(let k=1;k<=4;k++){ // hojas alternadas a lo largo del tallo, con borde oscuro
+        const tt=k/5,x=(1-tt)*(1-tt)*ax+2*(1-tt)*tt*mx+tt*tt*hub[0],y=(1-tt)*(1-tt)*ay+2*(1-tt)*tt*my+tt*tt*hub[1],side=k%2?1:-1,ang=R()*6.28;
+        c.fillStyle=R()<0.5?'#8ad04a':'#6cb83a';c.strokeStyle='#1c3a0e';c.lineWidth=Math.max(0.7,s*0.015);
+        c.beginPath();c.ellipse(x+side*s*0.05,y,s*0.085,s*0.045,ang,0,6.2832);c.fill();c.stroke();
+      }
+    }
+    if(ends.length===1){c.strokeStyle='#3a6a1e';c.lineWidth=Math.max(1,s*0.035);c.beginPath();c.arc(hub[0],hub[1],s*0.06,0,4.5);c.stroke();} // punta enrulada
+  },
+  crack(c,s,R){ // grieta suelta (muestra de la paleta); en el mat se dibujan unidas con drawCracks
+    crackPoly(c,[[s*0.15,s*0.25],[s*0.85,s*0.75]],s,R,0.11,true);
+  },
   cloud(c,s,R,t){ // nube mágica: bruma lila semitransparente con destellos, va encima; animada: se desplaza y titila
     c.fillStyle='rgba(175,165,215,0.28)';c.fillRect(0,0,s,s); // velo parejo: sin cortes entre celdas vecinas
     for(let i=0;i<4;i++){
@@ -1263,7 +1299,7 @@ const OVER_BG={fire:fireBg,trap:trapBg,fence:fenceBg};
 // Terrenos que se animan cuando forman un grupo (vecinos de lado) de al menos tantas celdas como su valor: el fuego
 // siempre (aunque sea una celda), el resto desde 4. Cada capa agrupa por separado: el fuego encima de piedra se anima
 // con el resto del fuego, no con la piedra.
-const TERR_ANIM={lava:4,water:4,fire:1,acid:4,cloud:4};
+const TERR_ANIM={lava:4,water:4,fire:1,acid:4,cloud:4,shallow:4,dirty:4};
 // Muestra de la paleta Simple: la textura de verdad, dibujada una vez y cacheada como imagen
 const terrSwCache={};
 function terrBg(type){
@@ -1275,7 +1311,11 @@ function terrBg(type){
       c.fillStyle='#6b4a2c';c.fillRect(0,0,44,44);
       c.beginPath();c.roundRect?c.roundRect(7,7,30,30,8):c.rect(7,7,30,30);c.clip();
     }
-    TERRAIN_TEX[type](c,44,cellRng(2,3,terrSalt(type)),null);
+    if(TERRAIN_TEX[type])TERRAIN_TEX[type](c,44,cellRng(2,3,terrSalt(type)),null);
+    else if(LIQ[type]){ // fluido sin textura por celda: sus colores de adentro y su detalle
+      const L=LIQ[type];for(const b of L.bands.slice(1))if(b[0]==='F'){c.fillStyle=b[2];c.fillRect(0,0,44,44);}
+      L.detail(c,44,cellRng(2,3,terrSalt(type)),null);
+    }
     terrSwCache[type]=cv.toDataURL();
   }
   return `${TERRAIN[type].sw} url(${terrSwCache[type]}) center/cover`;
@@ -1359,6 +1399,32 @@ function acidDetail(c,s,R,t){ // brillo y burbujas (animadas: crecen y revientan
     else{c.fillStyle='rgba(190,255,120,0.75)';disc(c,x,y,br*u/0.8);}
   }
 }
+function shallowDetail(c,s,R,t){ // fondo de piedritas que se ve a través del agua y reflejos de luz (animados: se mueven)
+  for(let i=0;i<4;i++){const x=R()*s,y=R()*s,rx=s*(0.03+R()*0.04),v=R();c.fillStyle=v<0.5?'rgba(110,120,125,0.55)':'rgba(140,120,85,0.5)';c.beginPath();c.ellipse(x,y,rx,rx*0.7,R()*3,0,6.2832);c.fill();}
+  c.lineWidth=Math.max(1,s*0.02);c.lineCap='round';
+  for(let i=0;i<3;i++){
+    const x=R()*s,y=R()*s,w=s*(0.2+R()*0.15),ph=R()*6.28,dx=t==null?0:Math.sin(t*0.9+ph)*s*0.08,a=t==null?0.25:0.12+0.18*(0.5+0.5*Math.sin(t*1.6+ph));
+    c.strokeStyle=`rgba(255,255,255,${a})`;c.beginPath();c.moveTo(x+dx-w/2,y);c.bezierCurveTo(x+dx-w/6,y-w*0.3,x+dx+w/6,y+w*0.3,x+dx+w/2,y);c.stroke();
+  }
+}
+function dirtyDetail(c,s,R,t){ // agua sucia: espuma verdosa, restos flotando y burbujas (animadas: suben y revientan)
+  for(let i=0;i<2;i++){c.fillStyle='rgba(120,130,60,0.35)';disc(c,R()*s,R()*s,s*(0.1+R()*0.12));}
+  for(let i=0;i<3;i++){const x=R()*s,y=R()*s,l=s*(0.08+R()*0.1),a=R()*3;c.strokeStyle='rgba(70,50,25,0.8)';c.lineWidth=Math.max(1,s*0.025);c.beginPath();c.moveTo(x,y);c.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l);c.stroke();}
+  c.lineWidth=Math.max(0.7,s*0.015);
+  for(let i=0;i<2;i++){
+    const x=s*(0.15+R()*0.7),y=s*(0.15+R()*0.7),ph=R(),per=2.5+R()*2,br=s*0.03;
+    if(t==null){c.strokeStyle='rgba(200,210,150,0.5)';c.beginPath();c.arc(x,y,br*0.7,0,6.2832);c.stroke();continue;}
+    const u=(t/per+ph)%1;
+    if(u>0.8){const k=(u-0.8)/0.2;c.strokeStyle=`rgba(200,210,150,${0.7*(1-k)})`;c.beginPath();c.arc(x,y,br*(1+k),0,6.2832);c.stroke();}
+    else{c.fillStyle='rgba(180,190,130,0.6)';disc(c,x,y,br*u/0.8);}
+  }
+}
+function oilDetail(c,s,R){ // aceite: reflejos tornasolados y un brillo
+  for(const col of['rgba(150,70,210,0.2)','rgba(40,190,150,0.16)','rgba(230,190,40,0.16)']){
+    const x=R()*s,y=R()*s,r=s*(0.18+R()*0.15),g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;disc(c,x,y,r);
+  }
+  const x=s*(0.25+R()*0.5),y=s*(0.25+R()*0.5);c.fillStyle='rgba(255,255,255,0.22)';c.beginPath();c.ellipse(x,y,s*0.07,s*0.025,-0.5,0,6.2832);c.fill();
+}
 function voidDetail(c,s,R){ // bruma violácea muy tenue y motas lejanas
   for(let i=0;i<2;i++){
     const x=R()*s,y=R()*s,r=s*(0.3+R()*0.3),g=c.createRadialGradient(x,y,0,x,y,r);
@@ -1393,8 +1459,12 @@ const LIQ={
   // Nube mágica: velo semitransparente, contorno abultado y borde difuminado (el halo); top = encima de todo lo demás
   cloud:{w:1,amp:0.32,detail:cloudDetail,glow:'rgba(190,160,255,0.65)',top:1,bands:[['F',0.5,'rgba(165,140,225,0.34)'],['F',0.62,'rgba(195,170,250,0.22)']]},
 };
-// Pisos con forma, de abajo hacia arriba. El vacío va abajo de todo: el agua que lo toca cae sobre el abismo.
-const LIQ_BASE_ORDER=['void','mud','water','ice','lava'], LIQ_OVER=['blood','acid','cloud'], LIQ_DEEP_W=2.2;
+LIQ.shallow={w:0.8,amp:0.26,detail:shallowDetail,bands:[['F',0.5,'rgba(215,236,250,0.8)'],['F',0.6,'#b0a274'],['F',0.6,'rgba(60,150,210,0.5)'],['D',0.85,'rgba(30,100,180,0.25)']]};
+LIQ.dirty={w:0.8,amp:0.26,detail:dirtyDetail,bands:[['F',0.5,'rgba(130,120,80,0.8)'],['F',0.6,'#4d5a30'],['D',0.85,'#3f4c28']]};
+LIQ.oil={w:0.9,amp:0.26,detail:oilDetail,drops:'rgba(20,14,8,0.9)',bands:[['F',0.55,'rgba(18,12,6,0.92)'],['F',0.66,'rgba(34,26,18,0.92)']]};
+// Pisos con forma, de abajo hacia arriba. El vacío va abajo de todo: el agua que lo toca cae sobre el abismo. El agua
+// poco profunda va debajo del agua: queda como su orilla.
+const LIQ_BASE_ORDER=['void','mud','dirty','shallow','water','ice','lava'], LIQ_OVER=['blood','acid','oil','cloud'], LIQ_DEEP_W=2.2;
 const smooth01=u=>{u=u<0?0:u>1?1:u;return u*u*(3-2*u);};
 const liqK=(d,w)=>smooth01((0.5+w/2-Math.abs(d))/w);
 // Ruido del borde: una onda larga (~1 celda) que hace serpentear la orilla y una corta para el detalle, en [-1,1]
@@ -1583,6 +1653,7 @@ function buildTerrScene(){
     const col=sc+ox,row=sr+oy,key=col+','+row;if(!S.terrain[key])continue;
     const{base,over}=P(key),e={sc,sr,col,row,base,over,ab:anim.base.has(key),ao:anim.over.has(key)};
     if(OBJ_NB[over])e.nb=objNeighbors(over,col,row,P);
+    if(over==='vines'){let links=0;for(const[dx,dy,b]of[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]])if(P((col+dx)+','+(row+dy)).over==='vines')links|=b;e.nb={links,col,row};}
     // Debajo de un piso líquido: por cuadrante, el terreno vecino no líquido (de costado, de arriba/abajo o en diagonal)
     if(LIQ[base]||base==='tree')e.under=[0,1,2,3].map(q=>{
       const dx=q&1?1:-1,dy=q&2?1:-1;
@@ -1617,6 +1688,17 @@ function buildTerrScene(){
     if(P(c+','+r).base!=='lava')continue;
     for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nb=P((c+dx)+','+(r+dy)).base;if(nb==='water'||nb==='ice')contacts.push([c,r,c+dx,r+dy]);}
   }
+  // Grietas a la vista (±1): igual que las cercas, más puntas sueltas, uniones y grietas solas
+  const cracks={segs:[],tips:[],joints:[],lone:[]},isK=(c,r)=>P(c+','+r).over==='crack';
+  for(let r=oy-1;r<=oy+ROWS;r++)for(let c=ox-1;c<=ox+COLS;c++){
+    if(!isK(c,r))continue;
+    const ls=[];
+    for(const[dx,dy]of[[1,0],[0,1],[1,1],[-1,1],[-1,0],[0,-1],[-1,-1],[1,-1]])if(isK(c+dx,r+dy)&&(!dx||!dy||(!isK(c+dx,r)&&!isK(c,r+dy)))){
+      ls.push([dx,dy]);if(dy>0||(dy===0&&dx>0))cracks.segs.push([c+0.5,r+0.5,c+dx+0.5,r+dy+0.5]);
+    }
+    if(!ls.length)cracks.lone.push([c,r]);
+    else{cracks.joints.push([c+0.5,r+0.5]);if(ls.length===1)cracks.tips.push([c+0.5,r+0.5,-ls[0][0],-ls[0][1]]);}
+  }
   // Cercas a la vista (±1): tramos hacia adelante (derecha, abajo y las dos diagonales de abajo) para no repetirlos
   const fences={segs:[],posts:[]},isF=(c,r)=>P(c+','+r).over==='fence';
   for(let r=oy-1;r<=oy+ROWS;r++)for(let c=ox-1;c<=ox+COLS;c++){
@@ -1631,7 +1713,7 @@ function buildTerrScene(){
     if(!any)fences.segs.push([c,r+0.5,c+1,r+0.5,false]); // sola: horizontal, justo el ancho de la celda
   }
   const animated=contacts.length>0||cells.some(e=>e.ab||e.ao)||[...regions.base,...regions.over,...regions.top].some(Rg=>Rg.cells.some(x=>x[2]));
-  return{cells,regions,contacts,fences,crowns:treeCrowns(ox,oy),animated};
+  return{cells,regions,contacts,fences,cracks,crowns:treeCrowns(ox,oy),animated};
 }
 // Dibuja la escena entera. Orden: pisos celda por celda (y lo de encima con fondo propio cuando está solo; bajo un
 // líquido, sus vecinos) → pisos líquidos → línea de grilla tenue (arriba e izquierda, como el fondo de #grid, para
@@ -1690,8 +1772,9 @@ function drawTerrScene(t){
   c.fillStyle=terrLineColor;
   for(const e of Sc.cells)if((e.base&&!isHexColor(e.base))||(!e.base&&OVER_BG[e.over])){c.fillRect(e.sc*s,e.sr*s,s,1);c.fillRect(e.sc*s,e.sr*s,1,s);}
   for(const k of Sc.contacts)drawContact(c,k,t);
+  drawCracks(c,Sc.cracks); // en el piso: debajo de charcos y objetos
   for(const Rg of Sc.regions.over)drawLiq(c,Rg,t);
-  for(const e of Sc.cells)if(e.over&&e.over!=='fence'&&!LIQ[e.over]&&!(!e.base&&OVER_BG[e.over]))terrTex(c,e.over,e.sc*s,e.sr*s,e.col,e.row,e.ao?t:null,null,null,e.nb);
+  for(const e of Sc.cells)if(e.over&&e.over!=='fence'&&e.over!=='crack'&&!LIQ[e.over]&&!(!e.base&&OVER_BG[e.over]))terrTex(c,e.over,e.sc*s,e.sr*s,e.col,e.row,e.ao?t:null,null,null,e.nb);
   drawFences(c,Sc.fences);
   for(const Rg of Sc.regions.top)drawLiq(c,Rg,t); // nube mágica: encima de todo
 }
@@ -1775,6 +1858,36 @@ function drawCrowns(c,crowns){
     c.restore();
     c.strokeStyle='rgba(5,25,5,0.55)';c.lineWidth=Math.max(1,s*0.03);trace(c,p);c.stroke();
   }
+}
+/* Grietas (encima): se unen con sus vecinas en las 8 direcciones como las cercas (la diagonal solo si las dos de
+   costado no son grieta), con tramos de centro a centro sin recortar a la celda. Cada tramo es una rajadura quebrada
+   (zigzag al azar por coordenada), ancha en el medio y más fina en las uniones; las puntas sueltas se afinan hasta
+   cero; a veces sale una ramita. Una grieta sin vecinas cruza su celda. */
+const CRACK_WC=0.06, CRACK_WM=0.13; // ancho en las uniones y en el medio de un tramo (fracción de celda)
+function crackSeg(c,ax,ay,bx,by,s,R,wa,wm,wb,branch){
+  const L=Math.hypot(bx-ax,by-ay)||1,ux=(bx-ax)/L,uy=(by-ay)/L,nx=-uy,ny=ux,m=6,P=[];
+  for(let i=0;i<=m;i++){
+    const t=i/m,j=(i===0||i===m)?0:(R()-0.5)*0.16*L,w=((1-t)*wa+t*wb+(wm-((1-t)*wa+t*wb))*Math.sin(Math.PI*t))*s;
+    P.push([ax+(bx-ax)*t+nx*j,ay+(by-ay)*t+ny*j,w]);
+  }
+  const poly=k=>{c.beginPath();P.forEach(([x,y,w],i)=>i?c.lineTo(x+nx*w*k/2,y+ny*w*k/2):c.moveTo(x+nx*w*k/2,y+ny*w*k/2));for(let i=m;i>=0;i--){const[x,y,w]=P[i];c.lineTo(x-nx*w*k/2,y-ny*w*k/2);}c.closePath();};
+  c.fillStyle='rgba(255,235,210,0.12)';c.save();c.translate(-s*0.012,-s*0.012);poly(1.15);c.fill();c.restore(); // canto iluminado
+  c.fillStyle='#140d08';poly(1);c.fill();
+  c.fillStyle='#000';poly(0.45);c.fill();
+  const bi=2+Math.floor(R()*(m-3)),ba=(R()<0.5?-1:1)*(0.6+R()*0.5),bl=s*(0.18+R()*0.12),doB=R()<0.45;
+  if(branch&&doB){
+    const[x,y,w]=P[bi],a=Math.atan2(uy,ux)+ba;
+    crackSeg(c,x,y,x+Math.cos(a)*bl,y+Math.sin(a)*bl,s,R,w/s*0.6,w/s*0.5,0,false);
+  }
+}
+// Grieta suelta a lo largo de pts (px): afinada en las dos puntas
+function crackPoly(c,[[ax,ay],[bx,by]],s,R,wm){crackSeg(c,ax,ay,bx,by,s,R,0,wm,0,true);}
+function drawCracks(c,K){
+  const s=CS,X=v=>(v-S.ox)*s,Y=v=>(v-S.oy)*s;
+  for(const[x1,y1,x2,y2]of K.segs)crackSeg(c,X(x1),Y(y1),X(x2),Y(y2),s,cellRng(Math.round(x1*2+x2*7),Math.round(y1*2+y2*7),613),CRACK_WC,CRACK_WM,CRACK_WC,true);
+  for(const[x,y,dx,dy]of K.tips){const L=Math.hypot(dx,dy);crackSeg(c,X(x),Y(y),X(x+dx/L*0.42),Y(y+dy/L*0.42),s,cellRng(Math.round(x*3),Math.round(y*3),614),CRACK_WC,CRACK_WC*0.9,0,false);}
+  c.fillStyle='#140d08';for(const[x,y]of K.joints)disc(c,X(x),Y(y),CRACK_WC*s*0.6);
+  for(const[cc,rr]of K.lone){const R=cellRng(cc,rr,615),a=R()*3.1416,dx=Math.cos(a)*0.38,dy=Math.sin(a)*0.38;crackSeg(c,X(cc+0.5-dx),Y(rr+0.5-dy),X(cc+0.5+dx),Y(rr+0.5+dy),s,R,0,0.11,0,true);}
 }
 // Cercas: se unen con sus vecinas (de costado, arriba/abajo o en diagonal) con dos barandas de centro a centro, sin
 // recortar a la celda, así una hilera en cualquier dirección es continua. La diagonal se une solo si las dos celdas de
