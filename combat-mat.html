@@ -111,6 +111,7 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 #side::-webkit-scrollbar-thumb { background:var(--amber-dim); border-radius:2px; }
 .section { padding:10px 12px; border-bottom:1px solid var(--border); }
 .section:last-child { border-bottom:none; }
+#side .section { padding-top:8px; padding-bottom:8px; } /* panel derecho sin scroll: entra justo en --view */
 .sec-title { font-family:'Cinzel',serif; font-size:10px; color:var(--amber-lt); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; display:block; }
 .sw-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
 .sw-grid.tok .terr-sw { height:22px; }
@@ -385,6 +386,7 @@ body:not(.is-master) .master-only { display:none; }
         <div></div>
       </div>
       </div>
+      <button class="btn bd" onclick="clearTerrain()" style="margin:8px 0 0">Limpiar terreno</button>
     </div>
 
     <div class="section">
@@ -419,10 +421,6 @@ body:not(.is-master) .master-only { display:none; }
       </div>
       <button class="btn bp" id="btn-add-player" onclick="charBtnClick()">Nuevo personaje</button>
       <button class="btn be master-only" onclick="addTok('enemy')">+ Enemigo</button>
-    </div>
-
-    <div class="section">
-      <button class="btn bd" onclick="clearTerrain()">Limpiar terreno</button>
     </div>
 
     <div class="section" style="margin-top:auto">
