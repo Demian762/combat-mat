@@ -14,7 +14,7 @@
 body { background:#141414; overflow:hidden; width:100vw; height:100vh; font-family:'EB Garamond',serif; display:flex; align-items:center; justify-content:center; }
 #app { display:flex; align-items:stretch; gap:0; box-shadow:0 0 60px rgba(0,0,0,0.8); }
 #grid-wrap { position:relative; flex-shrink:0; }
-#grid { position:relative; box-sizing:content-box; width:var(--view); height:var(--view); border:2px solid var(--amber); border-left:none; border-right:none; }
+#grid { position:relative; box-sizing:content-box; overflow:hidden; width:var(--view); height:var(--view); border:2px solid var(--amber); border-left:none; border-right:none; }
 #grid.painting { cursor:crosshair; }
 /* Mapa del mundo: tapa el mat (por debajo de los dados), local por cliente */
 #world-map { position:absolute; top:2px; left:0; width:var(--view); height:var(--view); z-index:35; background:#0a0805 url('mapa.jpg') center/contain no-repeat; display:none; cursor:grab; overflow:hidden; }
@@ -26,17 +26,18 @@ body.show-map #arrow-svg { display:none; }
 #map-toggle { flex-shrink:0; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:rgba(255,255,255,0.45); border-radius:4px; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.5px; text-transform:uppercase; padding:0 7px; cursor:pointer; }
 #map-toggle:hover { color:rgba(255,255,255,0.75); }
 #map-toggle.on { background:rgba(200,146,42,0.18); border-color:var(--amber); color:var(--amber-lt); }
-.token { position:absolute; width:var(--cs); height:var(--cs); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:grab; user-select:none; z-index:var(--z,10); transform-origin:50% 90%; }
+/* --n = casillas por lado que ocupa la ficha (Grande 2, Enorme 3, Gargantuesco 4); --b = tamaño del cuerpo en casillas (Diminuto 0.5) */
+.token { position:absolute; width:calc(var(--cs)*var(--n,1)); height:calc(var(--cs)*var(--n,1)); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:grab; user-select:none; z-index:var(--z,10); transform-origin:50% 90%; }
 /* Varias fichas en la misma celda: abanico tipo mano de cartas (layoutStacks). Solo el cuerpo recibe el mouse,
    así la franja visible de cada ficha de abajo sigue siendo clickeable */
-.token.stacked { pointer-events:none; }
-.token.stacked .tbody { pointer-events:auto; }
+.token.stacked, .token.tok-tiny { pointer-events:none; }
+.token.stacked .tbody, .token.tok-tiny .tbody { pointer-events:auto; }
 .token:hover { filter:brightness(1.35); z-index:20; }
 .token.selected { z-index:30; }
 .token.dragging { cursor:grabbing; z-index:100; opacity:.85; }
 body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 /* Ficha = 9/11 de la celda (36px a 44px), escala con el nivel de zoom */
-.tbody { width:calc(var(--cs)*9/11); height:calc(var(--cs)*9/11); display:flex; align-items:center; justify-content:center; font-size:calc(var(--cs)*4/11); position:relative; }
+.tbody { width:calc(var(--cs)*var(--b,1)*9/11); height:calc(var(--cs)*var(--b,1)*9/11); display:flex; align-items:center; justify-content:center; font-size:calc(var(--cs)*var(--b,1)*4/11); position:relative; }
 .token-player .tbody { border-radius:50%; border:2px solid; }
 .token-player.selected .tbody { box-shadow:0 0 0 2px var(--amber-lt),0 0 14px var(--amber); }
 .token-enemy .tbody { border-radius:4px; background:rgba(90,8,8,0.88); border:2px solid rgba(180,40,40,0.75); box-shadow:0 0 10px rgba(180,30,30,0.4); }
@@ -119,6 +120,11 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 
 input[type=text] { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#ddd; padding:4px 7px; border-radius:4px; font-family:'EB Garamond',serif; font-size:13px; margin-bottom:6px; outline:none; }
 input[type=text]:focus { border-color:var(--amber); }
+/* Clase y Tamaño lado a lado */
+.cls-size-row { display:flex; gap:4px; }
+.cls-size-row > div { min-width:0; }
+.cls-size-row > div:first-child { flex:1.3; }
+.cls-size-row > div:last-child { flex:1; }
 .plabel { font-family:'Cinzel',serif; font-size:9px; color:rgba(255,255,255,0.4); letter-spacing:1px; text-transform:uppercase; display:block; margin-bottom:3px; }
 .hpmax-ctrl { display:flex; align-items:center; gap:4px; margin-bottom:6px; }
 .hpmax-btn { background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--amber-lt); font-size:13px; width:26px; height:28px; border-radius:4px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -173,9 +179,9 @@ input[type=text]:focus { border-color:var(--amber); }
 #dice .sec-title { font-size:12px; }
 #dice .plabel { font-size:11px; letter-spacing:.5px; }
 #dbounce { width:100%; accent-color:var(--amber); margin:0 0 6px; cursor:pointer; }
-#scene-select, #dplayer-name, #cls-select { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
-#scene-select:focus, #dplayer-name:focus, #cls-select:focus { border-color:var(--amber); }
-#scene-select option, #dplayer-name option, #cls-select option { background:#140e04; color:#ddd; }
+#scene-select, #dplayer-name, #cls-select, #size-select { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; margin-bottom:6px; outline:none; cursor:pointer; appearance:none; }
+#scene-select:focus, #dplayer-name:focus, #cls-select:focus, #size-select:focus { border-color:var(--amber); }
+#scene-select option, #dplayer-name option, #cls-select option, #size-select option { background:#140e04; color:#ddd; }
 
 /* Login overlay */
 #login-overlay { position:fixed; inset:0; background:rgba(8,6,4,0.98); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
@@ -348,8 +354,10 @@ body:not(.is-master) .master-only { display:none; }
       <span class="sec-title">Nuevo token</span>
       <label class="plabel">Nombre</label>
       <input type="text" id="iname" placeholder="Nombre..." maxlength="18">
-      <label class="plabel">Clase</label>
-      <select id="cls-select" onchange="selectedClass=this.value"></select>
+      <div class="cls-size-row">
+        <div><label class="plabel">Clase</label><select id="cls-select" onchange="selectedClass=this.value"></select></div>
+        <div><label class="plabel">Tamaño</label><select id="size-select" onchange="selectedSize=this.value"></select></div>
+      </div>
       <label class="plabel">HP Máx</label>
       <div class="hpmax-ctrl">
         <button class="hpmax-btn" onclick="adjMaxHp(-5)" style="font-size:10px">-5</button>
@@ -508,7 +516,17 @@ const pickerStates={player:hexToHsv('#4a90e2'),bg:{h:20,s:0.55,v:0.04},line:{h:3
 let mapTarget='terrain', terrCustom={h:30,s:0.5,v:0.5}, palMode={map:'simple',tok:'simple'};
 let mapPicker=null, tokPicker=null;
 let lastBrush=null; // último pincel de terreno elegido, lo muestra el botón de terreno actual (null = color libre)
-let selectedClass='Otras';
+let selectedClass='Otras', selectedSize='medium';
+// Tamaños D&D 5e: n = casillas por lado que ocupa (col,row = esquina superior izquierda); b = cuerpo en casillas.
+// Diminuto ocupa ¼ de casilla: entran 4 por casilla (layoutStacks las acomoda en cuadrantes). Sin `size` = Mediano.
+const SIZES={tiny:{name:'Diminuto',n:1,b:0.5},small:{name:'Pequeño',n:1,b:1},medium:{name:'Mediano',n:1,b:1},
+  large:{name:'Grande',n:2,b:2},huge:{name:'Enorme',n:3,b:3},gargantuan:{name:'Gargantuesco',n:4,b:4}};
+const tokSize=t=>SIZES[t&&t.size]||SIZES.medium;
+const tokN=t=>tokSize(t).n;
+// Celdas absolutas que ocupa una ficha
+function footprint(t){const n=tokN(t),a=[];for(let r=0;r<n;r++)for(let c=0;c<n;c++)a.push((t.col+c)+','+(t.row+r));return a;}
+// ¿Entra una ficha de n×n con esquina en (c,r) sin pisar `taken`?
+function fitsAt(c,r,n,taken){for(let dr=0;dr<n;dr++)for(let dc=0;dc<n;dc++)if(taken.has((c+dc)+','+(r+dr)))return false;return true;}
 // Estado global. ox/oy = offset del viewport en el mapa infinito.
 // terrain = {"col,row": tipo}. order = array de ids para orden del panel izquierdo.
 let S={tokens:[],terrain:{},ox:0,oy:0,selId:null,maxHp:10,activeTerrain:null,selectedColor:'#4a90e2',order:[],turn:null};
@@ -522,6 +540,9 @@ function initClassGrid(){
   const sel=document.getElementById('cls-select');
   sel.innerHTML=CLASS_LIST.map(c=>`<option value="${c}">${ICONS[c]}&nbsp;&nbsp;-&nbsp;&nbsp;${c}</option>`).join('');
   sel.value=selectedClass;
+  const ss=document.getElementById('size-select');
+  ss.innerHTML=Object.entries(SIZES).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');
+  ss.value=selectedSize;
 }
 
 /* ── Color utils ── */
@@ -804,11 +825,12 @@ async function addTok(type){
   finally{if(type==='player'){creatingChar=false;refreshPlayerControls();}}
 }
 // Celda libre (sin fichas de la escena activa) dentro del viewport; prefiere `pref` si sirve
-function freeCellInView(pref){
-  const taken=new Set(getOrdered().map(t=>t.col+','+t.row));
-  const inView=(c,r)=>c>=S.ox&&c<S.ox+COLS&&r>=S.oy&&r<S.oy+ROWS;
-  if(pref&&inView(pref.col,pref.row)&&!taken.has(pref.col+','+pref.row))return{col:pref.col,row:pref.row};
-  for(let r=S.oy;r<S.oy+ROWS;r++)for(let c=S.ox;c<S.ox+COLS;c++)if(!taken.has(c+','+r))return{col:c,row:r};
+// n = casillas por lado de la ficha a ubicar (todo su cuadrado tiene que estar libre y a la vista)
+function freeCellInView(pref,n=1){
+  const taken=new Set(getOrdered().flatMap(footprint));
+  const inView=(c,r)=>c>=S.ox&&c+n<=S.ox+COLS&&r>=S.oy&&r+n<=S.oy+ROWS;
+  if(pref&&inView(pref.col,pref.row)&&fitsAt(pref.col,pref.row,n,taken))return{col:pref.col,row:pref.row};
+  for(let r=S.oy;r+n<=S.oy+ROWS;r++)for(let c=S.ox;c+n<=S.ox+COLS;c++)if(fitsAt(c,r,n,taken))return{col:c,row:r};
   return{col:S.ox,row:S.oy};
 }
 async function createTok(type){
@@ -816,10 +838,11 @@ async function createTok(type){
   const base=input?input.slice(0,18):type==='enemy'?'Enemigo':'Jugador';
   const name=uniqueName(base);
   const color=type==='player'?S.selectedColor:'#7a1414';
-  const {col,row}=freeCellInView();
+  const size=selectedSize;
+  const {col,row}=freeCellInView(null,SIZES[size].n);
   const uidSnap=await db.ref(ROOT+'/uid').transaction(cur=>(cur||0)+1);
   const newId=uidSnap.snapshot.val();
-  const t={id:newId,type,name,cls:type==='player'?selectedClass:null,hp:type==='player'?S.maxHp:null,maxHp:type==='player'?S.maxHp:null,color,col,row};
+  const t={id:newId,type,name,cls:type==='player'?selectedClass:null,hp:type==='player'?S.maxHp:null,maxHp:type==='player'?S.maxHp:null,color,size,col,row};
   document.getElementById('iname').value='';
   // Los personajes del master van directo al baúl (fuera de toda escena); col/row quedan como preferencia al sacarlos
   if(type==='player'&&isMaster()){db.ref(ROOT+'/chest/'+newId).set(t).catch(chestError);return;}
@@ -849,11 +872,14 @@ function drawTok(t){
     el.addEventListener('click',e=>{e.stopPropagation();selectTok(t.id);});
     grid.appendChild(el);t._el=el;
   }
-  const sc=t.col-S.ox, sr=t.row-S.oy;
-  const inView=sc>=0&&sc<COLS&&sr>=0&&sr<ROWS;
+  const sc=t.col-S.ox, sr=t.row-S.oy, sz=tokSize(t);
+  // Visible si cualquier parte de su cuadrado cae en el viewport (#grid recorta lo que sobresale)
+  const inView=sc+sz.n>0&&sc<COLS&&sr+sz.n>0&&sr<ROWS;
   t._el.style.display=inView?'flex':'none';
   if(!inView)return;
   t._el.style.left=sc*CS+'px'; t._el.style.top=sr*CS+'px';
+  t._el.style.setProperty('--n',sz.n); t._el.style.setProperty('--b',sz.b);
+  t._el.classList.toggle('tok-tiny',sz.b<1);
   t._el.classList.toggle('selected',S.selId===t.id);
   const ip=t.type==='player';
   const iconColor=contrastColor(t.color);
@@ -875,6 +901,15 @@ function layoutStacks(){
   Object.values(cells).forEach(g=>{
     g.sort((a,b)=>ord(a.id)-ord(b.id));
     const n=g.length;
+    // Hasta 4 Diminutas solas en una casilla: una por cuadrante, sin abanico
+    if(n>1&&n<=4&&g.every(t=>tokSize(t).b<1)){
+      g.forEach((t,i)=>{
+        t._el.style.transform=`translate(${(i%2?1:-1)*CS/4}px,${(i<2?-1:1)*CS/4}px)`;
+        t._el.style.setProperty('--z',10+i);
+        t._el.classList.remove('stacked');
+      });
+      return;
+    }
     const step=n>1?Math.min(CS*0.24,CS*0.9/(n-1)):0, ang=n>1?Math.min(8,40/(n-1)):0;
     g.forEach((t,i)=>{
       const k=i-(n-1)/2;
@@ -1045,7 +1080,7 @@ function storeInChest(id){
 // Baúl → Combatientes: entra a la escena activa, antes de `beforeId` en el orden (o al final)
 function takeFromChest(id,beforeId){
   const c=chest.find(x=>x.id===id);if(!c||!isMaster())return;
-  const t={...c,...freeCellInView(c)};
+  const t={...c,...freeCellInView(c,tokN(c))};
   const base=ROOT+'/scenes/'+activeScene;
   const upd={[ROOT+'/chest/'+id]:null};
   if(t.type==='player'){t.sceneId=activeScene;upd[ROOT+'/players/'+id]=t;}
@@ -1077,7 +1112,11 @@ function startDrag(e,id){
   e.preventDefault();e.stopPropagation();
   const t=S.tokens.find(t=>t.id===id);if(!t||!t._el)return;
   if(S.turn!==id){S.turn=id;S.selId=id;db.ref(ROOT+'/scenes/'+activeScene+'/turn').set(id);}
-  drag={id,fbSet:false,lastFbCol:null,lastFbRow:null};
+  // dc,dr = casilla de la ficha por la que se la agarró (fichas grandes): se mantiene bajo el cursor al soltar
+  const gr=grid.getBoundingClientRect(),z=CS*appZoom,n=tokN(t);
+  const dc=clamp(Math.floor((e.clientX-gr.left)/z)-(t.col-S.ox),0,n-1);
+  const dr=clamp(Math.floor((e.clientY-gr.top-2*appZoom)/z)-(t.row-S.oy),0,n-1);
+  drag={id,dc,dr,fbSet:false,lastFbCol:null,lastFbRow:null};
   myArrowRef().onDisconnect().remove();
   t._el.classList.add('dragging');
   document.body.classList.add('tok-dragging');
@@ -1104,10 +1143,11 @@ document.addEventListener('mousemove',e=>{
   const hc=Math.floor((e.clientX-rect.left)/z);
   const hr=Math.floor((e.clientY-rect.top-2*appZoom)/z);
   const sc=t.col-S.ox, sr=t.row-S.oy;
-  if(hc<0||hc>=COLS||hr<0||hr>=ROWS||hc===sc&&hr===sr){clearArrow();return;}
-  arrowTarget={sc:hc,sr:hr};
-  arrowLocal.innerHTML=arrowSvg(sc,sr,hc,hr);
-  const absCol=hc+S.ox, absRow=hr+S.oy;
+  const tc=hc-drag.dc, tr=hr-drag.dr; // esquina destino
+  if(hc<0||hc>=COLS||hr<0||hr>=ROWS||tc===sc&&tr===sr){clearArrow();return;}
+  arrowTarget={sc:tc,sr:tr};
+  arrowLocal.innerHTML=arrowSvg(sc,sr,tc,tr,tokN(t));
+  const absCol=tc+S.ox, absRow=tr+S.oy;
   if(!drag.fbSet||drag.lastFbCol!==absCol||drag.lastFbRow!==absRow){
     drag.fbSet=true;drag.lastFbCol=absCol;drag.lastFbRow=absRow;
     myArrowRef().set({fromId:drag.id,toCol:absCol,toRow:absRow});
@@ -1169,21 +1209,22 @@ function renderRemoteArrows(){
   arrowsRemote.innerHTML=Object.entries(remoteArrows).map(([cid,v])=>{
     if(cid===CLIENT_ID)return '';
     const t=S.tokens.find(t=>t.id===v.fromId);if(!t)return '';
-    return arrowSvg(t.col-S.ox,t.row-S.oy,v.toCol-S.ox,v.toRow-S.oy);
+    return arrowSvg(t.col-S.ox,t.row-S.oy,v.toCol-S.ox,v.toRow-S.oy,tokN(t));
   }).join('');
 }
 // Genera el markup SVG de una flecha desde celda origen a destino (coords de pantalla, no absolutas).
 // Distancia D&D 5e: Chebyshev (diagonal = 5 ft, igual que recto).
-function arrowSvg(sc,sr,ec,er){
+// n = casillas por lado de la ficha: la flecha va de centro a centro de su cuadrado
+function arrowSvg(sc,sr,ec,er,n=1){
   if(sc===ec&&sr===er)return '';
-  const half=CS/2;
+  const half=CS*n/2;
   const x1=sc*CS+half, y1=sr*CS+half;
   const x2=ec*CS+half, y2=er*CS+half;
   const dx=x2-x1, dy=y2-y1;
   const len=Math.sqrt(dx*dx+dy*dy);
   const ux=dx/len, uy=dy/len;
   // shorten end to not overlap center of target cell
-  const tip=CS*0.38;
+  const tip=half*0.76;
   const ex=x2-ux*tip, ey=y2-uy*tip;
   // arrowhead size
   const ah=10, aw=6;
@@ -1817,12 +1858,12 @@ async function moveCharToScene(t,sceneId){
   t.sceneId=sceneId;
   db.ref(ROOT+'/players/'+t.id+'/sceneId').set(sceneId);
   const snap=await db.ref(ROOT+'/scenes/'+sceneId+'/enemies').once('value');
-  const taken=new Set(Object.values(snap.val()||{}).map(e=>e.col+','+e.row));
-  S.tokens.forEach(o=>{if(o.type==='player'&&o.id!==t.id&&o.sceneId===sceneId)taken.add(o.col+','+o.row);});
-  let col=t.col,row=t.row;
-  if(taken.has(col+','+row)){
-    outer:for(let r=S.oy;r<S.oy+ROWS;r++)for(let c=S.ox;c<S.ox+COLS;c++){
-      if(!taken.has(c+','+r)){col=c;row=r;break outer;}
+  const taken=new Set(Object.values(snap.val()||{}).flatMap(footprint));
+  S.tokens.forEach(o=>{if(o.type==='player'&&o.id!==t.id&&o.sceneId===sceneId)footprint(o).forEach(k=>taken.add(k));});
+  let col=t.col,row=t.row;const n=tokN(t);
+  if(!fitsAt(col,row,n,taken)){
+    outer:for(let r=S.oy;r+n<=S.oy+ROWS;r++)for(let c=S.ox;c+n<=S.ox+COLS;c++){
+      if(fitsAt(c,r,n,taken)){col=c;row=r;break outer;}
     }
   }
   db.ref(ROOT+'/players/'+t.id).update({col,row});

@@ -33,7 +33,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
   /scenes
     /escena1
       /terrain        → {"col,row": terrainType | "#rrggbb"}   // tipo con nombre (paleta Simple) o color libre (paleta Completa)
-      /enemies        → {id: {id, name, col, row}}
+      /enemies        → {id: {id, name, size, col, row}}
       /order          → [id, id, ...]        // orden de iniciativa
       /turn           → id | null
       /pickerStates   → {bg:{h,s,v}, line:{h,s,v}}
@@ -41,7 +41,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
         /{CLIENT_ID}  → {fromId, toCol, toRow}  // flecha de arrastre en curso, una por cliente (onDisconnect remove)
     /escena2 … /escena10   // misma forma
   /players
-    /{id}             → {id, name, cls, hp, maxHp, color, sceneId, col, row, owner?}   // owner = uid del jugador que lo creó (no se pone si lo crea el master)
+    /{id}             → {id, name, cls, hp, maxHp, color, size, sceneId, col, row, owner?}   // owner = uid del jugador que lo creó (no se pone si lo crea el master)
   /chest
     /{id}             → token completo (enemy o player sin owner, sin sceneId)   // baúl del master: fuera de toda escena
   /uid                → number              // contador global de ids
@@ -177,6 +177,7 @@ Tiradas especiales (botones **Porcentaje** y **Todo o Nada**):
 - Tamaño del mat: `--view:880px` en CSS ↔ `VIEW=880` en JS. Tamaño de celda: `CS = VIEW/COLS` según el zoom; `setZoomLevel` actualiza `--cs` — no fijar 44px a mano ni usar `20*var(--cs)` para alturas (usar `--view`).
 - Coordenadas siempre enteras. Nunca almacenar posiciones fraccionarias.
 - Enemigos: fondo `rgba(90,8,8,0.88)`, borde rojizo. Jugadores: círculo con color configurable.
+- **Tamaño** (desplegable junto a Clase en Nuevo token, default Mediano; vale para jugadores y enemigos): campo `size` = `tiny|small|medium|large|huge|gargantuan` (`SIZES`; sin `size` = Mediano). Ocupa `n×n` casillas según D&D 5e — Diminuto/Pequeño/Mediano 1, Grande 2×2, Enorme 3×3, Gargantuesco 4×4 — con `col,row` = esquina superior izquierda. Diminuto se dibuja a media casilla y hasta 4 solas en una casilla van una por cuadrante. Al crear/sacar del baúl/cambiar de escena se busca lugar para todo el cuadrado (`footprint`, `fitsAt`). Al arrastrar, la casilla por la que se agarró queda bajo el cursor; la distancia se mide entre esquinas.
 - Fichas en la misma celda: se abren en abanico tipo mano de cartas (`layoutStacks`: corridas y apenas giradas, en orden de iniciativa), solo visual — `col/row` no cambian. En una pila solo el cuerpo (`.tbody`) recibe el mouse, así cada ficha se puede clickear/arrastrar por su franja visible. Para redibujar una ficha usar `renderTok` (recalcula el abanico); `drawTok` solo dentro de bucles que después llaman `layoutStacks()`.
 
 ---
