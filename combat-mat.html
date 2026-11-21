@@ -796,6 +796,7 @@ const canEditHp=canDelete;
 function refreshPlayerControls(){
   document.body.classList.toggle('is-master',isMaster());
   const btn=document.getElementById('btn-add-player');if(!btn)return;
+  btn.textContent=isMaster()?'+ NPC':'+ Jugador'; // los personajes del master son NPCs (van al baúl)
   const locked=!isMaster()&&(creatingChar||!!myChar());
   btn.disabled=locked;
   btn.style.opacity=locked?'0.4':'';
