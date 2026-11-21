@@ -134,7 +134,7 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 #map-swatches .terr-sw:hover { transform:none; } /* el agrandado se cortaría contra el borde de la grilla con scroll */
 #terr-cats { display:grid; grid-template-columns:1fr 1fr; gap:3px; margin-bottom:3px; }
 #terr-cats.off { display:none; }
-#terr-cats span { text-align:center; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.8px; text-transform:uppercase; padding:3px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.5); cursor:pointer; white-space:nowrap; }
+#terr-cats span { text-align:center; font-family:'Cinzel',serif; font-size:9px; letter-spacing:.8px; text-transform:uppercase; padding:4px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.5); cursor:pointer; white-space:nowrap; }
 #terr-cats span:hover { color:rgba(255,255,255,0.75); }
 #terr-cats span.active { background:rgba(200,146,42,0.18); color:var(--amber-lt); border-color:var(--amber); }
 .pal-head { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
@@ -158,23 +158,23 @@ body.is-master #chest-section { flex:calc(1 - var(--split,0.5)) 1 0; }
 
 /* Pan controls */
 /* Dos mitades iguales: botones de terreno a la izquierda, flechas a la derecha, cada uno centrado en la suya */
-#map-tools { display:grid; grid-template-columns:1fr 1fr; align-items:center; justify-items:center; margin-top:6px; }
+/* Tres columnas: botones de terreno (pincel actual y ✕) | tamaño del pincel | flechas */
+#map-tools { display:grid; grid-template-columns:50px 40px 96px; justify-content:space-between; align-items:center; margin-top:8px; }
 #terr-tools { display:flex; flex-direction:column; gap:6px; width:50px; }
-#terr-tools > .terr-sw, #terr-tools > .tbtn-erase { height:30px; }
-/* Tamaño del pincel (1×1 / 3×3 / 5×5), entre las flechas y Limpiar terreno; solo con destino Terreno */
-#brush-size { display:flex; align-items:center; gap:4px; margin-top:6px; }
+#terr-tools > .terr-sw, #terr-tools > .tbtn-erase { height:34px; }
+/* Tamaño del pincel (1×1 / 3×3 / 5×5): columna de tres botones; solo con destino Terreno */
+#brush-size { display:flex; flex-direction:column; gap:6px; }
 #brush-size.off { visibility:hidden; pointer-events:none; }
-#brush-size .bs-label { font-family:'Cinzel',serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--amber-lt); margin-right:2px; }
-#brush-size [data-n] { flex:1; text-align:center; font-family:'Cinzel',serif; font-size:10px; padding:3px 0; border:1px solid var(--border); border-radius:3px; color:rgba(255,255,255,0.55); cursor:pointer; }
+#brush-size [data-n] { height:26px; box-sizing:border-box; display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:10px; border:1px solid var(--border); border-radius:4px; color:rgba(255,255,255,0.55); background:rgba(255,255,255,0.05); cursor:pointer; }
 #brush-size [data-n]:hover { color:rgba(255,255,255,0.85); }
 #brush-size [data-n].active { background:rgba(200,146,42,0.18); color:var(--amber-lt); border-color:var(--amber); }
 #terr-tools > .tbtn-erase { font-size:15px; }
 #terr-tools > .off { visibility:hidden; pointer-events:none; }
 #pan-grid { display:grid; grid-template-columns:26px 1fr 26px; gap:3px; width:96px; }
-.pan-btn { height:23px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); border-radius:4px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .12s; }
+.pan-btn { height:28px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); border-radius:4px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .12s; }
 .pan-btn:hover { background:rgba(200,146,42,0.2); }
 /* Posición de la vista (ox,oy): ámbar claro sobre recuadro oscuro para que se lea */
-.pan-center { display:flex; align-items:center; justify-content:center; height:23px; font-family:'Cinzel',serif; font-size:11px; font-weight:700; color:var(--amber-lt); background:rgba(0,0,0,0.6); border:1px solid rgba(200,146,42,0.45); border-radius:4px; white-space:nowrap; letter-spacing:-.3px; text-shadow:0 1px 2px #000; cursor:pointer; user-select:none; transition:background .12s; }
+.pan-center { display:flex; align-items:center; justify-content:center; height:28px; font-family:'Cinzel',serif; font-size:11px; font-weight:700; color:var(--amber-lt); background:rgba(0,0,0,0.6); border:1px solid rgba(200,146,42,0.45); border-radius:4px; white-space:nowrap; letter-spacing:-.3px; text-shadow:0 1px 2px #000; cursor:pointer; user-select:none; transition:background .12s; }
 .pan-center:hover { background:rgba(200,146,42,0.25); border-color:var(--amber); }
 
 input[type=text] { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#ddd; padding:4px 7px; border-radius:4px; font-family:'EB Garamond',serif; font-size:13px; margin-bottom:6px; outline:none; }
@@ -394,7 +394,7 @@ body:not(.is-master) .master-only { display:none; }
       <div id="map-simple"><div id="terr-cats"></div><div id="map-swatches" class="sw-grid"></div></div>
       <!-- Completa: selector HSV (en Terreno, pinta con cualquier color) -->
       <div id="map-full">
-        <canvas id="map-sq"  class="pick-sq"  width="192" height="124"></canvas>
+        <canvas id="map-sq"  class="pick-sq"  width="192" height="128"></canvas>
         <canvas id="map-hue" class="pick-hue" width="192" height="12"></canvas>
       </div>
       </div>
@@ -403,6 +403,12 @@ body:not(.is-master) .master-only { display:none; }
       <div id="terr-tools">
         <div class="terr-sw" id="brush-custom" onclick="selectTerrain(curBrush())"></div>
         <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" data-tip="Borrar terreno">✕</div>
+      </div>
+      <!-- Tamaño del pincel de terreno (cuadrado centrado en la celda clickeada), entre los botones de terreno y las flechas -->
+      <div id="brush-size">
+        <span data-n="1" class="active" onclick="setBrushSize(1)" data-tip="Pincel 1×1">1×1</span>
+        <span data-n="3" onclick="setBrushSize(3)" data-tip="Pincel 3×3">3×3</span>
+        <span data-n="5" onclick="setBrushSize(5)" data-tip="Pincel 5×5">5×5</span>
       </div>
       <div id="pan-grid">
         <div></div>
@@ -416,12 +422,7 @@ body:not(.is-master) .master-only { display:none; }
         <div></div>
       </div>
       </div>
-      <!-- Tamaño del pincel de terreno: cuadrado centrado en la celda clickeada -->
-      <div id="brush-size">
-        <span class="bs-label">Pincel</span>
-        <span data-n="1" class="active" onclick="setBrushSize(1)">1×1</span><span data-n="3" onclick="setBrushSize(3)">3×3</span><span data-n="5" onclick="setBrushSize(5)">5×5</span>
-      </div>
-      <button class="btn bd" onclick="clearTerrain()" style="margin:6px 0 0">Limpiar terreno</button>
+      <button class="btn bd" onclick="clearTerrain()" style="margin:8px 0 0">Limpiar terreno</button>
     </div>
 
     <div class="section">
