@@ -66,7 +66,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 
 ### Roles y permisos
 - **Master**: la cuenta `MASTER_EMAIL` (hardcodeada en JS). Puede crear personajes sin límite y cambiar de escena libremente.
-- **Jugadores** (resto de `ALLOWED_EMAILS`): pueden crear **un solo personaje a la vez** (`owner` = su uid; el botón "+ Jugador" se deshabilita mientras exista). Al crearlo, aparece solo en el selector **Nombre** de dados.
+- **Jugadores** (resto de `ALLOWED_EMAILS`): pueden crear **un solo personaje a la vez** (`owner` = su uid; el botón "+ Jugador" se deshabilita mientras exista). En el panel de dados, **Nombre** no es un desplegable para ellos: muestra fijo su personaje, y sin personaje no pueden tirar (dados, Porcentaje ni Todo o Nada). Solo el master elige nombre del desplegable.
 - Si un jugador cambia de escena, **su personaje viaja con él** (se reubica en la celda libre más cercana) y el cambio se registra en `/sala/events`, que se muestra en el **Historial** junto con las tiradas (no aparece en `log.html` ni `dice.html`).
 - Un jugador siempre ve la escena donde está su personaje: al cargar, o si el master lo mueve con "Traer personajes acá", su vista lo sigue.
 - Fuera de eso no hay permisos: cualquier cliente puede mover cualquier ficha, pintar terreno, ajustar HP, etc.

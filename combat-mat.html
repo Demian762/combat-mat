@@ -116,6 +116,9 @@ input[type=text]:focus { border-color:var(--amber); }
 .die-pick-btn.has-dice { border-color:var(--amber); background:rgba(200,146,42,0.15); color:var(--amber-lt); }
 .roll-btn { font-family:'Cinzel',serif; font-size:12px; letter-spacing:1.5px; padding:9px; border-radius:4px; border:1px solid var(--amber); cursor:pointer; text-transform:uppercase; width:100%; background:rgba(200,146,42,0.1); color:var(--amber-lt); transition:background .15s; margin-top:6px; }
 .roll-btn:hover { background:rgba(200,146,42,0.25); }
+.roll-locked { opacity:.35; cursor:not-allowed !important; pointer-events:none; }
+#dplayer-fixed { width:100%; border:1px solid var(--border); color:var(--amber-lt); padding:5px 7px; border-radius:4px; font-family:'Cinzel',serif; font-size:11px; min-height:26px; box-sizing:border-box; }
+#dplayer-fixed.empty { color:rgba(200,180,120,0.45); font-family:'EB Garamond',serif; font-style:italic; }
 #dlog-section { background:rgba(28,14,3,0.92); border-top:1px solid var(--border); }
 #dlog-section::-webkit-scrollbar { width:3px; }
 #dlog-section::-webkit-scrollbar-thumb { background:rgba(200,146,42,0.4); border-radius:2px; }
@@ -148,7 +151,7 @@ input[type=text]:focus { border-color:var(--amber); }
 
 /* Account */
 #account-email { display:block; font-family:'EB Garamond',serif; font-size:12px; color:rgba(200,160,80,0.75); letter-spacing:.3px; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
-#logout-section.hidden { display:none; }
+#logout-section.hidden, #dplayer-fixed.hidden, #dplayer-name.hidden { display:none; }
 
 </style>
 </head>
@@ -175,6 +178,7 @@ input[type=text]:focus { border-color:var(--amber); }
   <div id="dice">
     <div class="section">
       <span class="sec-title">Nombre</span>
+      <div id="dplayer-fixed" class="hidden"></div>
       <select id="dplayer-name" style="margin-bottom:0">
         <option value="">Anónimo</option>
         <option value="Master">Master</option>
@@ -188,8 +192,8 @@ input[type=text]:focus { border-color:var(--amber); }
       <span class="sec-title">Dados</span>
       <div id="dice-rows"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px">
-        <button class="die-pick-btn" onclick="rollPercent()"><span style="font-size:10.5px">Porcentaje</span></button>
-        <button class="die-pick-btn" onclick="rollCoin()"><span style="font-size:10.5px">Todo o Nada</span></button>
+        <button class="die-pick-btn roll-gate" onclick="rollPercent()"><span style="font-size:10.5px">Porcentaje</span></button>
+        <button class="die-pick-btn roll-gate" onclick="rollCoin()"><span style="font-size:10.5px">Todo o Nada</span></button>
       </div>
       <div style="display:flex;align-items:center;gap:4px;margin:5px 0 6px">
         <span id="dsel-str" style="font-family:'Cinzel',serif;font-size:11px;color:rgba(200,180,120,0.7);flex:1">—</span>
@@ -209,7 +213,7 @@ input[type=text]:focus { border-color:var(--amber); }
       </div>
       <label class="plabel" for="dbounce">Rebote <span id="dbounce-val" style="color:var(--amber-lt)"></span></label>
       <input type="range" id="dbounce" min="0" max="100" step="1" value="33" oninput="setDuration(dSliderToSecs(+this.value))">
-      <button class="roll-btn" onclick="rollDice()">⚄ Tirar</button>
+      <button class="roll-btn roll-gate" onclick="rollDice()">⚄ Tirar</button>
     </div>
     <div class="section" style="text-align:center;padding:10px 12px;height:58px;flex-shrink:0">
       <div id="droll-result" style="font-family:'Cinzel',serif;font-size:30px;color:var(--amber-lt);height:38px;line-height:38px;letter-spacing:2px;overflow:hidden"></div>
@@ -392,6 +396,7 @@ function handleAuthUser(user) {
     accountEmail.textContent = user.email;
     logoutSection.classList.remove('hidden');
     if (!appReady) { appReady = true; initFirebase(); fitApp(); }
+    refreshPlayerControls();
   } else if (user) {
     errorEl.textContent = `Acceso denegado: ${user.email} no está autorizado.`;
     errorEl.style.display = 'block';
@@ -600,6 +605,20 @@ function refreshPlayerControls(){
   btn.style.opacity=locked?'0.4':'';
   btn.style.cursor=locked?'not-allowed':'';
   btn.title=locked?'Ya tenés un personaje. Borralo para crear otro.':'';
+  // Jugadores: Nombre fijo = su personaje; sin personaje no pueden tirar
+  const master=isMaster(),mine=myChar();
+  document.getElementById('dplayer-name').classList.toggle('hidden',!master);
+  const fixed=document.getElementById('dplayer-fixed');
+  fixed.classList.toggle('hidden',master);
+  fixed.classList.toggle('empty',!mine);
+  fixed.textContent=mine?mine.name:'Creá un personaje para tirar';
+  document.querySelectorAll('.roll-gate').forEach(b=>b.classList.toggle('roll-locked',!canRoll()));
+}
+const canRoll=()=>isMaster()||!!myChar();
+// Nombre con el que se tira: el master elige del dropdown, el jugador tira siempre como su personaje
+function rollerName(){
+  if(!isMaster()){const t=myChar();return t?t.name:null;}
+  return document.getElementById('dplayer-name').value.trim()||'Anónimo';
 }
 async function addTok(type){
   if(type==='player'&&!isMaster()){
@@ -928,12 +947,7 @@ function updateDiceNameOptions(){
     const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);
   });
   sel.value=Array.from(sel.options).some(o=>o.value===prev)?prev:'';
-  // El personaje propio aparece solo en Nombre (al crearlo, al cargar y al renombrarlo)
-  const mine=myChar();
-  if(mine&&(prev===lastMyCharName||mine.name!==lastMyCharName))sel.value=mine.name;
-  lastMyCharName=mine?mine.name:null;
 }
-let lastMyCharName=null;
 
 /* ── Dice ── */
 const DSIDES={d4:4,d6:6,d8:8,d10:10,d12:12,d20:20};
@@ -1294,7 +1308,7 @@ function spawnDiceMeshes(rolls, meshList, dieColor, duration, onDone){
 }
 
 function rollDice(){
-  if(!Object.values(dCount).some(n=>n>0))return;
+  if(!canRoll()||!Object.values(dCount).some(n=>n>0))return;
   let rolls={},sum=dMod,diceStr,meshList;
   const modStr=dMod>0?`+${dMod}`:dMod<0?String(dMod):'';
   const only1d20=dCount.d20===1&&dCount.d4===0&&dCount.d6===0&&dCount.d8===0&&dCount.d10===0&&dCount.d12===0;
@@ -1325,7 +1339,7 @@ function rollDice(){
 // Writes the roll to Firebase as hidden (keeping the last 20); logs skip it until the flag is cleared.
 // Returns {dieColor, ref}.
 function pushRoll(diceStr,rolls,modifier,total){
-  const dPlayerName=(document.getElementById('dplayer-name').value.trim())||'Anónimo';
+  const dPlayerName=rollerName();
   const selTok=S.tokens.find(t=>t.type==='player'&&t.name===dPlayerName);
   const dieColor=selTok?parseInt(selTok.color.replace('#',''),16):null;
   const ref=db.ref('sala/rolls').push({player:dPlayerName,dice:diceStr,rolls,modifier,total,timestamp:Date.now(),_cid:CLIENT_ID,color:dieColor,duration:dDuration,hidden:true});
@@ -1360,10 +1374,11 @@ function rollAnimated(diceStr,rolls,modifier,total){
 }
 // Percentile: tens d10 (0..90) + units d10 (1..10) → 1..100
 function rollPercent(){
+  if(!canRoll())return;
   const tens=Math.floor(Math.random()*10)*10,units=Math.floor(Math.random()*10)+1;
   rollAnimated('Porcentaje',{d100:[tens],d10:[units]},0,tens+units);
 }
-function rollCoin(){const r=Math.random()<.5?'Todo':'Nada';rollAnimated('Todo o Nada',{coin:[r]},0,r);}
+function rollCoin(){if(!canRoll())return;const r=Math.random()<.5?'Todo':'Nada';rollAnimated('Todo o Nada',{coin:[r]},0,r);}
 
 function renderDiceLog(){
   const el=document.getElementById('dlog-list');
