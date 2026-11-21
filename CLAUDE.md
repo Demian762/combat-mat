@@ -129,7 +129,8 @@ Dos paletas separadas, cada una con modo **Simple** (muestras fijas) y **Complet
 - **Sangre** (`blood`) es un terreno más, pero se dibuja como charco con gotas sin fondo: la grilla se ve debajo.
 - **Vacío** (`void`) es un abismo/precipicio, no la celda sin terreno del borrador. **Escombros** (`rubble`) marca terreno difícil.
 - **Objetos** van encima, una celda cada uno (salvo el ataúd). Los que miran a sus vecinas reciben `nb` (`objNeighbors`, `OBJ_NB`): las mesas pegadas se unen en una mesa larga (`links`), la silla gira para mirar a la mesa de al lado (respaldo del otro lado) y el armero apoya la tabla contra la pared vecina (`rot`, aplicado en `terrTex`). Sin vecina, sin giro.
-  - Contra la pared (`OBJ_WALL`: armero, mueble, biblioteca, trono, altar): la pared o ladrillo vecino queda "arriba" del dibujo. Las bibliotecas seguidas a lo largo de la pared se unen (`links` 1 = izquierda, 2 = derecha del dibujo).
+  - Contra la pared (`OBJ_WALL`: armero, mueble, trono, altar): la pared o ladrillo vecino queda "arriba" del dibujo.
+  - **Biblioteca**: se une como las cercas (`drawShelves`: 8 direcciones, la diagonal solo si las dos de costado no son biblioteca, sola = horizontal), estante de dos caras de centro a centro con libros a los dos lados. `TERRAIN_TEX.shelf` queda solo para la muestra de la paleta.
   - Girados al azar por coordenada (`OBJ_SPIN`): cadáver, huesos, poste indicador.
   - **Cama**: una celda, no se une con otras. Dos posiciones que se alternan en orden (`TERR_CYCLE`): la primera vez horizontal (`#0`, cabecera a la izquierda), cada clic sobre una cama pasa a vertical (`#1`) y vuelve.
   - **2 celdas** (`OBJ_PAIR`: ataúd): `objPairs` los empareja recorriendo todo el terreno fila por fila (con el de la derecha, si no con el de abajo; cabecera a la izquierda/arriba); `nb.part` 0 = cabecera, 1 = pies (el dibujo se corre una celda), 2 = solo (versión chica).
