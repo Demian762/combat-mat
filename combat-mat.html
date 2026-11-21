@@ -548,7 +548,8 @@ const TERRAIN={
   fire:{name:'Fuego',sw:'#be3c08'},lava:{name:'Lava',sw:'#c81400'},trap:{name:'Trampa',sw:'#640606'},sand:{name:'Arena',sw:'#bea564'},
   snow:{name:'Nieve',sw:'#eef2f8'},metal:{name:'Metal',sw:'#7a8490'},blood:{name:'Sangre',sw:'#7a0808'},
   roof:{name:'Tejado',sw:'#9a3a20'},straw:{name:'Paja',sw:'#d2b04c'},void:{name:'Vacío',sw:'#0a0810'},dirt:{name:'Tierra',sw:'#6b4a2c'},
-  rubble:{name:'Escombros',sw:'#7a7066'},
+  rubble:{name:'Escombros',sw:'#7a7066'},wood:{name:'Madera',sw:'#8a5a32'},mud:{name:'Barro',sw:'#4e4a2a'},
+  acid:{name:'Ácido / Veneno',sw:'#5ad41e'},cloud:{name:'Nube mágica',sw:'#b4a8dc'},
 };
 const isHexColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
 // Paleta simple de personajes: colores vivos y claros
@@ -805,7 +806,7 @@ function paintCell(e){
 // Una celda guarda hasta dos capas en un solo valor de /terrain: "piso+encima" (ej. "stone+blood").
 // Piso = terreno con nombre o color libre '#rrggbb'; encima = fuego o sangre (TERR_OVER), solo sobre pisos con nombre.
 // "fire" o "blood" solos = sin piso. Un color libre nunca lleva nada encima.
-const TERR_OVER={fire:1,blood:1,rubble:1};
+const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1};
 function parseTerr(v){
   if(typeof v!=='string'||!v)return{};
   if(isHexColor(v))return{base:v};
@@ -1075,18 +1076,73 @@ const TERRAIN_TEX={
     const m=4+Math.round(R()*4),d=Math.max(1,s*0.03);
     for(let i=0;i<m;i++){c.fillStyle=`rgba(${150+R()*40|0},${140+R()*30|0},${120+R()*20|0},0.8)`;c.fillRect(R()*s,R()*s,d,d);}
   },
+  wood(c,s,R){ // piso de tablones horizontales con veta, juntas y empalmes clavados (Puerta es vertical y con herrajes)
+    const n=4,h=s/n,j=Math.max(1,s*0.02),nr=Math.max(0.7,s*0.015);c.lineWidth=Math.max(0.6,s*0.012);
+    for(let i=0;i<n;i++){
+      const y=i*h,v=R()*25,seam=R()*s;
+      c.fillStyle=rgb(118+v,78+v*0.7,44+v*0.4);c.fillRect(0,y,s,h);
+      c.strokeStyle='rgba(60,32,12,0.35)';
+      for(let k=0;k<2;k++){const gy=y+h*(0.25+R()*0.5),a=h*0.12;c.beginPath();c.moveTo(0,gy);c.bezierCurveTo(s*0.33,gy-a,s*0.66,gy+a,s,gy);c.stroke();}
+      c.fillStyle='rgba(255,220,170,0.1)';c.fillRect(0,y,s,Math.max(1,h*0.12));
+      c.fillStyle='#2e1a0a';c.fillRect(0,y+h-j,s,j);c.fillRect(seam,y,j,h);
+      c.fillStyle='rgba(30,20,10,0.8)';disc(c,seam-s*0.04,y+h*0.5,nr);disc(c,seam+s*0.06,y+h*0.5,nr);
+    }
+  },
+  mud(c,s,R){ // barro/pantano: manchas, charcos turbios con reflejo y matas de junco
+    c.fillStyle='#4a3f24';c.fillRect(0,0,s,s);
+    for(let i=0;i<3;i++){c.fillStyle=R()<0.5?'rgba(30,24,10,0.3)':'rgba(90,95,40,0.25)';disc(c,R()*s,R()*s,s*(0.15+R()*0.2));}
+    const k=1+Math.round(R());c.lineWidth=Math.max(0.8,s*0.02);
+    for(let i=0;i<k;i++){
+      const x=s*(0.2+R()*0.6),y=s*(0.2+R()*0.6),p=blobPts(x,y,s*(0.12+R()*0.1),s*(0.08+R()*0.06),7,0.3,R);
+      c.fillStyle='rgba(40,58,40,0.85)';trace(c,p);c.fill();c.strokeStyle='rgba(20,16,6,0.6)';c.stroke();
+      c.fillStyle='rgba(200,220,190,0.25)';c.beginPath();c.ellipse(x-s*0.03,y-s*0.02,s*0.04,s*0.012,0,0,6.2832);c.fill();
+    }
+    const n=Math.round(4*s/44);c.strokeStyle='#3c5a22';c.lineWidth=Math.max(0.8,s*0.022);c.lineCap='round';
+    for(let i=0;i<n;i++){const x=R()*s,y=R()*s,h=s*(0.08+R()*0.08);c.beginPath();c.moveTo(x,y);c.lineTo(x-h*0.3,y-h);c.moveTo(x,y);c.lineTo(x+h*0.25,y-h*0.9);c.stroke();}
+  },
+  acid(c,s,R,t){ // charco verde fosforescente, va encima; animado: burbujas que revientan
+    const cx=s*(0.5+(R()-0.5)*0.2),cy=s*(0.5+(R()-0.5)*0.2),rx=s*(0.28+R()*0.1),ry=s*(0.24+R()*0.1);
+    const p=blobPts(cx,cy,rx,ry,9,0.3,R);
+    const g=c.createRadialGradient(cx,cy,0,cx,cy,Math.max(rx,ry)*1.6);g.addColorStop(0,'rgba(140,255,60,0.3)');g.addColorStop(1,'rgba(140,255,60,0)');c.fillStyle=g;c.fillRect(0,0,s,s);
+    c.fillStyle='rgba(40,140,10,0.88)';trace(c,p);c.fill();
+    c.save();c.clip();c.fillStyle='rgba(150,255,70,0.55)';disc(c,cx-rx*0.1,cy-ry*0.1,Math.min(rx,ry)*0.7);c.restore();
+    c.fillStyle='rgba(235,255,200,0.4)';c.beginPath();c.ellipse(cx-rx*0.35,cy-ry*0.4,rx*0.18,ry*0.08,-0.5,0,6.2832);c.fill();
+    const n=2+Math.round(R()*2),lo=s*0.04,hi=s*0.96;
+    for(let i=0;i<n;i++){
+      const a=R()*6.2832,d=Math.max(rx,ry)*(1.1+R()*0.4),r=s*(0.015+R()*0.03);
+      c.fillStyle='rgba(70,190,20,0.9)';disc(c,Math.min(hi,Math.max(lo,cx+Math.cos(a)*d)),Math.min(hi,Math.max(lo,cy+Math.sin(a)*d)),r);
+    }
+    c.lineWidth=Math.max(0.7,s*0.015);
+    for(let i=0;i<3;i++){
+      const x=cx+(R()-0.5)*rx,y=cy+(R()-0.5)*ry,ph=R(),per=1.5+R()*1.5,br=s*0.035;
+      if(t==null){c.strokeStyle='rgba(210,255,160,0.6)';c.beginPath();c.arc(x,y,br*0.6,0,6.2832);c.stroke();continue;}
+      const u=(t/per+ph)%1;
+      if(u>0.8){const k=(u-0.8)/0.2;c.strokeStyle=`rgba(210,255,160,${0.8*(1-k)})`;c.beginPath();c.arc(x,y,br*(1+k),0,6.2832);c.stroke();}
+      else{c.fillStyle='rgba(190,255,120,0.75)';disc(c,x,y,br*u/0.8);}
+    }
+  },
+  cloud(c,s,R,t){ // nube mágica: bruma lila semitransparente con destellos, va encima; animada: se desplaza y titila
+    c.fillStyle='rgba(175,165,215,0.28)';c.fillRect(0,0,s,s); // velo parejo: sin cortes entre celdas vecinas
+    for(let i=0;i<4;i++){
+      const x0=R()*s,y0=R()*s,r=s*(0.3+R()*0.25),ph=R()*6.28;
+      const x=x0+(t==null?0:Math.sin(t*0.4+ph)*s*0.1),y=y0+(t==null?0:Math.cos(t*0.3+ph)*s*0.06),a=t==null?0.35:0.25+0.15*(0.5+0.5*Math.sin(t*0.8+ph));
+      const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(225,215,255,${a})`);g.addColorStop(1,'rgba(225,215,255,0)');c.fillStyle=g;c.fillRect(0,0,s,s);
+    }
+    const n=2+Math.round(R()*2),d=Math.max(1,s*0.03);
+    for(let i=0;i<n;i++){const x=R()*s,y=R()*s,ph=R()*6.28,a=t==null?0.7:0.15+0.8*Math.max(0,Math.sin(t*2+ph));c.fillStyle=`rgba(255,250,255,${a})`;c.fillRect(x,y,d,d);}
+  },
 };
 // Fondo del fuego cuando está solo (sin piso debajo)
 function fireBg(c,s){const g=c.createLinearGradient(0,0,0,s);g.addColorStop(0,'#6a1a06');g.addColorStop(1,'#a83008');c.fillStyle=g;c.fillRect(0,0,s,s);}
 // Terrenos que se animan cuando forman un grupo (vecinos de lado) de al menos TERR_ANIM_MIN celdas.
 // Cada capa agrupa por separado: el fuego encima de piedra se anima con el resto del fuego, no con la piedra.
-const TERR_ANIM={lava:1,water:1,fire:1}, TERR_ANIM_MIN=4;
+const TERR_ANIM={lava:1,water:1,fire:1,acid:1,cloud:1}, TERR_ANIM_MIN=4;
 // Muestra de la paleta Simple: la textura de verdad, dibujada una vez y cacheada como imagen
 const terrSwCache={};
 function terrBg(type){
   if(!terrSwCache[type]){
     const cv=document.createElement('canvas');cv.width=cv.height=88;const c=cv.getContext('2d');c.scale(2,2);
-    if(type==='blood'||type==='rubble'){c.fillStyle='#1c1612';c.fillRect(0,0,44,44);} // sin fondo propio: sobre un piso oscuro
+    if(TERR_OVER[type]&&type!=='fire'){c.fillStyle='#1c1612';c.fillRect(0,0,44,44);} // sin fondo propio: sobre un piso oscuro
     if(type==='fire')fireBg(c,44);
     if(type==='void'){ // negro sobre el panel oscuro no se ve: en la muestra va como un pozo con borde de tierra
       c.fillStyle='#6b4a2c';c.fillRect(0,0,44,44);
