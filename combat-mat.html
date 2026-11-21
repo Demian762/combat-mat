@@ -101,7 +101,8 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .tbtn-erase.active { border-color:rgba(200,80,80,0.9); color:#e08080; background:rgba(180,40,40,0.2); }
 
 /* Pan controls */
-#map-tools { display:flex; justify-content:center; align-items:flex-start; gap:10px; margin-top:8px; }
+/* Dos mitades iguales: botones de terreno a la izquierda, flechas a la derecha, cada uno centrado en la suya */
+#map-tools { display:grid; grid-template-columns:1fr 1fr; align-items:center; justify-items:center; margin-top:8px; }
 #terr-tools { display:flex; flex-direction:column; gap:4px; width:36px; }
 #terr-tools > .off { visibility:hidden; pointer-events:none; }
 #pan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:3px; width:90px; }
@@ -323,8 +324,8 @@ body:not(.is-master) .master-only { display:none; }
       <div id="map-tools">
       <!-- Borrar terreno y pincel de color libre (Completa), a la izquierda de las flechas -->
       <div id="terr-tools">
-        <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar terreno">✕</div>
         <div class="terr-sw" id="brush-custom" onclick="selectTerrain(hsvToHex(terrCustom.h,terrCustom.s,terrCustom.v))" title="Pintar con este color"></div>
+        <div class="tbtn-erase" data-terr="eraser" onclick="selectTerrain('eraser')" title="Borrar terreno">✕</div>
       </div>
       <div id="pan-grid">
         <div></div>
