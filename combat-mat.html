@@ -578,6 +578,11 @@ const TERRAIN={
   acid:{name:'Ácido / Veneno',sw:'#5ad41e'},cloud:{name:'Nube mágica',sw:'#b4a8dc'},
   chest:{name:'Cofre',sw:'#7a4a1c'},gold:{name:'Oro',sw:'#e8b923'},rack:{name:'Armero',sw:'#6a4a2a'},
   chair:{name:'Silla',sw:'#5c361a'},table:{name:'Mesa',sw:'#5a3418'},brick:{name:'Ladrillo',sw:'#9a4a32'},
+  bed:{name:'Cama',sw:'#2e4a7a'},furniture:{name:'Mueble (al azar)',sw:'#5a3418'},shelf:{name:'Biblioteca',sw:'#4a2c14'},
+  throne:{name:'Trono',sw:'#8a1a1a'},altar:{name:'Altar',sw:'#8a8680'},anvil:{name:'Banco de herrero',sw:'#4a4a52'},
+  torch:{name:'Antorcha',sw:'#e8781c'},barrel:{name:'Barril',sw:'#7a4a22'},urn:{name:'Urna',sw:'#a8643a'},
+  coffin:{name:'Ataúd',sw:'#3a2414'},corpse:{name:'Cadáver',sw:'#6a4a3a'},bones:{name:'Huesos',sw:'#d8ceb4'},
+  tomb:{name:'Lápida',sw:'#8a8a90'},signpost:{name:'Poste indicador',sw:'#7a5226'},
   tiles:{name:'Baldosas',sw:'#d2c4a4'},marble:{name:'Mármol',sw:'#e6e2da'},carpet:{name:'Alfombra',sw:'#7a1c1c'},setts:{name:'Empedrado',sw:'#7c7e86'},
   bush:{name:'Arbustos',sw:'#3f7a2a'},vines:{name:'Enredaderas',sw:'#4c8a2e'},crack:{name:'Grieta',sw:'#2a211a'},
   oil:{name:'Aceite',sw:'#2a2016'},dirty:{name:'Agua sucia',sw:'#556238'},shallow:{name:'Agua poco profunda',sw:'#5aa6c8'},
@@ -588,7 +593,8 @@ const TERR_CATS=[
   ['nature','Naturaleza',['grass','sand','dirt','snow','mud','straw','tree','bush','vines','crack','void','fire','ice']],
   ['fluid','Fluidos',['water','shallow','dirty','lava','acid','oil','blood','cloud']],
   ['build','Construcción',['wall','brick','door','fence','roof','stone','setts','tiles','marble','carpet','wood','metal']],
-  ['objects','Objetos',['trap','rubble','chest','gold','rack','chair','table']],
+  ['objects','Objetos',['chest','gold','table','chair','bed','furniture','shelf','throne','altar','anvil','rack','torch',
+    'barrel','urn','coffin','tomb','corpse','bones','signpost','trap','rubble']],
 ];
 const isHexColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
 // Paleta simple de personajes: colores vivos y claros
@@ -844,9 +850,12 @@ function paintCell(e){
       // Borra una capa por pasada: primero el fuego/sangre de encima, y en otra pasada (otro clic) el piso
       if(terrStroke.has(key))continue;
       next=cur.over?joinTerr(cur.base,null):null;
-    }else if(TERR_OVER[a])next=joinTerr(isHexColor(cur.base)?null:cur.base,a); // encima de un terreno simple; sobre un color libre lo reemplaza
+    }else if(TERR_OVER[a]){ // encima de un terreno simple; sobre un color libre lo reemplaza
+      const ov=TERR_VARIANTS[a]?(terrStroke.has(key)&&cur.over===a?cur.overRaw:a+'#'+Math.floor(Math.random()*TERR_VARIANTS[a])):a;
+      next=joinTerr(isHexColor(cur.base)?null:cur.base,ov);
+    }
     else if(isHexColor(a))next=a;                                             // color libre: reemplaza todo
-    else next=joinTerr(a,cur.over);                                           // piso nuevo: lo de encima se queda
+    else next=joinTerr(a,cur.overRaw);                                        // piso nuevo: lo de encima (con su variante) se queda
     terrStroke.add(key);
     if(next===(S.terrain[key]??null))continue; // sin cambios (el mousemove repite la misma celda)
     if(next)S.terrain[key]=next;else delete S.terrain[key];
@@ -862,14 +871,20 @@ function setBrushSize(n){brushSize=n;document.querySelectorAll('#brush-size [dat
 // Una celda guarda hasta dos capas en un solo valor de /terrain: "piso+encima" (ej. "stone+blood").
 // Piso = terreno con nombre o color libre '#rrggbb'; encima = fuego, sangre, trampa… (TERR_OVER), solo sobre pisos con nombre.
 // "fire", "blood"… solos = sin piso. Un color libre nunca lleva nada encima.
-const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1,trap:1,fence:1,chest:1,gold:1,rack:1,chair:1,table:1,bush:1,vines:1,crack:1,oil:1};
+const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1,trap:1,fence:1,chest:1,gold:1,rack:1,chair:1,table:1,bush:1,vines:1,crack:1,oil:1,
+  bed:1,furniture:1,shelf:1,throne:1,altar:1,anvil:1,torch:1,barrel:1,urn:1,coffin:1,corpse:1,bones:1,tomb:1,signpost:1};
+// Lo de encima puede llevar una variante: "rack#2" (over='rack', v=2, overRaw='rack#2'). Hay que conservar overRaw
+// al reescribir la celda para no perder la variante.
 function parseTerr(v){
   if(typeof v!=='string'||!v)return{};
   if(isHexColor(v))return{base:v};
   const[a,b]=v.split('+');
-  if(b)return{base:a,over:b};
-  return TERR_OVER[a]?{over:a}:{base:a};
+  const ov=x=>{const i=x.indexOf('#');return i<0?{over:x,overRaw:x}:{over:x.slice(0,i),overRaw:x,v:+x.slice(i+1)||0};};
+  if(b)return{base:a,...ov(b)};
+  return TERR_OVER[a.split('#')[0]]?ov(a):{base:a};
 }
+// Objetos con variantes (cantidad): cada clic nuevo sobre la celda sortea una; arrastrar sobre la misma no la cambia
+const TERR_VARIANTS={rack:4,furniture:3};
 const joinTerr=(base,over)=>base&&over?base+'+'+over:base||over||null;
 // Celdas ya tocadas en el trazo actual (se vacía en cada mousedown): el borrador saca una sola capa por pasada
 const terrStroke=new Set();
@@ -1264,12 +1279,35 @@ const TERRAIN_TEX={
     }
     c.fillStyle='rgba(255,255,240,0.9)';const g=R();c.fillRect(s*(0.35+g*0.3),s*0.35,Math.max(1,s*0.03),Math.max(1,s*0.03));
   },
-  rack(c,s){ // armero: tabla contra la pared (arriba) y armas colgando: espada, lanza y hacha
-    const sh=Math.max(1,s*0.03);
+  rack(c,s,R,t,nb){ // armero: tabla contra la pared (arriba) y armas colgando; variante al azar (nb.v)
+    const sh=Math.max(1,s*0.03),v=nb?nb.v||0:0;
     c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(s*0.08+sh,s*0.08+sh,s*0.84,s*0.16);
     c.fillStyle='#5a3a1c';c.fillRect(s*0.08,s*0.08,s*0.84,s*0.16);
     c.fillStyle='rgba(255,220,170,0.15)';c.fillRect(s*0.08,s*0.08,s*0.84,Math.max(1,s*0.03));
     c.lineCap='round';
+    const steel='#c8ccd4',wood='#7a5226',lw=Math.max(1,s*0.04);
+    if(v===1){ // arcos y carcaj
+      c.strokeStyle=wood;c.lineWidth=lw;
+      for(const x of[0.25,0.45]){c.beginPath();c.moveTo(s*x,s*0.2);c.quadraticCurveTo(s*(x+0.14),s*0.5,s*x,s*0.82);c.stroke();c.strokeStyle='rgba(230,220,200,0.8)';c.lineWidth=Math.max(0.6,s*0.01);c.beginPath();c.moveTo(s*x,s*0.2);c.lineTo(s*x,s*0.82);c.stroke();c.strokeStyle=wood;c.lineWidth=lw;}
+      c.fillStyle='#6a3a1a';c.fillRect(s*0.62,s*0.3,s*0.18,s*0.46);
+      c.strokeStyle='#d8d0b8';c.lineWidth=Math.max(0.8,s*0.015);for(const x of[0.66,0.71,0.76]){c.beginPath();c.moveTo(s*x,s*0.3);c.lineTo(s*x,s*0.2);c.stroke();}
+      return;
+    }
+    if(v===2){ // escudo redondo y maza
+      c.fillStyle='#6a3a1a';disc(c,s*0.34,s*0.5,s*0.2);c.strokeStyle='#9a9aa2';c.lineWidth=lw;c.beginPath();c.arc(s*0.34,s*0.5,s*0.2,0,6.2832);c.stroke();
+      c.fillStyle='#b8bcc4';disc(c,s*0.34,s*0.5,s*0.06);
+      c.strokeStyle=wood;c.lineWidth=lw;c.beginPath();c.moveTo(s*0.7,s*0.16);c.lineTo(s*0.7,s*0.66);c.stroke();
+      c.fillStyle='#8a8e96';disc(c,s*0.7,s*0.74,s*0.09);c.fillStyle='#5a5e66';for(let k=0;k<6;k++){const a=k*1.047;disc(c,s*0.7+Math.cos(a)*s*0.09,s*0.74+Math.sin(a)*s*0.09,s*0.025);}
+      return;
+    }
+    if(v===3){ // alabardas
+      for(const x of[0.28,0.5,0.72]){
+        c.strokeStyle=wood;c.lineWidth=lw;c.beginPath();c.moveTo(s*x,s*0.14);c.lineTo(s*x,s*0.92);c.stroke();
+        c.fillStyle=steel;c.beginPath();c.moveTo(s*x,s*0.62);c.quadraticCurveTo(s*(x+0.12),s*0.66,s*(x+0.1),s*0.8);c.lineTo(s*x,s*0.74);c.closePath();c.fill();
+        c.beginPath();c.moveTo(s*x,s*0.95);c.lineTo(s*(x-0.03),s*0.84);c.lineTo(s*(x+0.03),s*0.84);c.closePath();c.fill();
+      }
+      return;
+    }
     // espada
     c.strokeStyle='#c8ccd4';c.lineWidth=Math.max(1,s*0.05);c.beginPath();c.moveTo(s*0.28,s*0.3);c.lineTo(s*0.28,s*0.82);c.stroke();
     c.strokeStyle='#8a6428';c.lineWidth=Math.max(1,s*0.05);c.beginPath();c.moveTo(s*0.19,s*0.3);c.lineTo(s*0.37,s*0.3);c.stroke();
@@ -1297,6 +1335,141 @@ const TERRAIN_TEX={
     c.fillStyle='rgba(255,210,160,0.2)';if(!(L&1))c.fillRect(x0,y0,x1-x0,Math.max(1,s*0.025)); // canto iluminado
     c.fillStyle='rgba(20,8,2,0.7)';const b=Math.max(1,s*0.025); // cantos oscuros abajo y a los costados
     if(!(L&4))c.fillRect(x0,y1-b,x1-x0,b);if(!(L&8))c.fillRect(x0,y0,b,y1-y0);if(!(L&2))c.fillRect(x1-b,y0,b,y1-y0);
+  },
+  /* Objetos de la tanda 3. Los de 2 celdas (cama, ataúd) dibujan el objeto entero de [0,s]×[0,2s] desde la cabecera y
+     la celda de los pies lo corre una celda (nb.part); solos (part 2 o sin nb) van en versión chica en su celda. */
+  bed(c,s,R,t,nb){
+    const p=nb&&nb.part!=null?nb.part:2,L=p===2?s:2*s,x0=s*0.1,w=s*0.8,sh=Math.max(1,s*0.04);
+    if(p===1)c.translate(0,-s);
+    c.fillStyle='rgba(0,0,0,0.4)';c.fillRect(x0+sh,s*0.04+sh,w,L-s*0.08);
+    c.fillStyle='#5a3418';c.fillRect(x0,s*0.04,w,L-s*0.08);                          // armazón
+    c.fillStyle='#3e2410';c.fillRect(x0,s*0.04,w,s*0.1);                              // cabecera
+    c.fillStyle='#e8e2d4';c.fillRect(x0+s*0.05,s*0.14,w-s*0.1,L-s*0.24);              // sábana
+    c.fillStyle='#f4f0e6';c.beginPath();c.roundRect?c.roundRect(x0+s*0.12,s*0.17,w-s*0.24,L*0.16,s*0.05):c.rect(x0+s*0.12,s*0.17,w-s*0.24,L*0.16);c.fill(); // almohada
+    c.fillStyle='#2e4a7a';c.fillRect(x0+s*0.05,s*0.14+L*0.24,w-s*0.1,L-s*0.24-L*0.24);  // frazada
+    c.fillStyle='#e8e2d4';c.fillRect(x0+s*0.05,s*0.14+L*0.24,w-s*0.1,Math.max(1,s*0.05)); // doblez
+    c.fillStyle='rgba(255,255,255,0.12)';for(let k=1;k<4;k++)c.fillRect(x0+s*0.05,s*0.14+L*0.24+(L*0.5)*k/4,w-s*0.1,Math.max(1,s*0.015));
+  },
+  coffin(c,s,R,t,nb){
+    const p=nb&&nb.part!=null?nb.part:2,L=p===2?s:2*s,sh=Math.max(1,s*0.04);
+    if(p===1)c.translate(0,-s);
+    const pts=[[0.32,0.05],[0.68,0.05],[0.86,0.3],[0.7,0.95],[0.3,0.95],[0.14,0.3]].map(([x,y])=>[s*x,s*0.02+(L-s*0.04)*y]);
+    const poly=(dx,dy)=>{c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x+dx,y+dy):c.moveTo(x+dx,y+dy));c.closePath();};
+    c.fillStyle='rgba(0,0,0,0.45)';poly(sh,sh);c.fill();
+    c.fillStyle='#3a2414';poly(0,0);c.fill();
+    c.save();c.translate(s/2,s*0.02+(L-s*0.04)*0.5);c.scale(0.8,0.88);c.translate(-s/2,-(s*0.02+(L-s*0.04)*0.5));c.fillStyle='#5a3a20';poly(0,0);c.fill();c.restore(); // tapa
+    c.fillStyle='#b8b0a0';const cy=s*0.02+(L-s*0.04)*0.38;c.fillRect(s*0.47,cy-L*0.12,s*0.06,L*0.3);c.fillRect(s*0.38,cy-L*0.04,s*0.24,s*0.06); // cruz
+  },
+  furniture(c,s,R,t,nb){ // mueble contra la pared (arriba), variante al azar: ropero, cómoda o aparador
+    const v=nb?nb.v||0:0,sh=Math.max(1,s*0.04);
+    const box=(x,y,w,h,col)=>{c.fillStyle='rgba(0,0,0,0.4)';c.fillRect(x+sh,y+sh,w,h);c.fillStyle=col;c.fillRect(x,y,w,h);c.fillStyle='rgba(255,220,170,0.15)';c.fillRect(x,y+h-Math.max(1,s*0.03),w,Math.max(1,s*0.03));};
+    if(v===0){ // ropero: alto y profundo, dos puertas
+      box(s*0.06,s*0.04,s*0.88,s*0.46,'#5a3418');
+      c.fillStyle='rgba(20,8,2,0.6)';c.fillRect(s*0.495,s*0.06,Math.max(1,s*0.015),s*0.42);
+      c.fillStyle='#c8a040';disc(c,s*0.44,s*0.4,Math.max(1,s*0.025));disc(c,s*0.56,s*0.4,Math.max(1,s*0.025));
+    }else if(v===1){ // cómoda con vela y jarra encima
+      box(s*0.14,s*0.06,s*0.72,s*0.36,'#6a4020');
+      c.fillStyle='#f0e8c8';disc(c,s*0.3,s*0.22,s*0.05);c.fillStyle='#ffcc40';disc(c,s*0.3,s*0.22,s*0.025);
+      c.fillStyle='#8a5a3a';disc(c,s*0.66,s*0.22,s*0.08);c.fillStyle='#3a2414';disc(c,s*0.66,s*0.22,s*0.045);
+    }else{ // aparador: largo y bajo, con platos y frascos
+      box(s*0.04,s*0.06,s*0.92,s*0.3,'#5a3418');
+      c.fillStyle='#e8e2d4';for(const x of[0.18,0.38]){disc(c,s*x,s*0.21,s*0.08);c.fillStyle='#c8c0b0';disc(c,s*x,s*0.21,s*0.045);c.fillStyle='#e8e2d4';}
+      for(const[x,col]of[[0.6,'#4a7a4a'],[0.72,'#7a4a6a'],[0.84,'#a88a3a']]){c.fillStyle=col;disc(c,s*x,s*0.21,s*0.045);}
+    }
+  },
+  shelf(c,s,R,t,nb){ // biblioteca contra la pared (arriba); varias seguidas se unen (links 1 = izquierda, 2 = derecha)
+    const L=nb?nb.links||0:0,x0=L&1?0:s*0.05,x1=L&2?s:s*0.95,sh=Math.max(1,s*0.04);
+    c.fillStyle='rgba(0,0,0,0.4)';c.fillRect(x0+sh,s*0.04+sh,x1-x0,s*0.38);
+    c.fillStyle='#4a2c14';c.fillRect(x0,s*0.04,x1-x0,s*0.38);
+    let x=x0+(L&1?0:s*0.04);const end=x1-(L&2?0:s*0.04);
+    while(x<end-s*0.02){const w=Math.min(end-x,s*(0.05+R()*0.05)),v=R();c.fillStyle=['#7a1c1c','#1c3a6a','#2a5a2a','#6a4a1a','#4a2a5a'][Math.floor(v*5)];c.fillRect(x,s*0.08,w-Math.max(0.5,s*0.008),s*(0.24+R()*0.08));x+=w;}
+    c.fillStyle='#3a200e';if(!(L&1))c.fillRect(x0,s*0.04,s*0.04,s*0.38);if(!(L&2))c.fillRect(x1-s*0.04,s*0.04,s*0.04,s*0.38);
+  },
+  throne(c,s){ // trono: respaldo alto contra la pared, apoyabrazos dorados y almohadón rojo
+    const sh=Math.max(1,s*0.04);
+    c.fillStyle='rgba(0,0,0,0.45)';c.fillRect(s*0.18+sh,s*0.06+sh,s*0.64,s*0.7);
+    c.fillStyle='#c8922a';c.fillRect(s*0.18,s*0.06,s*0.64,s*0.2);                      // respaldo
+    c.fillStyle='#8a1a1a';c.fillRect(s*0.24,s*0.1,s*0.52,s*0.12);
+    c.fillStyle='#b07a20';c.fillRect(s*0.18,s*0.26,s*0.1,s*0.5);c.fillRect(s*0.72,s*0.26,s*0.1,s*0.5); // apoyabrazos
+    c.fillStyle='#a01e1e';c.fillRect(s*0.28,s*0.26,s*0.44,s*0.46);                     // almohadón
+    c.fillStyle='rgba(255,220,160,0.25)';c.fillRect(s*0.28,s*0.26,s*0.44,Math.max(1,s*0.03));
+    c.fillStyle='#f0c060';for(const x of[0.22,0.5,0.78])disc(c,s*x,s*0.06,s*0.035);
+  },
+  altar(c,s){ // altar de piedra con paño, dos velas y un cáliz
+    const sh=Math.max(1,s*0.04);
+    c.fillStyle='rgba(0,0,0,0.45)';c.fillRect(s*0.12+sh,s*0.2+sh,s*0.76,s*0.5);
+    c.fillStyle='#8a8680';c.fillRect(s*0.12,s*0.2,s*0.76,s*0.5);
+    c.fillStyle='rgba(255,255,255,0.15)';c.fillRect(s*0.12,s*0.2,s*0.76,Math.max(1,s*0.03));
+    c.fillStyle='#7a1414';c.fillRect(s*0.4,s*0.2,s*0.2,s*0.5);c.fillStyle='#c8922a';c.fillRect(s*0.4,s*0.66,s*0.2,Math.max(1,s*0.03));
+    for(const x of[0.2,0.8]){c.fillStyle='#f0e8c8';disc(c,s*x,s*0.3,s*0.04);c.fillStyle='#ffcc40';disc(c,s*x,s*0.3,s*0.02);}
+    c.fillStyle='#d4a24a';disc(c,s*0.5,s*0.42,s*0.05);c.fillStyle='#6a0a0a';disc(c,s*0.5,s*0.42,s*0.025);
+  },
+  anvil(c,s){ // banco de herrero: yunque con su cuerno, martillo y tenazas
+    const sh=Math.max(1,s*0.04);
+    c.fillStyle='rgba(0,0,0,0.45)';c.beginPath();c.moveTo(s*0.2+sh,s*0.38+sh);c.lineTo(s*0.66+sh,s*0.38+sh);c.lineTo(s*0.88+sh,s*0.48+sh);c.lineTo(s*0.66+sh,s*0.58+sh);c.lineTo(s*0.2+sh,s*0.58+sh);c.closePath();c.fill();
+    c.fillStyle='#1e1e24';c.beginPath();c.moveTo(s*0.2,s*0.38);c.lineTo(s*0.66,s*0.38);c.lineTo(s*0.88,s*0.48);c.lineTo(s*0.66,s*0.58);c.lineTo(s*0.2,s*0.58);c.closePath();c.fill();
+    c.strokeStyle='#0a0a0e';c.lineWidth=Math.max(1,s*0.02);c.stroke();
+    c.fillStyle='rgba(200,210,230,0.45)';c.fillRect(s*0.22,s*0.4,s*0.42,Math.max(1,s*0.035)); // cara de trabajo pulida
+    c.lineCap='round';c.strokeStyle='#7a5226';c.lineWidth=Math.max(1,s*0.04);c.beginPath();c.moveTo(s*0.28,s*0.78);c.lineTo(s*0.5,s*0.7);c.stroke();
+    c.fillStyle='#6a6a72';c.fillRect(s*0.22,s*0.72,s*0.1,s*0.12);
+    c.strokeStyle='#3a3a42';c.lineWidth=Math.max(1,s*0.025);c.beginPath();c.moveTo(s*0.58,s*0.78);c.lineTo(s*0.82,s*0.72);c.moveTo(s*0.58,s*0.82);c.lineTo(s*0.82,s*0.86);c.stroke();
+  },
+  torch(c,s,R,t){ // antorcha de pared (arriba): soporte, palo y llama hacia afuera (animada); la luz va en drawTorchLight
+    c.fillStyle='#3a3a42';c.fillRect(s*0.4,0,s*0.2,s*0.1);
+    c.lineCap='round';c.strokeStyle='#5a3a1a';c.lineWidth=Math.max(1,s*0.07);c.beginPath();c.moveTo(s*0.5,s*0.06);c.lineTo(s*0.5,s*0.36);c.stroke();
+    const ph=R()*6.28,k=t==null?1:1+0.15*Math.sin(t*11+ph)+0.08*Math.sin(t*23+ph),sw=t==null?0:Math.sin(t*6+ph)*s*0.03;
+    c.save();c.translate(0,s*0.74);c.scale(1,-1); // la llama sale hacia "abajo" (lejos de la pared)
+    flame(c,s*0.5,s*0.36,s*0.22,s*0.34*k,sw,'#e8580c');flame(c,s*0.5,s*0.36,s*0.12,s*0.2*k,sw*0.7,'#ffd040');
+    c.restore();
+  },
+  barrel(c,s){ // barril visto desde arriba: tapa de duelas y dos aros de hierro
+    const x=s/2,y=s/2,r=s*0.32,sh=Math.max(1,s*0.04);
+    c.fillStyle='rgba(0,0,0,0.4)';disc(c,x+sh,y+sh,r);
+    c.fillStyle='#7a4a22';disc(c,x,y,r);
+    c.save();c.beginPath();c.arc(x,y,r*0.8,0,6.2832);c.clip();c.fillStyle='#8a5a2a';c.fillRect(x-r,y-r,2*r,2*r);
+    c.fillStyle='rgba(40,20,6,0.5)';for(const k of[-0.4,0,0.4])c.fillRect(x+k*r,y-r,Math.max(0.6,s*0.012),2*r);c.restore();
+    c.strokeStyle='#3a3a42';c.lineWidth=Math.max(1,s*0.035);c.beginPath();c.arc(x,y,r*0.9,0,6.2832);c.stroke();
+    c.fillStyle='#2a1a0a';disc(c,x+r*0.35,y-r*0.3,Math.max(1,s*0.025)); // tapón
+  },
+  urn(c,s){ // urna/vasija vista desde arriba: borde de cerámica y boca oscura
+    const x=s/2,y=s/2,r=s*0.26,sh=Math.max(1,s*0.04);
+    c.fillStyle='rgba(0,0,0,0.4)';disc(c,x+sh,y+sh,r);
+    c.fillStyle='#a8643a';disc(c,x,y,r);
+    c.strokeStyle='#e0c080';c.lineWidth=Math.max(1,s*0.02);c.beginPath();c.arc(x,y,r*0.75,0,6.2832);c.stroke();
+    c.fillStyle='#c8845a';disc(c,x,y,r*0.5);c.fillStyle='#1a0e06';disc(c,x,y,r*0.35);
+    c.fillStyle='rgba(255,230,200,0.3)';c.beginPath();c.ellipse(x-r*0.45,y-r*0.45,r*0.2,r*0.1,-0.8,0,6.2832);c.fill();
+  },
+  corpse(c,s){ // cadáver (girado al azar): mancha de sangre, cuerpo con ropa, cabeza, brazos y piernas
+    c.fillStyle='rgba(90,0,0,0.6)';c.beginPath();c.ellipse(s*0.55,s*0.55,s*0.3,s*0.2,0.3,0,6.2832);c.fill();
+    c.lineCap='round';c.strokeStyle='#4a3a2a';c.lineWidth=Math.max(1,s*0.08);
+    c.beginPath();c.moveTo(s*0.42,s*0.62);c.lineTo(s*0.3,s*0.86);c.moveTo(s*0.56,s*0.62);c.lineTo(s*0.64,s*0.88);c.stroke(); // piernas
+    c.strokeStyle='#5a4a3a';c.lineWidth=Math.max(1,s*0.07);c.beginPath();c.moveTo(s*0.4,s*0.36);c.lineTo(s*0.2,s*0.5);c.moveTo(s*0.6,s*0.36);c.lineTo(s*0.8,s*0.3);c.stroke(); // brazos
+    c.fillStyle='#6a4a3a';c.beginPath();c.ellipse(s*0.5,s*0.48,s*0.13,s*0.18,0,0,6.2832);c.fill();   // torso
+    c.fillStyle='#c8a888';disc(c,s*0.5,s*0.24,s*0.08);c.fillStyle='#5a3a1a';disc(c,s*0.5,s*0.21,s*0.06); // cabeza y pelo
+  },
+  bones(c,s,R){ // huesos sueltos y una calavera (girados al azar)
+    c.lineCap='round';
+    const bone=(x1,y1,x2,y2)=>{c.strokeStyle='#d8ceb4';c.lineWidth=Math.max(1,s*0.035);c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();c.fillStyle='#e4dac0';for(const[x,y]of[[x1,y1],[x2,y2]]){disc(c,x-s*0.015,y,s*0.025);disc(c,x+s*0.015,y,s*0.025);}};
+    for(let i=0;i<3;i++){const x=s*(0.2+R()*0.6),y=s*(0.2+R()*0.6),a=R()*3.14,l=s*(0.15+R()*0.12);bone(x-Math.cos(a)*l/2,y-Math.sin(a)*l/2,x+Math.cos(a)*l/2,y+Math.sin(a)*l/2);}
+    const x=s*0.55,y=s*0.45;c.fillStyle='#e8dec4';disc(c,x,y,s*0.1);c.fillRect(x-s*0.06,y+s*0.05,s*0.12,s*0.06);
+    c.fillStyle='#2a2018';disc(c,x-s*0.04,y,s*0.025);disc(c,x+s*0.04,y,s*0.025);c.fillRect(x-s*0.01,y+s*0.04,s*0.02,s*0.025);
+  },
+  tomb(c,s){ // lápida con montículo de tierra
+    const sh=Math.max(1,s*0.04);
+    c.fillStyle='#5a4028';c.beginPath();c.ellipse(s*0.5,s*0.68,s*0.28,s*0.24,0,0,6.2832);c.fill();
+    c.fillStyle='rgba(255,220,170,0.12)';c.beginPath();c.ellipse(s*0.45,s*0.62,s*0.16,s*0.1,0,0,6.2832);c.fill();
+    const stone=(dx,dy,col)=>{c.fillStyle=col;c.beginPath();c.moveTo(s*0.3+dx,s*0.46+dy);c.lineTo(s*0.3+dx,s*0.22+dy);c.arc(s*0.5+dx,s*0.22+dy,s*0.2,Math.PI,0);c.lineTo(s*0.7+dx,s*0.46+dy);c.closePath();c.fill();};
+    stone(sh,sh,'rgba(0,0,0,0.45)');stone(0,0,'#8a8a90');
+    c.fillStyle='rgba(255,255,255,0.18)';c.fillRect(s*0.3,s*0.42,s*0.4,Math.max(1,s*0.03));
+    c.fillStyle='#4a4a52';c.fillRect(s*0.48,s*0.12,s*0.04,s*0.24);c.fillRect(s*0.41,s*0.18,s*0.18,s*0.04); // cruz grabada
+  },
+  signpost(c,s){ // poste indicador (girado al azar): dos tablas con punta de flecha y el poste en el medio
+    const board=(a,len)=>{c.save();c.translate(s/2,s/2);c.rotate(a);
+      c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(s*0.02,s*0.0,len,s*0.1);
+      c.fillStyle='#9a6a3a';c.beginPath();c.moveTo(0,-s*0.05);c.lineTo(len-s*0.06,-s*0.05);c.lineTo(len,0);c.lineTo(len-s*0.06,s*0.05);c.lineTo(0,s*0.05);c.closePath();c.fill();
+      c.fillStyle='rgba(40,20,6,0.5)';c.fillRect(s*0.06,-Math.max(0.5,s*0.006),len-s*0.16,Math.max(1,s*0.012));c.restore();};
+    board(0,s*0.42);board(2.4,s*0.38);
+    c.fillStyle='#5a3a1a';disc(c,s/2,s/2,s*0.07);c.fillStyle='rgba(255,220,170,0.2)';disc(c,s*0.48,s*0.48,s*0.03);
   },
   bush(c,s,R){ // arbustos (encima): matas redondas con hojas y a veces bayas; terreno difícil
     const n=4,cl=[];
@@ -1352,7 +1525,7 @@ const OVER_BG={fire:fireBg,trap:trapBg,fence:fenceBg};
 // Terrenos que se animan cuando forman un grupo (vecinos de lado) de al menos tantas celdas como su valor: el fuego
 // siempre (aunque sea una celda), el resto desde 4. Cada capa agrupa por separado: el fuego encima de piedra se anima
 // con el resto del fuego, no con la piedra.
-const TERR_ANIM={lava:4,water:4,fire:1,acid:4,cloud:4,shallow:4,dirty:4};
+const TERR_ANIM={lava:4,water:4,fire:1,acid:4,cloud:4,shallow:4,dirty:4,torch:1};
 // Muestra de la paleta Simple: la textura de verdad, dibujada una vez y cacheada como imagen
 const terrSwCache={};
 function terrBg(type){
@@ -1701,11 +1874,11 @@ let terrScene=null, terrScale=1, terrRaf=0, terrLastFrame=0, terrBaseCv=null, te
 function buildTerrScene(){
   const anim=animatedTerrCells(),ox=S.ox,oy=S.oy,memo=new Map();
   const P=k=>{let v=memo.get(k);if(!v){v=parseTerr(S.terrain[k]);memo.set(k,v);}return v;};
-  const cells=[];
+  const cells=[],pairs=objPairs();
   for(let sr=0;sr<ROWS;sr++)for(let sc=0;sc<COLS;sc++){
     const col=sc+ox,row=sr+oy,key=col+','+row;if(!S.terrain[key])continue;
     const{base,over}=P(key),e={sc,sr,col,row,base,over,ab:anim.base.has(key),ao:anim.over.has(key)};
-    if(OBJ_NB[over])e.nb=objNeighbors(over,col,row,P);
+    if(OBJ_NB[over]||TERR_VARIANTS[over])e.nb={...(objNeighbors(over,col,row,P,pairs)||{}),v:P(key).v||0};
     if(over==='vines'){let links=0;for(const[dx,dy,b]of[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]])if(P((col+dx)+','+(row+dy)).over==='vines')links|=b;e.nb={links,col,row};}
     // Debajo de un piso líquido: por cuadrante, el terreno vecino no líquido (de costado, de arriba/abajo o en diagonal)
     // Alfombra: piso que se une con las alfombras vecinas en una sola (bnb.links N=1 E=2 S=4 O=8)
@@ -1768,7 +1941,10 @@ function buildTerrScene(){
     if(!any)fences.segs.push([c,r+0.5,c+1,r+0.5,false]); // sola: horizontal, justo el ancho de la celda
   }
   const animated=contacts.length>0||cells.some(e=>e.ab||e.ao)||[...regions.base,...regions.over,...regions.top].some(Rg=>Rg.cells.some(x=>x[2]));
-  return{cells,regions,contacts,fences,cracks,crowns:treeCrowns(ox,oy),animated};
+  // Antorchas cerca de la vista (su luz pasa a las celdas de al lado)
+  const torches=[];
+  for(let r=oy-2;r<=oy+ROWS+1;r++)for(let c=ox-2;c<=ox+COLS+1;c++)if(P(c+','+r).over==='torch')torches.push([c,r]);
+  return{cells,regions,contacts,fences,cracks,torches,crowns:treeCrowns(ox,oy),animated};
 }
 // Dibuja la escena entera. Orden: pisos celda por celda (y lo de encima con fondo propio cuando está solo; bajo un
 // líquido, sus vecinos) → pisos líquidos → línea de grilla tenue (arriba e izquierda, como el fondo de #grid, para
@@ -1784,15 +1960,56 @@ function terrTex(c,type,x,y,col,row,t,under,clip,nb){
 }
 // Lo que un objeto necesita de sus vecinas: mesa = con qué mesas se une (N=1 E=2 S=4 O=8); silla = girar para mirar a
 // la mesa de al lado (respaldo del otro lado); armero = apoyar la tabla contra la pared de al lado. Sin vecina: rot 0.
-const OBJ_NB={table:1,chair:1,rack:1};
-function objNeighbors(type,col,row,P){
+// Además: los que se apoyan en la pared (OBJ_WALL: la pared o el ladrillo de al lado queda "arriba" del dibujo), los que
+// quedan girados al azar (OBJ_SPIN, siempre igual para la misma celda) y los de 2 celdas (OBJ_PAIR, ver objPairs).
+// La biblioteca además se une con las bibliotecas de sus costados (links: 1 = a su izquierda, 2 = a su derecha).
+const OBJ_NB={table:1,chair:1,rack:1,bed:1,coffin:1,furniture:1,shelf:1,throne:1,altar:1,torch:1,corpse:1,bones:1,signpost:1};
+const OBJ_WALL={rack:1,furniture:1,shelf:1,throne:1,altar:1,torch:1},OBJ_SPIN={corpse:1,bones:1,signpost:1},OBJ_PAIR={bed:1,coffin:1};
+function objNeighbors(type,col,row,P,pairs){
   const dirs=[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]]; // N E S O
   if(type==='table'){let links=0;for(const[dx,dy,b]of dirs)if(P((col+dx)+','+(row+dy)).over==='table')links|=b;return{links,rot:0};}
   // rot: por defecto el respaldo/la tabla está arriba. Mirar al S = 0, al N = π, al E = -π/2, al O = π/2
   const rotFor={'0,1':0,'0,-1':Math.PI,'1,0':-Math.PI/2,'-1,0':Math.PI/2};
   if(type==='chair'){for(const[dx,dy]of[[0,1],[0,-1],[1,0],[-1,0]])if(P((col+dx)+','+(row+dy)).over==='table')return{rot:rotFor[dx+','+dy]};return{rot:0};}
-  if(type==='rack'){for(const[dx,dy]of[[0,-1],[0,1],[1,0],[-1,0]])if(P((col+dx)+','+(row+dy)).base==='wall')return{rot:rotFor[(-dx)+','+(-dy)]};return{rot:0};}
+  if(OBJ_WALL[type]){
+    let rot=0;
+    for(const[dx,dy]of[[0,-1],[0,1],[1,0],[-1,0]]){const b=P((col+dx)+','+(row+dy)).base;if(b==='wall'||b==='brick'){rot=rotFor[(-dx)+','+(-dy)];break;}}
+    if(type!=='shelf')return{rot};
+    const ax=Math.round(Math.cos(rot)),ay=Math.round(Math.sin(rot)); // eje "a lo ancho" del dibujo, en el mapa
+    return{rot,links:(P((col-ax)+','+(row-ay)).over==='shelf'?1:0)|(P((col+ax)+','+(row+ay)).over==='shelf'?2:0)};
+  }
+  if(OBJ_SPIN[type])return{rot:cellRng(col,row,99)()*6.2832};
+  if(OBJ_PAIR[type])return(pairs&&pairs.get(col+','+row))||{part:2,rot:0};
   return null;
+}
+// Cama y ataúd: se emparejan de a 2 recorriendo todo el terreno fila por fila (no depende de la vista): con la de la
+// derecha si está libre (cabecera a la izquierda), si no con la de abajo (cabecera arriba); si no, va sola (versión
+// chica). part: 0 = cabecera, 1 = pies, 2 = sola. El dibujo ocupa 2 celdas hacia "abajo" desde la cabecera.
+function objPairs(){
+  const out=new Map(),by={};
+  for(const k in S.terrain){const o=parseTerr(S.terrain[k]).over;if(OBJ_PAIR[o]){(by[o]||(by[o]=[])).push(k.split(',').map(Number));}}
+  for(const type in by){
+    const cells=by[type].sort((a,b)=>a[1]-b[1]||a[0]-b[0]),has=new Set(cells.map(([c,r])=>c+','+r)),taken=new Set();
+    for(const[c,r]of cells){
+      const k=c+','+r;if(taken.has(k))continue;taken.add(k);
+      const right=(c+1)+','+r,down=c+','+(r+1);
+      if(has.has(right)&&!taken.has(right)){taken.add(right);out.set(k,{part:0,rot:-Math.PI/2});out.set(right,{part:1,rot:-Math.PI/2});}
+      else if(has.has(down)&&!taken.has(down)){taken.add(down);out.set(k,{part:0,rot:0});out.set(down,{part:1,rot:0});}
+      else out.set(k,{part:2,rot:0});
+    }
+  }
+  return out;
+}
+// Luz de las antorchas: un resplandor cálido que titila, más allá de su celda (encima del piso y los objetos)
+function drawTorchLight(c,list,t){
+  if(!list.length)return;
+  const s=CS;c.save();c.globalCompositeOperation='lighter';
+  for(const[col,row]of list){
+    const x=(col+0.5-S.ox)*s,y=(row+0.5-S.oy)*s,ph=cellRng(col,row,77)()*6.28,r=s*1.8;
+    const a=t==null?0.34:0.3+0.06*Math.sin(t*7+ph)+0.03*Math.sin(t*17+ph*2);
+    const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(255,160,60,${a})`);g.addColorStop(1,'rgba(255,120,30,0)');c.fillStyle=g;disc(c,x,y,r);
+  }
+  c.restore();
 }
 // Pisos celda por celda. Los que no se animan se dibujan una sola vez en Sc.baseImg (al armar la escena) y cada cuadro
 // de la animación solo copia esa imagen: es lo más caro de dibujar con muchas celdas a la vista.
@@ -1831,6 +2048,7 @@ function drawTerrScene(t){
   for(const Rg of Sc.regions.over)drawLiq(c,Rg,t);
   for(const e of Sc.cells)if(e.over&&e.over!=='fence'&&e.over!=='crack'&&!LIQ[e.over]&&!(!e.base&&OVER_BG[e.over]))terrTex(c,e.over,e.sc*s,e.sr*s,e.col,e.row,e.ao?t:null,null,null,e.nb);
   drawFences(c,Sc.fences);
+  drawTorchLight(c,Sc.torches,t);
   for(const Rg of Sc.regions.top)drawLiq(c,Rg,t); // nube mágica: encima de todo
 }
 function drawTerrBase(c,cells,t){
