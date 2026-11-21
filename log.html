@@ -121,19 +121,12 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&
 // Hidden rolls (animation still running on the roller's side) are shown once revealed
 function showRoll(snap) {
   const r = snap.val();
-  if (!r || r.hidden || seenKeys.has(snap.key)) return;
+  // Los cambios de escena solo van al Historial de combat-mat, no al overlay
+  if (!r || r.hidden || r.kind === 'scene' || seenKeys.has(snap.key)) return;
   seenKeys.add(snap.key);
 
   const el = document.createElement('div');
   el.className = 'roll-entry';
-
-  if (r.kind === 'scene') {
-    el.innerHTML = `<div class="roll-info"><div class="roll-detail"><span class="roll-player">${esc(r.player || '?')}</span> cambió de escena ${esc(r.from)} a ${esc(r.to)}</div></div>`;
-    wrap.appendChild(el);
-    entries.push({ el });
-    if (entries.length > MAX_VISIBLE) removeEntry(entries[0]);
-    return;
-  }
 
   const det = Object.entries(r.rolls || {})
     .filter(([dt]) => dt !== 'coin')
