@@ -54,7 +54,7 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .litem-dot.enemy { border-radius:2px; }
 .litem-name { font-family:'Cinzel',serif; font-size:10px; color:#e0d0b0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .litem-cls { font-family:'Cinzel',serif; font-size:9px; color:rgba(200,160,80,0.7); flex-shrink:0; }
-.lhp-row { display:flex; align-items:center; gap:3px; }
+.lhp-row { display:flex; align-items:center; gap:3px; min-height:20px; }
 .lhp-btn { background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--amber-lt); font-family:'Cinzel',serif; font-size:10px; width:22px; height:20px; border-radius:3px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .12s; }
 .lhp-btn:hover { background:rgba(200,146,42,0.2); }
 .lhp-val { font-family:'Cinzel',serif; font-size:10px; color:#ddd; flex:1; text-align:center; }
@@ -718,6 +718,8 @@ function myChar(){
 let creatingChar=false;
 // Master borra cualquier ficha; un jugador solo su propio personaje
 const canDelete=t=>isMaster()||(!!me&&t.type==='player'&&t.owner===me.uid);
+// Misma regla para la vida: un jugador solo ajusta la de su propio personaje (la de los demás la ve, sin botones)
+const canEditHp=canDelete;
 function refreshPlayerControls(){
   document.body.classList.toggle('is-master',isMaster());
   const btn=document.getElementById('btn-add-player');if(!btn)return;
@@ -817,7 +819,7 @@ function selectTok(id){
   renderAllToks(); renderList();
 }
 function adjHP(id,d){
-  const t=S.tokens.find(t=>t.id===id);if(!t||hpHidden(t))return;
+  const t=S.tokens.find(t=>t.id===id);if(!t||hpHidden(t)||!canEditHp(t))return;
   t.hp=clamp(t.hp+d,0,t.maxHp);
   renderTok(t);renderList();
   db.ref(ROOT+'/players/'+id).update({hp:t.hp});
@@ -899,7 +901,10 @@ function renderLeftPanel(){
           ${ip?`<span class="litem-cls">${ICONS[t.cls]||''} ${t.cls||''}</span>`:''}
           ${canDelete(t)?`<button class="tdel" onclick="event.stopPropagation();delTok(${t.id})">✕</button>`:''}
         </div>
-        ${ip&&hpHidden(t)?`<div class="lhp-row">${hpWord(t)}</div>`:ip?`<div class="lhp-row">
+        ${ip&&hpHidden(t)?`<div class="lhp-row">${hpWord(t)}</div>`:ip&&!canEditHp(t)?`<div class="lhp-row">
+          <span class="lhp-val">${t.hp} / ${t.maxHp}</span>
+        </div>
+        <div class="lhp-bar-wrap"><div class="lhp-bar" style="width:${pct}%;background:${hc}"></div></div>`:ip?`<div class="lhp-row">
           <button class="lhp-btn" onclick="adjHP(${t.id},-1)">−</button>
           <button class="lhp-btn" onclick="adjHP(${t.id},-5)" style="font-size:8px">-5</button>
           <span class="lhp-val">${t.hp} / ${t.maxHp}</span>

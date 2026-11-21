@@ -76,7 +76,9 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 - Los **personajes que crea el master** (+ Jugador) van **directo al baúl**, sin `owner`; los enemigos se crean en la escena activa como siempre.
 - **Vida oculta**: los jugadores no ven HP ni barra de los personajes del master (sin `owner`), ni pueden ajustarla; ven una palabra según `hp/maxHp`: **Entero** ≥90 %, **Golpeado** 51–89 %, **Herido** 20–50 %, **En las últimas** 1–19 %, **Caído** con 0 HP (`hpWord`). Los enemigos no tienen HP.
 - **Baúl** (solo master): el panel izquierdo se divide a la mitad, **Combatientes** arriba y **Baúl** abajo, cada uno con su scroll. El master arrastra fichas entre ambos: al guardar, la ficha sale de la escena activa (y de su orden/turno) a `/sala/chest`, invisible para todos; al sacarla, entra en la escena activa (en su celda anterior si está libre y visible) y en el orden donde se soltó. El baúl es global: sirve para pasar enemigos y personajes del master entre escenas. Los personajes de jugadores (con `owner`) no van al baúl. Los jugadores solo ven Combatientes, a altura completa.
-- Fuera de eso no hay permisos: cualquier cliente puede mover cualquier ficha, pintar terreno, ajustar HP, etc.
+- **Vida**: el master ajusta la de cualquiera; un jugador solo la de su propio personaje (`canEditHp`, misma regla que borrar). La de los otros jugadores la ve (número y barra) pero sin botones.
+- **Movimiento libre a propósito**: cualquier cliente (master o jugador) puede mover cualquier ficha del mat, incluidos los personajes de otros jugadores y los enemigos. No restringirlo.
+- Fuera de eso no hay permisos: cualquier cliente puede pintar terreno, cambiar colores de la grilla, etc.
 
 ### Modo prueba
 `combat-mat.html?prueba` (como jugador) o `?prueba=master` (como master) usa `ROOT = 'sala/prueba'` en vez de `sala`: misma estructura, datos aparte, cartel "MODO PRUEBA" arriba. El rol sale de la URL, no del email, y solo dentro de la prueba. Todas las rutas de Firebase en `combat-mat.html` se arman con `ROOT` — no escribir `'sala/...'` literal. `log.html` y `dice.html` siguen leyendo solo `sala/rolls`.
