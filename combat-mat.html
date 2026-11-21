@@ -2005,7 +2005,7 @@ function buildTerrScene(){
   const contacts=[];
   if(occ.lava)for(let r=oy-1;r<=oy+ROWS;r++)for(let c=ox-1;c<=ox+COLS;c++){
     if(P(c+','+r).base!=='lava')continue;
-    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nb=P((c+dx)+','+(r+dy)).base;if(nb==='water'||nb==='ice')contacts.push([c,r,c+dx,r+dy]);}
+    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nb=P((c+dx)+','+(r+dy)).base;if(AQUA.includes(nb)||nb==='ice')contacts.push([c,r,c+dx,r+dy]);} // cualquier agua o hielo
   }
   // Grietas a la vista (±1): igual que las cercas, más puntas sueltas, uniones y grietas solas
   const cracks={segs:[],tips:[],joints:[],lone:[]},isK=(c,r)=>P(c+','+r).over==='crack';
