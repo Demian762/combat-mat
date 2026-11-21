@@ -42,7 +42,6 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
   /players
     /{id}             → {id, name, cls, hp, maxHp, color, sceneId, col, row, owner?}   // owner = uid del jugador que lo creó (no se pone si lo crea el master)
   /uid                → number              // contador global de ids
-  /maxHp              → number              // valor por defecto nuevos tokens
   /rolls
     /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, duration, hidden?}
                       | {kind:'scene', player, from, to, timestamp}   // cambio de escena de un jugador ("Olbert cambió de escena 1 a 2")
@@ -57,6 +56,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | `activeTerrain` | Pincel de terreno activo |
 | `drag` | Estado de arrastre en curso |
 | `pickerStates.player` | Color del picker de nuevo jugador — elección individual, no debe imponerse a otros clientes |
+| `maxHp` | HP Máx para el próximo token — cada persona arranca en **10** al cargar (antes `/sala/maxHp`, ya no se usa) |
 | `dDuration` | Duración de la tirada en segundos (barra "Rebote") — preferencia de cada persona, en `localStorage` (`diceDuration`); viaja en cada tirada como `duration` |
 
 ---
