@@ -1545,20 +1545,40 @@ function drawTerrBase(c,cells,t){
 /* Árboles: copas redondas (más que los líquidos). Las celdas de árbol se agrupan en copas recorriendo todo el terreno en
    orden fila por fila: un bloque libre de 3×3 (si no es parte de uno de 4×4) es una copa grande, uno de 2×2 una mediana
    y si no, la celda sola es una copa chica. Depende solo de dónde hay árboles, no de la vista: no cambia con el pan.
+   En un grupo de TREE_WILD_MIN árboles o más (zona extensa), cada copa elige su tamaño al azar (sale de la coordenada:
+   igual para todos) y varía un poco tamaño y centro, para que parezca un bosque natural.
    Las copas se superponen un poco (bosque), con sombra hacia abajo a la derecha. Fuera de las copas se ve el terreno
    vecino (under) y, si no hay ninguno, el fondo. */
+const TREE_WILD_MIN=12;
 function treeCrowns(ox,oy){
   const has=new Set(),cells=[];
   for(const k in S.terrain)if(parseTerr(S.terrain[k]).base==='tree'){has.add(k);const[c,r]=k.split(',').map(Number);cells.push([c,r]);}
   if(!cells.length)return[];
   cells.sort((a,b)=>a[1]-b[1]||a[0]-b[0]);
+  // Tamaño del grupo (vecinas de lado) de cada árbol: los grupos extensos se arman con copas al azar
+  const comp=new Map();
+  for(const[c,r]of cells){
+    const k0=c+','+r;if(comp.has(k0))continue;
+    const grp=[k0],box={n:0};comp.set(k0,box);
+    for(let i=0;i<grp.length;i++){
+      const[gc,gr]=grp[i].split(',').map(Number);
+      for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nk=(gc+dx)+','+(gr+dy);if(has.has(nk)&&!comp.has(nk)){comp.set(nk,box);grp.push(nk);}}
+    }
+    box.n=grp.length;
+  }
   const taken=new Set(),out=[];
   const free=(c,r,n)=>{for(let j=0;j<n;j++)for(let i=0;i<n;i++){const k=(c+i)+','+(r+j);if(!has.has(k)||taken.has(k))return false;}return true;};
   for(const[c,r]of cells){
     if(taken.has(c+','+r))continue;
-    const n=free(c,r,3)&&!free(c,r,4)?3:free(c,r,2)?2:1;
+    let n,scale=1,jx=0,jy=0;
+    if(comp.get(c+','+r).n>=TREE_WILD_MIN){
+      // Zona extensa: copa grande, mediana o chica al azar (si no entra, la que entre), tamaño y centro un poco variados
+      const R=cellRng(c,r,777),u=R(),pref=u<0.3?3:u<0.7?2:1;
+      n=pref>=3&&free(c,r,3)?3:pref>=2&&free(c,r,2)?2:1;
+      scale=0.9+R()*0.25;jx=(R()-0.5)*0.2;jy=(R()-0.5)*0.2;
+    }else n=free(c,r,3)&&!free(c,r,4)?3:free(c,r,2)?2:1; // grupo chico: 4 en cuadrado = una copa redonda
     for(let j=0;j<n;j++)for(let i=0;i<n;i++)taken.add((c+i)+','+(r+j));
-    const cx=c+n/2,cy=r+n/2,rad=n/2;
+    const cx=c+n/2+jx,cy=r+n/2+jy,rad=n/2*scale;
     if(cx+rad<ox-1||cx-rad>ox+COLS+1||cy+rad<oy-1||cy-rad>oy+ROWS+1)continue;
     out.push([cx,cy,rad,c,r]);
   }
