@@ -29,9 +29,15 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .tcell { position:absolute; width:var(--cs); height:var(--cs); z-index:5; pointer-events:none; }
 
 /* Left panel */
-#left { width:260px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-right:2px solid var(--amber); display:flex; flex-direction:column; overflow-y:auto; max-height:calc(20*var(--cs) + 4px); }
-#left::-webkit-scrollbar { width:3px; }
-#left::-webkit-scrollbar-thumb { background:var(--amber-dim); border-radius:2px; }
+#left { width:260px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-right:2px solid var(--amber); display:flex; flex-direction:column; overflow:hidden; height:calc(20*var(--cs) + 4px); }
+/* Combatientes y (solo master) Baúl: mitades iguales, cada lista con su propio scroll */
+.left-half { flex:1 1 0; min-height:0; display:flex; flex-direction:column; }
+#left-list, #chest-list { flex:1; min-height:0; overflow-y:auto; }
+#left-list::-webkit-scrollbar, #chest-list::-webkit-scrollbar { width:3px; }
+#left-list::-webkit-scrollbar-thumb, #chest-list::-webkit-scrollbar-thumb { background:var(--amber-dim); border-radius:2px; }
+.left-half.drop-zone { background:rgba(200,146,42,0.08); outline:1px dashed var(--amber); outline-offset:-4px; }
+.chest-item { padding-left:10px; }
+.chest-hp { font-family:'Cinzel',serif; font-size:9px; color:rgba(200,160,80,0.7); }
 .litem { padding:7px 10px 7px 0; border-bottom:1px solid var(--border); cursor:grab; user-select:none; transition:background .1s; display:flex; align-items:flex-start; gap:0; }
 .litem:last-child { border-bottom:none; }
 .litem.dragging-item { opacity:.4; }
@@ -227,9 +233,13 @@ body:not(.is-master) .master-only { display:none; }
 
   <!-- Left panel -->
   <div id="left">
-    <div class="section" style="flex:1">
+    <div class="section left-half" id="combat-section">
       <span class="sec-title">Combatientes</span>
       <div id="left-list"></div>
+    </div>
+    <div class="section left-half master-only" id="chest-section" style="border-bottom:none">
+      <span class="sec-title">Baúl</span>
+      <div id="chest-list"></div>
     </div>
   </div>
 
@@ -586,7 +596,7 @@ function adjMaxHp(d){
 function tokToFb(t){const{_el,...r}=t;return r;}
 
 function uniqueName(base){
-  const names=new Set(S.tokens.map(t=>t.name.toLowerCase()));
+  const names=new Set([...S.tokens,...chest].map(t=>t.name.toLowerCase()));
   if(!names.has(base.toLowerCase()))return base;
   let n=2;while(names.has(`${base} ${n}`.toLowerCase()))n++;
   return `${base} ${n}`;
@@ -631,15 +641,20 @@ async function addTok(type){
   try{await createTok(type);}
   finally{if(type==='player'){creatingChar=false;refreshPlayerControls();}}
 }
+// Celda libre (sin fichas de la escena activa) dentro del viewport; prefiere `pref` si sirve
+function freeCellInView(pref){
+  const taken=new Set(getOrdered().map(t=>t.col+','+t.row));
+  const inView=(c,r)=>c>=S.ox&&c<S.ox+COLS&&r>=S.oy&&r<S.oy+ROWS;
+  if(pref&&inView(pref.col,pref.row)&&!taken.has(pref.col+','+pref.row))return{col:pref.col,row:pref.row};
+  for(let r=S.oy;r<S.oy+ROWS;r++)for(let c=S.ox;c<S.ox+COLS;c++)if(!taken.has(c+','+r))return{col:c,row:r};
+  return{col:S.ox,row:S.oy};
+}
 async function createTok(type){
   const input=document.getElementById('iname').value.trim();
   const base=input?input.slice(0,18):type==='enemy'?'Enemigo':'Jugador';
   const name=uniqueName(base);
   const color=type==='player'?S.selectedColor:'#7a1414';
-  let col=S.ox,row=S.oy;
-  outer:for(let r=S.oy;r<S.oy+ROWS;r++)for(let c=S.ox;c<S.ox+COLS;c++){
-    if(!S.tokens.find(t=>t.col===c&&t.row===r)){col=c;row=r;break outer;}
-  }
+  const {col,row}=freeCellInView();
   const uidSnap=await db.ref('sala/uid').transaction(cur=>(cur||0)+1);
   const newId=uidSnap.snapshot.val();
   const t={id:newId,type,name,cls:type==='player'?selectedClass:null,hp:type==='player'?S.maxHp:null,maxHp:type==='player'?S.maxHp:null,color,col,row};
@@ -784,7 +799,7 @@ function setupLeftDrag(){
   document.querySelectorAll('#left-list .litem').forEach(el=>{
     el.addEventListener('mousedown',e=>{
       if(e.target.closest('.lhp-btn,.tdel'))return;
-      ldragActive={id:+el.dataset.id};
+      ldragActive={id:+el.dataset.id,from:'combat'};
       el.classList.add('dragging-item');
       e.preventDefault();
     });
@@ -793,6 +808,78 @@ function setupLeftDrag(){
 
 // Alias para compatibilidad interna
 function renderList(){renderLeftPanel();}
+
+/* ── Baúl (solo master) ──
+   sala/chest/{id} guarda fichas fuera de toda escena: nadie las ve en la grilla.
+   Sirve para mover enemigos y personajes del master (sin owner) entre escenas. */
+let chest=[];
+const chestable=t=>isMaster()&&!!t&&(t.type==='enemy'||!t.owner);
+
+function renderChest(){
+  const el=document.getElementById('chest-list');if(!el)return;
+  if(!chest.length){el.innerHTML=`<div style="padding:8px 0;font-family:'Cinzel',serif;font-size:9px;color:rgba(255,255,255,0.2);text-align:center;letter-spacing:1px">BAÚL VACÍO</div>`;return;}
+  el.innerHTML=chest.map(t=>{
+    const ip=t.type==='player';
+    return `<div class="litem chest-item" data-id="${t.id}">
+      <div class="litem-body">
+        <div class="litem-header" style="margin-bottom:${ip?3:0}px">
+          <div class="litem-dot ${ip?'':'enemy'}" style="background:${ip?t.color:'#7a1414'}"></div>
+          <span class="litem-name">${t.name}</span>
+          ${ip?`<span class="litem-cls">${ICONS[t.cls]||''} ${t.cls||''}</span>`:''}
+          <button class="tdel" onclick="event.stopPropagation();delChest(${t.id})">✕</button>
+        </div>
+        ${ip?`<div class="chest-hp">HP ${t.hp} / ${t.maxHp}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.litem').forEach(it=>it.addEventListener('mousedown',e=>{
+    if(e.target.closest('.tdel'))return;
+    ldragActive={id:+it.dataset.id,from:'chest'};
+    it.classList.add('dragging-item');
+    e.preventDefault();
+  }));
+}
+// La escritura es atómica: si Firebase la rechaza (p. ej. reglas sin sala/chest) no se pierde nada
+const chestError=err=>alert('No se pudo mover la ficha ('+err.code+'). Revisá que las reglas de Firebase permitan sala/chest.');
+function delChest(id){if(isMaster())db.ref('sala/chest/'+id).remove();}
+
+// Combatientes → Baúl: sale de la escena activa (y de su orden/turno) en una sola escritura
+function storeInChest(id){
+  const t=S.tokens.find(x=>x.id===id);if(!chestable(t))return;
+  const {sceneId,...data}=tokToFb(t);
+  const base='sala/scenes/'+activeScene;
+  const upd={['sala/chest/'+id]:data};
+  upd[t.type==='player'?'sala/players/'+id:base+'/enemies/'+id]=null;
+  const rest=getOrdered().filter(x=>x.id!==id);
+  upd[base+'/order']=rest.length?rest.map(x=>x.id):null;
+  if(S.turn===id)upd[base+'/turn']=rest.length?rest[0].id:null;
+  db.ref().update(upd).catch(chestError);
+}
+// Baúl → Combatientes: entra a la escena activa, antes de `beforeId` en el orden (o al final)
+function takeFromChest(id,beforeId){
+  const c=chest.find(x=>x.id===id);if(!c||!isMaster())return;
+  const t={...c,...freeCellInView(c)};
+  const base='sala/scenes/'+activeScene;
+  const upd={['sala/chest/'+id]:null};
+  if(t.type==='player'){t.sceneId=activeScene;upd['sala/players/'+id]=t;}
+  else upd[base+'/enemies/'+id]=t;
+  const order=getOrdered().map(x=>x.id);
+  const bi=beforeId!=null?order.indexOf(beforeId):-1;
+  if(bi>=0)order.splice(bi,0,id);else order.push(id);
+  upd[base+'/order']=order;
+  db.ref().update(upd).catch(chestError);
+}
+// Zona del panel izquierdo bajo el puntero durante un arrastre de lista
+function ldragTarget(e){
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  if(!el)return{};
+  const zone=el.closest('#combat-section')?'combat':el.closest('#chest-section')&&isMaster()?'chest':null;
+  return{zone,item:el.closest('#left-list .litem')};
+}
+function clearLdragMarks(){
+  document.querySelectorAll('.litem').forEach(el=>el.classList.remove('dragging-item','drag-over'));
+  document.querySelectorAll('.left-half').forEach(el=>el.classList.remove('drop-zone'));
+}
 
 /* ── Drag tokens ── */
 
@@ -815,9 +902,12 @@ function startDrag(e,id){
 document.addEventListener('mousemove',e=>{
   if(terrainPainting){paintCell(e);return;}
   if(ldragActive){
-    const under=document.elementFromPoint(e.clientX,e.clientY)?.closest('.litem');
+    const {zone,item}=ldragTarget(e);
     document.querySelectorAll('.litem').forEach(el=>el.classList.remove('drag-over'));
-    if(under&&+under.dataset.id!==ldragActive.id)under.classList.add('drag-over');
+    document.querySelectorAll('.left-half').forEach(el=>el.classList.remove('drop-zone'));
+    const movable=ldragActive.from==='chest'||chestable(S.tokens.find(t=>t.id===ldragActive.id));
+    if(zone&&zone!==ldragActive.from&&movable)document.getElementById(zone+'-section').classList.add('drop-zone');
+    if(zone==='combat'&&item&&+item.dataset.id!==ldragActive.id)item.classList.add('drag-over');
     return;
   }
   if(!drag)return;
@@ -840,16 +930,19 @@ document.addEventListener('mousemove',e=>{
 document.addEventListener('mouseup',e=>{
   terrainPainting=false;
   if(ldragActive){
-    const under=document.elementFromPoint(e.clientX,e.clientY)?.closest('.litem');
-    if(under&&+under.dataset.id!==ldragActive.id){
+    const {zone,item}=ldragTarget(e);
+    const {id,from}=ldragActive;
+    const itemId=item?+item.dataset.id:null;
+    if(from==='combat'&&zone==='combat'&&item&&itemId!==id){
       const cur=getOrdered().map(t=>t.id);
-      const fi=cur.indexOf(ldragActive.id), ti=cur.indexOf(+under.dataset.id);
-      if(fi!==-1&&ti!==-1){cur.splice(fi,1);cur.splice(ti,0,ldragActive.id);}
+      const fi=cur.indexOf(id), ti=cur.indexOf(itemId);
+      if(fi!==-1&&ti!==-1){cur.splice(fi,1);cur.splice(ti,0,id);}
       S.order=cur;
       db.ref('sala/scenes/'+activeScene+'/order').set(S.order);
-    }
-    document.querySelectorAll('.litem').forEach(el=>el.classList.remove('dragging-item','drag-over'));
-    ldragActive=null; renderLeftPanel(); return;
+    }else if(from==='combat'&&zone==='chest')storeInChest(id);
+    else if(from==='chest'&&zone==='combat')takeFromChest(id,itemId);
+    clearLdragMarks();
+    ldragActive=null; renderLeftPanel(); renderChest(); return;
   }
   if(!drag)return;
   const t=S.tokens.find(t=>t.id===drag.id);
@@ -1535,6 +1628,12 @@ function initFirebase(){
   });
   rollsRef.on('child_changed',snap=>addToLog(snap.key,snap.val()));
   attachSceneListeners(activeScene);
+  if(isMaster()){
+    db.ref('sala/chest').on('value',snap=>{
+      chest=Object.values(snap.val()||{}).sort((a,b)=>a.name.localeCompare(b.name));
+      renderChest();
+    });
+  }
   setupPicker();
   initClassGrid();
   initGrid();

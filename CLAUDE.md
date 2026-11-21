@@ -41,6 +41,8 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
     /escena2 … /escena10   // misma forma
   /players
     /{id}             → {id, name, cls, hp, maxHp, color, sceneId, col, row, owner?}   // owner = uid del jugador que lo creó (no se pone si lo crea el master)
+  /chest
+    /{id}             → token completo (enemy o player sin owner, sin sceneId)   // baúl del master: fuera de toda escena
   /uid                → number              // contador global de ids
   /rolls
     /{pushId}         → {player, dice, rolls, modifier, total, timestamp, color, duration, hidden?}
@@ -70,6 +72,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 - Un jugador siempre ve la escena donde está su personaje: al cargar, o si su `sceneId` cambia desde otro cliente, su vista lo sigue.
 - **Borrar**: el master borra cualquier ficha; un jugador solo su propio personaje (la ✕ del panel izquierdo y la tecla Supr no aparecen/no actúan sobre las demás).
 - **Solo master** (clase `master-only`, ocultos para jugadores vía `body:not(.is-master)`): **+ Enemigo** y **Limpiar todo**.
+- **Baúl** (solo master): el panel izquierdo se divide a la mitad, **Combatientes** arriba y **Baúl** abajo, cada uno con su scroll. El master arrastra fichas entre ambos: al guardar, la ficha sale de la escena activa (y de su orden/turno) a `/sala/chest`, invisible para todos; al sacarla, entra en la escena activa (en su celda anterior si está libre y visible) y en el orden donde se soltó. El baúl es global: sirve para pasar enemigos y personajes del master entre escenas. Los personajes de jugadores (con `owner`) no van al baúl. Los jugadores solo ven Combatientes, a altura completa.
 - Fuera de eso no hay permisos: cualquier cliente puede mover cualquier ficha, pintar terreno, ajustar HP, etc.
 
 ### Escenas
