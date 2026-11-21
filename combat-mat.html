@@ -804,9 +804,9 @@ function paintCell(e){
   renderTerrain();
 }
 // Una celda guarda hasta dos capas en un solo valor de /terrain: "piso+encima" (ej. "stone+blood").
-// Piso = terreno con nombre o color libre '#rrggbb'; encima = fuego o sangre (TERR_OVER), solo sobre pisos con nombre.
-// "fire" o "blood" solos = sin piso. Un color libre nunca lleva nada encima.
-const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1};
+// Piso = terreno con nombre o color libre '#rrggbb'; encima = fuego, sangre, trampa… (TERR_OVER), solo sobre pisos con nombre.
+// "fire", "blood"… solos = sin piso. Un color libre nunca lleva nada encima.
+const TERR_OVER={fire:1,blood:1,rubble:1,acid:1,cloud:1,trap:1,fence:1};
 function parseTerr(v){
   if(typeof v!=='string'||!v)return{};
   if(isHexColor(v))return{base:v};
@@ -884,8 +884,7 @@ const TERRAIN_TEX={
       c.fillStyle='#9a9aa2';for(let i=0;i<n;i++)disc(c,(i+0.5)*w,by+bh/2,rv);
     }
   },
-  fence(c,s){ // dos travesaños horizontales y un poste; el fondo se ve debajo
-    c.fillStyle='rgba(120,95,45,0.30)';c.fillRect(0,0,s,s);
+  fence(c,s){ // dos travesaños horizontales y un poste; va encima (sola, sobre fenceBg: un tinte que deja ver la grilla)
     const rh=s*0.1;
     for(const ry of[s*0.3,s*0.62]){
       c.fillStyle='rgba(0,0,0,0.35)';c.fillRect(0,ry+rh*0.5,s,rh*0.8);
@@ -969,8 +968,8 @@ const TERRAIN_TEX={
       else{const r=s*0.07*u/0.85;c.fillStyle='#ffb040';disc(c,x,y,r);c.fillStyle='rgba(255,250,200,0.7)';disc(c,x-r*0.3,y-r*0.3,r*0.35);}
     }
   },
-  trap(c,s){ // pinchos de metal (pirámides vistas desde arriba)
-    c.fillStyle='#4a0606';c.fillRect(0,0,s,s);
+  trap(c,s){ // pinchos de metal (pirámides vistas desde arriba) con tinte rojizo; va encima, o sobre trapBg si está sola
+    c.fillStyle='rgba(140,0,0,0.3)';c.fillRect(0,0,s,s);
     const n=s>=80?3:2,g=s/n,h=g*0.32;
     for(let i=0;i<n;i++)for(let j=0;j<n;j++){
       const x=(i+0.5)*g,y=(j+0.5)*g;
@@ -1132,8 +1131,12 @@ const TERRAIN_TEX={
     for(let i=0;i<n;i++){const x=R()*s,y=R()*s,ph=R()*6.28,a=t==null?0.7:0.15+0.8*Math.max(0,Math.sin(t*2+ph));c.fillStyle=`rgba(255,250,255,${a})`;c.fillRect(x,y,d,d);}
   },
 };
-// Fondo del fuego cuando está solo (sin piso debajo)
+// Fondo propio de algunas capas de encima cuando están solas (sin piso debajo). Las demás (sangre, escombros…) no tienen:
+// se ve la grilla. Con fondo propio llevan además la línea de grilla tenue, como un piso.
 function fireBg(c,s){const g=c.createLinearGradient(0,0,0,s);g.addColorStop(0,'#6a1a06');g.addColorStop(1,'#a83008');c.fillStyle=g;c.fillRect(0,0,s,s);}
+function trapBg(c,s){c.fillStyle='#3a0404';c.fillRect(0,0,s,s);}
+function fenceBg(c,s){c.fillStyle='rgba(120,95,45,0.30)';c.fillRect(0,0,s,s);}
+const OVER_BG={fire:fireBg,trap:trapBg,fence:fenceBg};
 // Terrenos que se animan cuando forman un grupo (vecinos de lado) de al menos TERR_ANIM_MIN celdas.
 // Cada capa agrupa por separado: el fuego encima de piedra se anima con el resto del fuego, no con la piedra.
 const TERR_ANIM={lava:1,water:1,fire:1,acid:1,cloud:1}, TERR_ANIM_MIN=4;
@@ -1142,8 +1145,8 @@ const terrSwCache={};
 function terrBg(type){
   if(!terrSwCache[type]){
     const cv=document.createElement('canvas');cv.width=cv.height=88;const c=cv.getContext('2d');c.scale(2,2);
-    if(TERR_OVER[type]&&type!=='fire'){c.fillStyle='#1c1612';c.fillRect(0,0,44,44);} // sin fondo propio: sobre un piso oscuro
-    if(type==='fire')fireBg(c,44);
+    if(OVER_BG[type])OVER_BG[type](c,44);
+    else if(TERR_OVER[type]){c.fillStyle='#1c1612';c.fillRect(0,0,44,44);} // sin fondo propio: sobre un piso oscuro
     if(type==='void'){ // negro sobre el panel oscuro no se ve: en la muestra va como un pozo con borde de tierra
       c.fillStyle='#6b4a2c';c.fillRect(0,0,44,44);
       c.beginPath();c.roundRect?c.roundRect(7,7,30,30,8):c.rect(7,7,30,30);c.clip();
@@ -1172,8 +1175,9 @@ function drawTerrCell(sc,sr,val,tBase,tOver){
   };
   if(isHexColor(base)){c.fillStyle=hexToRgba(base,0.85);c.fillRect(x,y,s,s);return;}
   if(base)layer(base,tBase);
-  else if(over==='fire')layer('fire',tOver,fireBg),over=null; // fuego solo: con fondo, debajo de la línea de grilla
-  if(base||val==='fire'){c.fillStyle=terrLineColor;c.fillRect(x,y,s,1);c.fillRect(x,y,1,s);}
+  const ownBg=!base&&OVER_BG[over];
+  if(ownBg)layer(over,tOver,ownBg),over=null; // fuego/trampa solos: con su fondo, debajo de la línea de grilla
+  if(base||ownBg){c.fillStyle=terrLineColor;c.fillRect(x,y,s,1);c.fillRect(x,y,1,s);}
   if(over)layer(over,tOver);
 }
 // Celdas (claves "col,row") de los grupos animables lo bastante grandes, por capa: {base:Set, over:Set}.
