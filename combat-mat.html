@@ -15,6 +15,8 @@ body { background:#141414; overflow:hidden; width:100vw; height:100vh; font-fami
 #app { display:flex; align-items:stretch; gap:0; box-shadow:0 0 60px rgba(0,0,0,0.8); }
 #grid-wrap { position:relative; flex-shrink:0; }
 #grid { position:relative; box-sizing:content-box; overflow:hidden; width:var(--view); height:var(--view); border:2px solid var(--amber); border-left:none; border-right:none; }
+#grid { cursor:grab; }
+#grid.panning { cursor:grabbing; }
 #grid.painting { cursor:crosshair; }
 /* Mapa del mundo: tapa el mat (por debajo de los dados), local por cliente */
 #world-map { position:absolute; top:2px; left:0; width:var(--view); height:var(--view); z-index:35; background:#0a0805 url('mapa.jpg') center/contain no-repeat; display:none; cursor:grab; overflow:hidden; }
@@ -765,6 +767,23 @@ function clearTerrain(){
 }
 
 grid.addEventListener('mousedown',e=>{if(!S.activeTerrain||e.target.closest('.token'))return;terrainPainting=true;paintCell(e);e.stopPropagation();});
+
+// Arrastrar el terreno (sin pincel activo, fuera de las fichas) = pan, igual que las flechas: de a una casilla entera,
+// el mapa sigue al cursor. ox/oy siguen siendo enteros y locales.
+let gridPan=null;
+grid.addEventListener('mousedown',e=>{
+  if(e.button!==0||S.activeTerrain||e.target.closest('.token'))return;
+  e.preventDefault();
+  gridPan={x:e.clientX,y:e.clientY,ox:S.ox,oy:S.oy};
+  grid.classList.add('panning');
+});
+document.addEventListener('mousemove',e=>{
+  if(!gridPan)return;
+  const z=CS*appZoom;
+  const tx=gridPan.ox-Math.round((e.clientX-gridPan.x)/z), ty=gridPan.oy-Math.round((e.clientY-gridPan.y)/z);
+  if(tx!==S.ox||ty!==S.oy)pan(tx-S.ox,ty-S.oy);
+});
+document.addEventListener('mouseup',()=>{if(gridPan){gridPan=null;grid.classList.remove('panning');}});
 
 /* ── Grid init ── */
 function initGrid(){

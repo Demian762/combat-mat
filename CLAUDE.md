@@ -106,7 +106,7 @@ Dos paletas separadas, cada una con modo **Simple** (muestras fijas) y **Complet
 - Cuando un cliente ve la Escena 3, solo renderiza los enemigos de esa escena + los jugadores cuyo `sceneId === 'escena3'`.
 
 ### Viewport (pan)
-`ox` y `oy` son estado cliente-local. Nunca van a Firebase. Cada jugador puede moverse libremente por el mapa sin afectar a los demás.
+`ox` y `oy` son estado cliente-local. Nunca van a Firebase. Cada jugador puede moverse libremente por el mapa sin afectar a los demás. Se mueve con las flechas del panel derecho o arrastrando el terreno (sin pincel activo y fuera de las fichas): de a casillas enteras, el mapa sigue al cursor (`gridPan`).
 
 ### Persistencia
 Firebase Realtime Database guarda los datos indefinidamente hasta borrado explícito. El terreno pintado, fichas y HP de una sesión persisten en la siguiente.
