@@ -520,7 +520,7 @@ let lastBrush=null; // último pincel de terreno elegido, lo muestra el botón d
 let selectedClass='Otras', selectedSize='medium';
 // Tamaños D&D 5e: n = casillas por lado que ocupa (col,row = esquina superior izquierda); b = cuerpo en casillas.
 // Diminuto ocupa ¼ de casilla: entran 4 por casilla (layoutStacks las acomoda en cuadrantes). Sin `size` = Mediano.
-const SIZES={tiny:{name:'Diminuto',n:1,b:0.5},small:{name:'Pequeño',n:1,b:1},medium:{name:'Mediano',n:1,b:1},
+const SIZES={tiny:{name:'Diminuto',n:1,b:0.5},small:{name:'Pequeño',n:1,b:0.75},medium:{name:'Mediano',n:1,b:1},
   large:{name:'Grande',n:2,b:2},huge:{name:'Enorme',n:3,b:3},gargantuan:{name:'Gargantuesco',n:4,b:4}};
 const tokSize=t=>SIZES[t&&t.size]||SIZES.medium;
 const tokN=t=>tokSize(t).n;
@@ -881,7 +881,7 @@ function drawTok(t){
   if(!inView)return;
   t._el.style.left=sc*CS+'px'; t._el.style.top=sr*CS+'px';
   t._el.style.setProperty('--n',sz.n); t._el.style.setProperty('--b',sz.b);
-  t._el.classList.toggle('tok-tiny',sz.b<1);
+  t._el.classList.toggle('tok-tiny',sz.b<1); // cuerpo más chico que la casilla (Diminuto, Pequeño): solo el cuerpo recibe el mouse
   t._el.classList.toggle('selected',S.selId===t.id);
   const ip=t.type==='player';
   const iconColor=contrastColor(t.color);
@@ -904,7 +904,7 @@ function layoutStacks(){
     g.sort((a,b)=>ord(a.id)-ord(b.id));
     const n=g.length;
     // Hasta 4 Diminutas solas en una casilla: una por cuadrante, sin abanico
-    if(n>1&&n<=4&&g.every(t=>tokSize(t).b<1)){
+    if(n>1&&n<=4&&g.every(t=>tokSize(t)===SIZES.tiny)){
       g.forEach((t,i)=>{
         t._el.style.transform=`translate(${(i%2?1:-1)*CS/4}px,${(i<2?-1:1)*CS/4}px)`;
         t._el.style.setProperty('--z',10+i);
