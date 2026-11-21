@@ -9,15 +9,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
-:root { --amber:#c8922a; --amber-lt:#f0c060; --amber-dim:rgba(200,146,42,0.2); --cs:44px; --panel:rgba(8,6,4,0.97); --border:rgba(200,146,42,0.22); }
+:root { --amber:#c8922a; --amber-lt:#f0c060; --amber-dim:rgba(200,146,42,0.2); --cs:44px; --view:880px; --panel:rgba(8,6,4,0.97); --border:rgba(200,146,42,0.22); }
 * { box-sizing:border-box; margin:0; padding:0; }
 body { background:#141414; overflow:hidden; width:100vw; height:100vh; font-family:'EB Garamond',serif; display:flex; align-items:center; justify-content:center; }
 #app { display:flex; align-items:stretch; gap:0; box-shadow:0 0 60px rgba(0,0,0,0.8); }
 #grid-wrap { position:relative; flex-shrink:0; }
-#grid { position:relative; display:grid; box-sizing:content-box; grid-template-columns:repeat(20,var(--cs)); grid-template-rows:repeat(20,var(--cs)); width:calc(20*var(--cs)); height:calc(20*var(--cs)); border:2px solid var(--amber); border-left:none; border-right:none; }
+#grid { position:relative; box-sizing:content-box; width:var(--view); height:var(--view); border:2px solid var(--amber); border-left:none; border-right:none; }
 #grid.painting { cursor:crosshair; }
 /* Mapa del mundo: tapa el mat (por debajo de los dados), local por cliente */
-#world-map { position:absolute; top:2px; left:0; width:calc(20*var(--cs)); height:calc(20*var(--cs)); z-index:35; background:#0a0805 url('mapa.jpg') center/contain no-repeat; display:none; cursor:grab; overflow:hidden; }
+#world-map { position:absolute; top:2px; left:0; width:var(--view); height:var(--view); z-index:35; background:#0a0805 url('mapa.jpg') center/contain no-repeat; display:none; cursor:grab; overflow:hidden; }
 #world-map.panning { cursor:grabbing; }
 body.show-map #world-map { display:block; }
 body.show-map #arrow-svg { display:none; }
@@ -31,7 +31,8 @@ body.show-map #arrow-svg { display:none; }
 .token.selected { z-index:30; }
 .token.dragging { cursor:grabbing; z-index:100; opacity:.85; }
 body.tok-dragging, body.tok-dragging * { cursor:none !important; }
-.tbody { width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:16px; position:relative; }
+/* Ficha = 9/11 de la celda (36px a 44px), escala con el nivel de zoom */
+.tbody { width:calc(var(--cs)*9/11); height:calc(var(--cs)*9/11); display:flex; align-items:center; justify-content:center; font-size:calc(var(--cs)*4/11); position:relative; }
 .token-player .tbody { border-radius:50%; border:2px solid; }
 .token-player.selected .tbody { box-shadow:0 0 0 2px var(--amber-lt),0 0 14px var(--amber); }
 .token-enemy .tbody { border-radius:4px; background:rgba(90,8,8,0.88); border:2px solid rgba(180,40,40,0.75); box-shadow:0 0 10px rgba(180,30,30,0.4); }
@@ -39,7 +40,7 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .tcell { position:absolute; width:var(--cs); height:var(--cs); z-index:5; pointer-events:none; }
 
 /* Left panel */
-#left { width:260px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-right:2px solid var(--amber); display:flex; flex-direction:column; overflow:hidden; height:calc(20*var(--cs) + 4px); }
+#left { width:260px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-right:2px solid var(--amber); display:flex; flex-direction:column; overflow:hidden; height:calc(var(--view) + 4px); }
 /* Combatientes y (solo master) Baúl: mitades iguales, cada lista con su propio scroll */
 .left-half { flex:1 1 0; min-height:0; display:flex; flex-direction:column; }
 #left-list, #chest-list { flex:1; min-height:0; overflow-y:auto; }
@@ -73,7 +74,7 @@ body.tok-dragging, body.tok-dragging * { cursor:none !important; }
 .lhp-word { font-family:'Cinzel',serif; font-size:10px; letter-spacing:.5px; flex:1; text-align:center; }
 
 /* Right panel */
-#side { width:220px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-left:2px solid var(--amber); display:flex; flex-direction:column; overflow-y:auto; max-height:calc(20*var(--cs) + 4px); }
+#side { width:220px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-left:2px solid var(--amber); display:flex; flex-direction:column; overflow-y:auto; max-height:calc(var(--view) + 4px); }
 #side::-webkit-scrollbar { width:3px; }
 #side::-webkit-scrollbar-thumb { background:var(--amber-dim); border-radius:2px; }
 .section { padding:10px 12px; border-bottom:1px solid var(--border); }
@@ -137,7 +138,7 @@ input[type=text]:focus { border-color:var(--amber); }
 .cprev { width:12px; height:12px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.2); flex-shrink:0; }
 
 /* Dice panel */
-#dice { width:212px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-right:none; display:flex; flex-direction:column; max-height:calc(20*var(--cs) + 4px); }
+#dice { width:212px; flex-shrink:0; background:var(--panel); border:2px solid var(--amber); border-right:none; display:flex; flex-direction:column; max-height:calc(var(--view) + 4px); }
 #dice::-webkit-scrollbar { width:3px; }
 #dice::-webkit-scrollbar-thumb { background:var(--amber-dim); border-radius:2px; }
 .dice-row { display:flex; align-items:center; gap:4px; margin-bottom:4px; }
@@ -490,8 +491,10 @@ const isHexColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
 // Paleta simple de personajes: colores vivos y claros
 const TOK_COLORS=[['Rojo','#e53935'],['Naranja','#fb8c00'],['Amarillo','#fdd835'],['Lima','#9ccc65'],['Verde','#43a047'],
   ['Celeste','#4fc3f7'],['Azul','#4a90e2'],['Violeta','#9c5bd6'],['Rosa','#f06292'],['Blanco','#f5f5f5']];
-// Viewport fijo 20x20 celdas. Para cambiar tamaño, modificar COLS/ROWS y el CSS --cs
-const COLS=20, ROWS=20;
+// Viewport de VIEW px fijos (= --view en CSS). Lo que cambia con el zoom (rueda sobre el mat) es cuántas celdas entran:
+// nivel 1 = 10×10 (celdas de 88px), nivel 2 = 20×20 (44px, el original), nivel 3 = 40×40 (22px). Estado local por cliente.
+const VIEW=880, ZOOM_CELLS={1:10,2:20,3:40};
+let zoomLevel=2, COLS=20, ROWS=20;
 // Dimensiones naturales de #app (usadas para escalar al tamaño de ventana)
 const APP_W=1572, APP_H=884;
 let appZoom=1;
@@ -509,7 +512,7 @@ let S={tokens:[],terrain:{},ox:0,oy:0,selId:null,maxHp:10,activeTerrain:null,sel
 // drag = estado de arrastre de ficha en el mat. terrainPainting = pincel activo.
 let drag=null, terrainPainting=false, uid=0;
 const grid=document.getElementById('grid');
-const CS=44; // tamaño de celda en px, debe coincidir con --cs en CSS
+let CS=44; // tamaño de celda en px = VIEW/COLS; setZoomLevel lo mantiene sincronizado con --cs en CSS
 
 /* ── Class select ── */
 function initClassGrid(){
@@ -641,6 +644,31 @@ function pan(dx,dy){
   clearArrow();
   renderTerrain(); renderAllToks();
 }
+
+/* ── Zoom (3 niveles, sin animación) ── */
+// (px,py) = punto del mat en px sin el zoom de #app; la celda bajo ese punto queda (casi) fija al cambiar de nivel
+function setZoomLevel(lv,px=VIEW/2,py=VIEW/2){
+  if(!ZOOM_CELLS[lv]||lv===zoomLevel)return;
+  const oldCS=CS;
+  zoomLevel=lv; COLS=ROWS=ZOOM_CELLS[lv]; CS=VIEW/COLS;
+  document.documentElement.style.setProperty('--cs',CS+'px');
+  S.ox=Math.round(S.ox+px/oldCS-px/CS);
+  S.oy=Math.round(S.oy+py/oldCS-py/CS);
+  document.getElementById('coord-lbl').textContent=`${S.ox},${S.oy}`;
+  clearArrow(); applyGridColors();
+  renderTerrain(); renderAllToks();
+}
+// Rueda arriba = acercar (nivel 1), abajo = alejar (nivel 3). Un gesto continuo (trackpad) cuenta como un solo paso.
+let zoomLockUntil=0;
+grid.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const now=performance.now();
+  if(now<zoomLockUntil){zoomLockUntil=now+150;return;}
+  if(!e.deltaY)return;
+  zoomLockUntil=now+150;
+  const r=grid.getBoundingClientRect();
+  setZoomLevel(zoomLevel+(e.deltaY<0?-1:1),(e.clientX-r.left)/appZoom,(e.clientY-r.top)/appZoom-2);
+},{passive:false});
 
 /* ── Terrain ── */
 // type = nombre de TERRAIN, 'eraser' o un hex '#rrggbb'. Volver a elegir el mismo apaga el pincel.
@@ -1148,10 +1176,11 @@ function arrowSvg(sc,sr,ec,er){
   const pts=`${ex},${ey} ${ax+px*aw},${ay+py*aw} ${ax-px*aw},${ay-py*aw}`;
   const steps=Math.max(Math.abs(ec-sc),Math.abs(er-sr));
   const dist=steps*5;
+  const lb=Math.max(40,CS*0.9); // recuadro de la etiqueta: con celdas chicas (zoom 3) no baja de 40px para que entre el texto
   return `
     <line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="rgba(240,192,96,0.9)" stroke-width="3"/>
     <polygon points="${pts}" fill="rgba(240,192,96,0.95)" filter="url(#glow)"/>
-    <rect x="${x2-half*0.9}" y="${y2-half*0.9}" width="${CS*0.9}" height="${CS*0.9}" rx="4" fill="rgba(0,0,0,0.7)" stroke="rgba(240,192,96,0.6)" stroke-width="1"/>
+    <rect x="${x2-lb/2}" y="${y2-lb/2}" width="${lb}" height="${lb}" rx="4" fill="rgba(0,0,0,0.7)" stroke="rgba(240,192,96,0.6)" stroke-width="1"/>
     <text x="${x2}" y="${y2-5}" text-anchor="middle" font-family="Cinzel,serif" font-size="9" fill="#f0c060" font-weight="bold">${dist} ft</text>
     <text x="${x2}" y="${y2+7}" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="rgba(200,180,120,0.7)">${steps} sq</text>`;
 }
@@ -1707,7 +1736,7 @@ function toggleWorldMap(){
 }
 // Zoom (rueda) y arrastre del mapa. z=1 = imagen entera (zoom out máximo).
 // x,y = esquina superior izquierda de la imagen dentro del recuadro, en px sin el zoom de #app.
-const MAP_BOX=COLS*CS, MAP_ZMAX=6;
+const MAP_BOX=VIEW, MAP_ZMAX=6;
 const mapView={z:1,x:0,y:0,w:0,h:0}; // w,h = tamaño natural de la imagen
 const worldMap=document.getElementById('world-map');
 function mapScale(){return Math.min(MAP_BOX/mapView.w,MAP_BOX/mapView.h)*mapView.z;}

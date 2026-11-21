@@ -54,6 +54,7 @@ Sin build tools, sin frameworks, sin Node.js. Cada archivo es HTML/CSS/JS autoco
 | Campo | Motivo |
 |---|---|
 | `ox`, `oy` | Cada cliente navega el mapa independientemente |
+| `zoomLevel` | Rueda sobre el mat: 3 niveles sin animación — 1 = 10×10 celdas de 88px, 2 = 20×20 de 44px (default), 3 = 40×40 de 22px. El mat sigue midiendo `VIEW`=880px; cambian `COLS/ROWS` y `CS`, y las fichas escalan con `--cs`. La celda bajo el cursor queda fija. No se guarda |
 | `activeScene` | Cada cliente elige qué escena ver |
 | mapa on/off | Botón **Mapa**: tapa el mat con `mapa.jpg` (clase `show-map` en `body`); los dados siguen visibles encima y las flechas se ocultan. Rueda = zoom hacia el cursor (1× = imagen entera, máx. `MAP_ZMAX`), arrastrar = mover; vista en `mapView`, nunca sale del borde |
 | `selId` | Selección local para medir distancias |
@@ -173,7 +174,7 @@ Tiradas especiales (botones **Porcentaje** y **Todo o Nada**):
 
 - Fuentes: `'Cinzel'` (headers, labels, números) · `'EB Garamond'` (cuerpo).
 - Paleta: `--amber:#c8922a`, `--amber-lt:#f0c060`, `--amber-dim:rgba(200,146,42,0.2)`, `--panel:rgba(8,6,4,0.97)`, `--border:rgba(200,146,42,0.22)`.
-- Tamaño de celda: `--cs:44px` en CSS ↔ `CS=44` en JS — deben mantenerse sincronizados.
+- Tamaño del mat: `--view:880px` en CSS ↔ `VIEW=880` en JS. Tamaño de celda: `CS = VIEW/COLS` según el zoom; `setZoomLevel` actualiza `--cs` — no fijar 44px a mano ni usar `20*var(--cs)` para alturas (usar `--view`).
 - Coordenadas siempre enteras. Nunca almacenar posiciones fraccionarias.
 - Enemigos: fondo `rgba(90,8,8,0.88)`, borde rojizo. Jugadores: círculo con color configurable.
 
